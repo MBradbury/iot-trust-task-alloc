@@ -1,0 +1,63 @@
+#include "contiki.h"
+#include "rpl.h"
+#include "uiplib.h"
+
+#include <stdio.h>
+
+PROCESS_NAME(mqtt_client_process);
+PROCESS_NAME(hello_world_process);
+PROCESS_NAME(environment_monitoring);
+PROCESS_NAME(trust_model);
+
+// TODO: Use NullNet for 1-hop broadcasts
+// https://github.com/contiki-ng/contiki-ng/wiki/Documentation:-NullNet
+
+// DTLS for encryption
+// https://github.com/contiki-ng/contiki-ng/wiki/Documentation:-Communication-Security
+
+// UDP comms
+// https://github.com/contiki-ng/contiki-ng/wiki/Documentation:-UDP-communication
+
+// MQTT for Edge pub/sub
+// https://github.com/contiki-ng/contiki-ng/wiki/Tutorial:-MQTT
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS(hello_world_process, "Hello world process");
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS_THREAD(hello_world_process, ev, data)
+{
+    static struct etimer timer;
+    static uip_ipaddr_t rpl_root_addr;
+    static int ret;
+
+    PROCESS_BEGIN();
+
+    /* Setup a periodic timer that expires after 60 seconds. */
+    etimer_set(&timer, CLOCK_SECOND * 60);
+
+    while(1)
+    {
+        //printf("Hello, world\n");
+
+        ret = rpl_dag_get_root_ipaddr(&rpl_root_addr);
+        if (ret)
+        {
+            char buf[UIPLIB_IPV6_MAX_STR_LEN];
+            uiplib_ipaddr_snprint(buf, sizeof(buf), &rpl_root_addr);
+            printf("RPL DAG root is %s\n", buf);
+        }
+        else
+        {
+            printf("Not aware of the RPL DAG root\n");
+        }
+
+        /* Wait for the periodic timer to expire and then restart the timer. */
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+        etimer_reset(&timer);
+    }
+
+    PROCESS_END();
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+
+AUTOSTART_PROCESSES(&hello_world_process, &environment_monitoring, &mqtt_client_process, &trust_model);
