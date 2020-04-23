@@ -40,8 +40,6 @@
 #include "dev/leds.h"
 #include "os/sys/log.h"
 
-#include "mqtt-conn.h"
-
 #include <string.h>
 #include <strings.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -154,9 +152,23 @@ static char client_id[BUFFER_SIZE];
  * The main MQTT buffers.
  * We will need to increase if we start publishing more data.
  */
-static struct mqtt_connection conn;
+struct mqtt_connection conn;
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define QUICKSTART "quickstart"
+#ifndef TOPICS_TO_SUBSCRIBE_LEN
+#error "Please define TOPICS_TO_SUBSCRIBE_LEN"
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef uint8_t topic_subscribe_status_t;
+#define TOPIC_STATE_NOT_SUBSCRIBED   0
+#define TOPIC_STATE_SUBSCRIBING      1
+#define TOPIC_STATE_SUBSCRIBED       3
+/*-------------------------------------------------------------------------------------------------------------------*/
+extern const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN];
+static topic_subscribe_status_t topic_subscribe_status[TOPICS_TO_SUBSCRIBE_LEN];
+static uint16_t topic_mid[TOPICS_TO_SUBSCRIBE_LEN];
+/*-------------------------------------------------------------------------------------------------------------------*/
+extern void
+mqtt_publish_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk, uint16_t chunk_len);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -185,33 +197,29 @@ echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t da
   }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
-pub_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk, uint16_t chunk_len)
+static int
+topic_mid_indexof(uint16_t mid)
 {
-  LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic,
-          topic_len, chunk_len);
-
-  /* If we don't like the length, ignore */
-  if (topic_len != 23 || chunk_len != 1) {
-    LOG_ERR("Incorrect topic or chunk len. Ignored\n");
-    return;
-  }
-
-  /* If the format != json, ignore */
-  if (strncmp(&topic[topic_len - 4], "json", 4) != 0) {
-    LOG_ERR("Incorrect format\n");
-    return;
-  }
-
-  if (strncmp(&topic[10], "leds", 4) == 0) {
-    LOG_DBG("Received MQTT SUB\n");
-    if (chunk[0] == '1') {
-      leds_on(LEDS_RED);
-    } else if (chunk[0] == '0') {
-      leds_off(LEDS_RED);
+  for (int i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
+  {
+    if (topic_mid[i] == mid)
+    {
+      return i;
     }
-    return;
   }
+
+  return -1;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+topic_init(void)
+{
+  for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
+  {
+    topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+  }
+
+  memset(topic_mid, 0, sizeof(topic_mid));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -226,9 +234,10 @@ mqtt_event(struct mqtt_connection* m, mqtt_event_t event, void *data)
   } break;
 
   case MQTT_EVENT_DISCONNECTED: {
-    LOG_DBG("MQTT Disconnect. Reason %u\n", *((mqtt_event_t *)data));
+    LOG_DBG("MQTT Disconnect\n");
     state = STATE_INIT;
-    etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+    topic_init();
+    etimer_set(&publish_periodic_timer, RECONNECT_INTERVAL);
   } break;
 
   case MQTT_EVENT_PUBLISH: {
@@ -241,27 +250,52 @@ mqtt_event(struct mqtt_connection* m, mqtt_event_t event, void *data)
               msg_ptr->topic, msg_ptr->payload_length);
     }
 
-    pub_handler(msg_ptr->topic, strlen(msg_ptr->topic),
-                msg_ptr->payload_chunk, msg_ptr->payload_length);
+    mqtt_publish_handler(msg_ptr->topic, strlen(msg_ptr->topic), msg_ptr->payload_chunk, msg_ptr->payload_length);
   } break;
 
   case MQTT_EVENT_SUBACK: {
-#if MQTT_311
     mqtt_suback_event_t *suback_event = (mqtt_suback_event_t *)data;
 
-    if (suback_event->success) {
-      LOG_DBG("Application subscribed to topic successfully\n");
-    } else {
-      LOG_DBG("Application failed to subscribe to topic (ret code %x)\n", suback_event->return_code);
+    uint16_t mid = suback_event->mid;
+    int i = topic_mid_indexof(mid);
+
+    if (suback_event->success)
+    {
+      LOG_DBG("Application subscribed to topic %u successfully\n", mid);
+
+      if (i != -1)
+      {
+        topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBED;
+      }
     }
-#else
-    LOG_DBG("Application subscribed to topic successfully\n");
-#endif
+    else
+    {
+      LOG_DBG("Application failed to subscribe to topic (ret code %x)\n", suback_event->return_code);
+
+      if (i != -1)
+      {
+        topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+      }
+    }
+
+    if (i == -1)
+    {
+      LOG_ERR("Failed to find mid to update subscription of (mid=%u).\n", mid);
+    }
+
+    // Poll the process to trigger subsequent subscribes
+    process_poll(&mqtt_client_process);
     
   } break;
 
   case MQTT_EVENT_UNSUBACK: {
     LOG_DBG("Application unsubscribed to topic successfully\n");
+    // Never plan on this occuring
+    // If this changes, then this needs to be implemented.
+  } break;
+
+  case MQTT_EVENT_PUBACK: {
+    LOG_DBG("Publishing complete.\n");
   } break;
 
 
@@ -297,10 +331,10 @@ mqtt_event(struct mqtt_connection* m, mqtt_event_t event, void *data)
   }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
+static bool
 construct_client_id(void)
 {
-  int len = snprintf(client_id, BUFFER_SIZE, "d:%s:#:%02x%02x%02x%02x%02x%02x",
+  int len = snprintf(client_id, BUFFER_SIZE, "%s:%02x%02x%02x%02x%02x%02x",
                      MQTT_CLIENT_ORG_ID,
                      linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                      linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
@@ -308,21 +342,24 @@ construct_client_id(void)
 
   /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
   if (len < 0 || len >= BUFFER_SIZE) {
-    LOG_ERR("Client ID: %d, Buffer %d\n", len, BUFFER_SIZE);
-    return 0;
+    printf("Insufficient length for client ID: %d, Buffer %d\n", len, BUFFER_SIZE);
+    return false;
   }
 
-  return 1;
+  return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 init(void)
 {
-  if (!construct_client_id()) {
+  if (!construct_client_id())
+  {
     /* Fatal error. Client ID larger than the buffer */
     state = STATE_CONFIG_ERROR;
     return;
   }
+
+  topic_init();
 
   state = STATE_INIT;
 }
@@ -333,18 +370,39 @@ subscribe(void)
   /* Publish MQTT topic */
   mqtt_status_t status;
 
-  const char* sub_topic = "iot/edge/#";
-
-  LOG_DBG("Subscribing to '%s'!\n", sub_topic);
-
-  status = mqtt_subscribe(&conn, NULL, (char*)sub_topic, MQTT_QOS_LEVEL_0);
-  if (status == MQTT_STATUS_OUT_QUEUE_FULL)
+  for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
   {
-    LOG_ERR("Tried to subscribe but command queue was full!\n");
-  }
-  else
-  {
-    LOG_DBG("Subscribed!\n");
+    if (topic_subscribe_status[i] != TOPIC_STATE_NOT_SUBSCRIBED)
+    {
+      continue;
+    }
+
+    const char* sub_topic = topics_to_suscribe[i];
+
+    LOG_DBG("Subscribing to [%u]='%s'!\n", i, sub_topic);
+
+    status = mqtt_subscribe(&conn, &topic_mid[i], (char*)sub_topic, MQTT_QOS_LEVEL_0);
+    if (status == MQTT_STATUS_OK)
+    {
+      LOG_DBG("Subscription request (%u) sent\n", topic_mid[i]);
+      topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBING;
+
+      // Once one request is sent, the queue becomes full.
+      // So we need to wait for the topic to be subscribed before sending another request.
+      break;
+    }
+    else
+    {
+      if (status == MQTT_STATUS_OUT_QUEUE_FULL)
+      {
+        LOG_ERR("Tried to subscribe but command queue was full!\n");
+      }
+      else
+      {
+        LOG_ERR("Failed to subscribe with %u\n", status);
+      }
+      etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+    }
   }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -438,7 +496,7 @@ state_machine(void)
     break;
 
   case STATE_CONNECTED:
-    LOG_DBG("Connected! Sending subscribe request...\n");
+    LOG_DBG("Connected! Sending subscribe requests...\n");
     subscribe();
     break;
 
@@ -448,9 +506,6 @@ state_machine(void)
     etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
     break;
   }
-
-  /* If we didn't return so far, reschedule ourselves */
-  //etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(mqtt_client_process, ev, data)

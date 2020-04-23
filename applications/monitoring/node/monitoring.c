@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "app-monitoring"
+#define LOG_MODULE "A-envmon"
 #ifdef APP_MONITORING_LOG_LEVEL
 #define LOG_LEVEL APP_MONITORING_LOG_LEVEL
 #else
@@ -14,10 +14,13 @@
 #endif
 #include "contiki.h"
 #include "dev/cc2538-sensors.h"
-#include "mqtt-client.h"
 
 #include <string.h>
 #include <stdio.h>
+
+//#include "mqtt-conn.h"
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define PERIOD (CLOCK_SECOND * 60)
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define TMP_BUF_SZ 64
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -45,29 +48,17 @@ PROCESS(environment_monitoring, "Environment Monitoring process");
 PROCESS_THREAD(environment_monitoring, ev, data)
 {
     static struct etimer timer;
-    static uip_ipaddr_t rpl_root_addr;
-    static int ret;
 
     PROCESS_BEGIN();
 
     SENSORS_ACTIVATE(cc2538_temp_sensor);
     SENSORS_ACTIVATE(vdd3_sensor);
 
-    /* Setup a periodic timer that expires after 10 seconds. */
-    etimer_set(&timer, CLOCK_SECOND * 10);
+    /* Setup a periodic timer that expires after PERIOD seconds. */
+    etimer_set(&timer, PERIOD);
 
-    while(1)
+    while (1)
     {
-        // Check if we know who the DAG root is
-        ret = rpl_dag_get_root_ipaddr(&rpl_root_addr);
-        if (ret)
-        {
-            char buf[UIPLIB_IPV6_MAX_STR_LEN];
-            uiplib_ipaddr_snprint(buf, sizeof(buf), &rpl_root_addr);
-            LOG_DBG("RPL DAG root is %s\n", buf);
-        }
-
-
         int written = generate_sensor_data(msg_buf, sizeof(msg_buf));
         if (written > 0 && written <= sizeof(msg_buf))
         {

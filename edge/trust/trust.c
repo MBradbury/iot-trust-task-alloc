@@ -10,9 +10,6 @@
 #include <stdio.h>
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define BASE_PUBLISH_TOPIC_LEN     (21)
-#define ANNOUNCE_PUBLISH_TOPIC_LEN (BASE_PUBLISH_TOPIC_LEN + 9)
-/*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-model"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
@@ -20,9 +17,18 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-static char base_pub_topic[BASE_PUBLISH_TOPIC_LEN + 1];
+#define BASE_PUBLISH_TOPIC_LEN     (22)
+#define MAX_PUBLISH_TOPIC_LEN      (64)
+static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
+#define PUBLISH_PERIOD             (CLOCK_SECOND * 60)
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define MAX_PUBLISH_LEN            (128)
+static char publish_buffer[MAX_PUBLISH_LEN];
+/*-------------------------------------------------------------------------------------------------------------------*/
+extern struct mqtt_connection conn;
+/*-------------------------------------------------------------------------------------------------------------------*/
+static bool
 get_global_address(char* buf, size_t buf_len)
 {
   for (int i = 0; i < UIP_DS6_ADDR_NB; i++)
@@ -32,11 +38,22 @@ get_global_address(char* buf, size_t buf_len)
     if (uip_ds6_if.addr_list[i].isused && (state == ADDR_TENTATIVE || state == ADDR_PREFERRED))
     {
       uiplib_ipaddr_snprint(buf, buf_len, &uip_ds6_if.addr_list[i].ipaddr);
-      return 1;
+      return true;
     }
   }
 
-  return 0;
+  return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
+	"iot/edge/+/announce"
+};
+/*-------------------------------------------------------------------------------------------------------------------*/
+void
+mqtt_publish_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk, uint16_t chunk_len)
+{
+	// Interested in "iot/edge/+/fmt/json" events
+	LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, topic_len, chunk_len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 mqtt_status_t
@@ -44,14 +61,23 @@ publish_announce(struct mqtt_connection* conn, char* app_buffer, size_t app_buff
 {
 	int ret;
 
-	char pub_topic[ANNOUNCE_PUBLISH_TOPIC_LEN + 1];
-	snprintf(pub_topic, sizeof(pub_topic), "%s/announce", base_pub_topic);
+	if (!conn || conn->state != MQTT_CONN_STATE_CONNECTED_TO_BROKER)
+	{
+		return MQTT_CONN_STATE_NOT_CONNECTED;
+	}
+
+	snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, "announce");
+	// TODO: Error checking
 
 	char ip_addr_buf[UIPLIB_IPV6_MAX_STR_LEN];
 	ret = get_global_address(ip_addr_buf, sizeof(ip_addr_buf));
 	if (!ret)
 	{
 		LOG_ERR("Failed to obtain global IP address\n");
+	}
+	else
+	{
+		// TODO: handle
 	}
 
 	snprintf(app_buffer, app_buffer_len,
@@ -60,11 +86,31 @@ publish_announce(struct mqtt_connection* conn, char* app_buffer, size_t app_buff
 		"}",
 		ip_addr_buf
 	);
+	// TODO: Error checking
 
-	LOG_DBG("Publishing announce [topic=%s, data=%s]", pub_topic, app_buffer);
+	LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, app_buffer);
 
-	return mqtt_publish(conn, NULL, pub_topic, (uint8_t*)app_buffer, strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON);
+	return mqtt_publish(conn, NULL, pub_topic,
+		                (uint8_t*)app_buffer, strlen(app_buffer),
+		                MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON);
 }
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+init(void)
+{
+	int len = snprintf(pub_topic, BASE_PUBLISH_TOPIC_LEN+1, "iot/edge/%02x%02x%02x%02x%02x%02x/",
+		               linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
+		               linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
+		               linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
+	if (len != BASE_PUBLISH_TOPIC_LEN)
+	{
+		LOG_ERR("Failed to create pub_topic (%d != %u)\n", len, BASE_PUBLISH_TOPIC_LEN);
+	}
+
+    LOG_DBG("Base MQTT topic is set to %s\n", pub_topic);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static struct etimer timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -72,16 +118,23 @@ PROCESS_THREAD(trust_model, ev, data)
 {
     PROCESS_BEGIN();
 
-    snprintf(base_pub_topic, sizeof(base_pub_topic), "iot/edge/%02x%02x%02x%02x%02x%02x",
-		linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
-		linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
-		linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
+    init();
 
-    LOG_DBG("Base MQTT topic is set to %s", base_pub_topic);
+    /* Setup a periodic timer that expires after PERIOD seconds. */
+    etimer_set(&timer, PUBLISH_PERIOD);
 
     while (1)
     {
-    	PROCESS_YIELD();
+    	LOG_DBG("Attemding to publish announce...\n");
+    	mqtt_status_t status = publish_announce(&conn, publish_buffer, sizeof(publish_buffer));
+    	if (status != MQTT_STATUS_OK)
+    	{
+    		LOG_DBG("Failed to publish announce (%u)\n", status);
+    	}
+
+    	/* Wait for the periodic timer to expire and then restart the timer. */
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
+        etimer_reset(&timer);
     }
 
     PROCESS_END();

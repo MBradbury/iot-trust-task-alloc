@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = main
+CONTIKI_PROJECT = node
 all: $(CONTIKI_PROJECT)
 
 # Include Contiki-NG Make variables
@@ -17,6 +17,9 @@ MODULES_REL += ../common/mqtt
 MODULES_REL += ./trust
 
 # MQTT configuration
+CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=1
+CFLAGS += -DMQTT_CONF_VERSION=MQTT_PROTOCOL_VERSION_3_1_1
+
 MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 
 # CoAP configuration

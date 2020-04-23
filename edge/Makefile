@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = main
+CONTIKI_PROJECT = edge
 all: $(CONTIKI_PROJECT)
 
 # Include Contiki-NG Make variables
@@ -13,10 +13,12 @@ CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 MODULES += os/services/shell
 
 # Include application modules
-MODULES_REL += ./mqtt
+MODULES_REL += ../common/mqtt
 MODULES_REL += ./trust
 
 # MQTT configuration
+CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=1
+
 MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 
 # CoAP configuration

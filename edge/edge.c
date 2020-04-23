@@ -1,6 +1,7 @@
 #include "contiki.h"
 #include "rpl.h"
-#include "os/net/ipv6/uiplib.h"
+#include "uiplib.h"
+#include "os/sys/log.h"
 
 #include <stdio.h>
 
@@ -21,6 +22,13 @@ PROCESS_NAME(trust_model);
 // MQTT for Edge pub/sub
 // https://github.com/contiki-ng/contiki-ng/wiki/Tutorial:-MQTT
 
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define LOG_MODULE "edge"
+#ifdef TRUST_MODEL_LOG_LEVEL
+#define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
+#else
+#define LOG_LEVEL LOG_LEVEL_NONE
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(hello_world_process, "Hello world process");
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -44,11 +52,11 @@ PROCESS_THREAD(hello_world_process, ev, data)
         {
             char buf[UIPLIB_IPV6_MAX_STR_LEN];
             uiplib_ipaddr_snprint(buf, sizeof(buf), &rpl_root_addr);
-            printf("RPL DAG root is %s\n", buf);
+            LOG_DBG("RPL DAG root is %s\n", buf);
         }
         else
         {
-            printf("Not aware of the RPL DAG root\n");
+            LOG_DBG("Not aware of the RPL DAG root\n");
         }
 
         /* Wait for the periodic timer to expire and then restart the timer. */

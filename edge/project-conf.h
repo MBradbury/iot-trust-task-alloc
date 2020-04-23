@@ -37,8 +37,8 @@
 
 #define UIP_CONF_TCP_CONNS 2
 
-// Use MQTT Version 5
-#define MQTT_CONF_VERSION MQTT_PROTOCOL_VERSION_5
+// Use MQTT Version 3.1.1
+#define MQTT_CONF_VERSION MQTT_PROTOCOL_VERSION_3_1_1
 
 /*
  * The IPv6 address of the MQTT broker to connect to.
