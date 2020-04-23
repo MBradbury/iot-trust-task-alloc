@@ -14,7 +14,6 @@ MODULES += os/services/shell
 
 # Include application modules
 MODULES_REL += ./mqtt
-MODULES_REL += ./coap
 MODULES_REL += ./trust
 
 # MQTT configuration
