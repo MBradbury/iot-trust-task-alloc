@@ -9,6 +9,8 @@
 
 #include <stdio.h>
 
+#include "trust-common.h"
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-model"
 #ifdef TRUST_MODEL_LOG_LEVEL
@@ -17,7 +19,7 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define BASE_PUBLISH_TOPIC_LEN     (22)
+#define BASE_PUBLISH_TOPIC_LEN     (10 + MQTT_IDENTITY_LEN)
 #define MAX_PUBLISH_TOPIC_LEN      (64)
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -46,8 +48,8 @@ get_global_address(char* buf, size_t buf_len)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
-    "iot/edge/+/announce",
-    "iot/edge/+/capability/+"
+    MQTT_EDGE_NAMESPACE "/+/announce",
+    MQTT_EDGE_NAMESPACE "/+/capability/+"
 };
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
@@ -83,7 +85,7 @@ publish_announce(struct mqtt_connection* conn, char* app_buffer, size_t app_buff
 
     snprintf(app_buffer, app_buffer_len,
         "{"
-            "addr:%s"
+            "\"addr\":\"%s\""
         "}",
         ip_addr_buf
     );
@@ -147,7 +149,7 @@ publish_remove_capability(struct mqtt_connection* conn, char* app_buffer, size_t
 static void
 init(void)
 {
-    int len = snprintf(pub_topic, BASE_PUBLISH_TOPIC_LEN+1, "iot/edge/%02x%02x%02x%02x%02x%02x/",
+    int len = snprintf(pub_topic, BASE_PUBLISH_TOPIC_LEN+1, MQTT_EDGE_NAMESPACE "/%02x%02x%02x%02x%02x%02x/",
                        linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                        linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
                        linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);

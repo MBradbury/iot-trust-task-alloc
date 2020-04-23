@@ -11,9 +11,11 @@ CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 
 # Include Contiki-NG system modules
 MODULES += os/services/shell
+MODULES += os/lib/json
 
 # Include application modules
 MODULES_REL += ../common/mqtt
+MODULES_REL += ../common/trust
 MODULES_REL += ./trust
 
 # MQTT configuration
