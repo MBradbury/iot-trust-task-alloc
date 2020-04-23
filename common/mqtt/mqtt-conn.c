@@ -93,22 +93,8 @@
 #define MQTT_CLIENT_STATUS_LED LEDS_GREEN
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-/*
- * A timeout used when waiting for something to happen (e.g. to connect or to
- * disconnect)
- */
-#define STATE_MACHINE_PERIODIC     (CLOCK_SECOND >> 1)
-/*-------------------------------------------------------------------------------------------------------------------*/
 /* Connections and reconnections */
-#define RETRY_FOREVER              0xFF
 #define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
-
-/*
- * Number of times to try reconnecting to the broker.
- * Can be a limited number (e.g. 3, 10 etc) or can be set to RETRY_FOREVER
- */
-#define RECONNECT_ATTEMPTS         RETRY_FOREVER
-#define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Various states */
 static uint8_t state;
@@ -116,11 +102,12 @@ static uint8_t state;
 #define STATE_REGISTERED      1
 #define STATE_CONNECTING      2
 #define STATE_CONNECTED       3
+#define STATE_DISCONNECTED    4
 #define STATE_CONFIG_ERROR 0xFE
 #define STATE_ERROR        0xFF
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* A timeout used when waiting to connect to a network */
-#define NET_CONNECT_PERIODIC        (CLOCK_SECOND >> 2)
+#define NET_CONNECT_PERIODIC        (CLOCK_SECOND * 1)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Default configuration values */
 #define DEFAULT_TYPE_ID             "mqtt-client"
@@ -235,9 +222,9 @@ mqtt_event(struct mqtt_connection* m, mqtt_event_t event, void *data)
 
   case MQTT_EVENT_DISCONNECTED: {
     LOG_DBG("MQTT Disconnect\n");
-    state = STATE_INIT;
+    state = STATE_DISCONNECTED;
     topic_init();
-    etimer_set(&publish_periodic_timer, RECONNECT_INTERVAL);
+    process_poll(&mqtt_client_process);
   } break;
 
   case MQTT_EVENT_PUBLISH: {
@@ -499,6 +486,16 @@ state_machine(void)
     LOG_DBG("Connected! Sending subscribe requests...\n");
     subscribe();
     break;
+
+  case STATE_DISCONNECTED: {
+    LOG_DBG("Disconnected, attempting to reconnect...\n");
+    // Disconnect and backoff
+    mqtt_disconnect(&conn);
+
+    etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+
+    state = STATE_REGISTERED;
+  } break;
 
   case STATE_ERROR:
     // Try again in a bit
