@@ -40,12 +40,12 @@
 #include "dev/leds.h"
 #include "os/sys/log.h"
 
-#include "mqtt-client.h"
+#include "mqtt-conn.h"
 
 #include <string.h>
 #include <strings.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "mqtt-client"
+#define LOG_MODULE "mqtt-conn"
 #ifdef MQTT_CLIENT_CONF_LOG_LEVEL
 #define LOG_LEVEL MQTT_CLIENT_CONF_LOG_LEVEL
 #else
@@ -101,13 +101,6 @@
  */
 #define STATE_MACHINE_PERIODIC     (CLOCK_SECOND >> 1)
 /*-------------------------------------------------------------------------------------------------------------------*/
-/* Provide visible feedback via LEDS during various states */
-/* When connecting to broker */
-#define CONNECTING_LED_DURATION    (CLOCK_SECOND >> 2)
-
-/* Each time we try to publish */
-#define PUBLISH_LED_ON_DURATION    (CLOCK_SECOND)
-/*-------------------------------------------------------------------------------------------------------------------*/
 /* Connections and reconnections */
 #define RETRY_FOREVER              0xFF
 #define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
@@ -118,7 +111,6 @@
  */
 #define RECONNECT_ATTEMPTS         RETRY_FOREVER
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
-static struct timer connection_life;
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Various states */
 static uint8_t state;
@@ -126,13 +118,11 @@ static uint8_t state;
 #define STATE_REGISTERED      1
 #define STATE_CONNECTING      2
 #define STATE_CONNECTED       3
-#define STATE_SUBSCRIBED      4
 #define STATE_CONFIG_ERROR 0xFE
 #define STATE_ERROR        0xFF
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* A timeout used when waiting to connect to a network */
 #define NET_CONNECT_PERIODIC        (CLOCK_SECOND >> 2)
-#define NO_NET_LED_DURATION         (NET_CONNECT_PERIODIC >> 1)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Default configuration values */
 #define DEFAULT_TYPE_ID             "mqtt-client"
@@ -141,24 +131,10 @@ static uint8_t state;
 #define DEFAULT_KEEP_ALIVE_TIMER    60
 #define DEFAULT_PING_INTERVAL       (CLOCK_SECOND * 30)
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define MQTT_CLIENT_SENSOR_NONE     (void *)0xFFFFFFFF
-/*-------------------------------------------------------------------------------------------------------------------*/
 /* Payload length of ICMPv6 echo requests used to measure RSSI with def rt */
 #define ECHO_REQ_PAYLOAD_LEN   20
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
-/*-------------------------------------------------------------------------------------------------------------------*/
-/**
- * \brief Data structure declaration for the MQTT client configuration
- */
-typedef struct mqtt_client_config {
-  const char* org_id;
-  const char* broker_ip;
-  const char* cmd_type;
-  clock_time_t pub_interval;
-  int def_rt_ping_interval;
-  uint16_t broker_port;
-} mqtt_client_config_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Maximum TCP segment size for outgoing segments of our socket */
 #define MAX_TCP_SEGMENT_SIZE    32
@@ -188,8 +164,6 @@ static struct etimer publish_periodic_timer;
 static struct uip_icmp6_echo_reply_notification echo_reply_notification;
 static struct etimer echo_request_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
-static mqtt_client_config_t conf;
-/*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(mqtt_client_process, "MQTT Client");
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
@@ -205,6 +179,9 @@ echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t da
     // Got ping from server, so we need to connect if not done so already
     LOG_DBG("Received ping reply from server, polling mqtt_client_process\n");
     process_poll(&mqtt_client_process);
+
+    // No need to keep pinging
+    etimer_stop(&echo_request_timer);
   }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -240,53 +217,52 @@ pub_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk, uint16_
 static void
 mqtt_event(struct mqtt_connection* m, mqtt_event_t event, void *data)
 {
-  switch (event) {
+  switch (event)
+  {
   case MQTT_EVENT_CONNECTED: {
     LOG_DBG("Application has a MQTT connection\n");
-    timer_set(&connection_life, CONNECTION_STABLE_TIME);
     state = STATE_CONNECTED;
-    break;
-  }
+    process_poll(&mqtt_client_process);
+  } break;
+
   case MQTT_EVENT_DISCONNECTED: {
     LOG_DBG("MQTT Disconnect. Reason %u\n", *((mqtt_event_t *)data));
-    break;
-  }
+    state = STATE_INIT;
+    etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+  } break;
+
   case MQTT_EVENT_PUBLISH: {
     struct mqtt_message *msg_ptr = (struct mqtt_message *)data;
 
-    /* Implement first_flag in publish message? */
+    // Implement first_flag in publish message?
     if (msg_ptr->first_chunk) {
       msg_ptr->first_chunk = 0;
-      LOG_DBG("Application received publish for topic '%s'. Payload "
-              "size is %i bytes.\n", msg_ptr->topic, msg_ptr->payload_length);
+      LOG_DBG("Application received publish for topic '%s'. Payload size is %i bytes.\n",
+              msg_ptr->topic, msg_ptr->payload_length);
     }
 
     pub_handler(msg_ptr->topic, strlen(msg_ptr->topic),
                 msg_ptr->payload_chunk, msg_ptr->payload_length);
-    break;
-  }
+  } break;
+
   case MQTT_EVENT_SUBACK: {
 #if MQTT_311
     mqtt_suback_event_t *suback_event = (mqtt_suback_event_t *)data;
 
     if (suback_event->success) {
-      LOG_DBG("Application is subscribed to topic successfully\n");
+      LOG_DBG("Application subscribed to topic successfully\n");
     } else {
       LOG_DBG("Application failed to subscribe to topic (ret code %x)\n", suback_event->return_code);
     }
 #else
-    LOG_DBG("Application is subscribed to topic successfully\n");
+    LOG_DBG("Application subscribed to topic successfully\n");
 #endif
-    break;
-  }
+    
+  } break;
+
   case MQTT_EVENT_UNSUBACK: {
-    LOG_DBG("Application is unsubscribed to topic successfully\n");
-    break;
-  }
-  /*case MQTT_EVENT_PUBACK: {
-    LOG_DBG("Publishing complete.\n");
-    break;
-  }*/
+    LOG_DBG("Application unsubscribed to topic successfully\n");
+  } break;
 
 
   case MQTT_EVENT_ERROR: {
@@ -325,7 +301,7 @@ static int
 construct_client_id(void)
 {
   int len = snprintf(client_id, BUFFER_SIZE, "d:%s:#:%02x%02x%02x%02x%02x%02x",
-                     conf.org_id,
+                     MQTT_CLIENT_ORG_ID,
                      linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                      linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
                      linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
@@ -340,7 +316,7 @@ construct_client_id(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-update_config(void)
+init(void)
 {
   if (!construct_client_id()) {
     /* Fatal error. Client ID larger than the buffer */
@@ -351,33 +327,17 @@ update_config(void)
   state = STATE_INIT;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
-init_config(void)
-{
-  /* Populate configuration with default values */
-  memset(&conf, 0, sizeof(mqtt_client_config_t));
-
-  conf.org_id = MQTT_CLIENT_ORG_ID;
-  conf.broker_ip = MQTT_CLIENT_BROKER_IP_ADDR;
-
-  conf.broker_port = DEFAULT_BROKER_PORT;
-  conf.pub_interval = DEFAULT_PUBLISH_INTERVAL;
-  conf.def_rt_ping_interval = DEFAULT_PING_INTERVAL;
-
-  return 1;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 subscribe(void)
 {
-  /* Publish MQTT topic in IBM quickstart format */
+  /* Publish MQTT topic */
   mqtt_status_t status;
 
   const char* sub_topic = "iot/edge/#";
 
-  status = mqtt_subscribe(&conn, NULL, (char*)sub_topic, MQTT_QOS_LEVEL_0);
-
   LOG_DBG("Subscribing to '%s'!\n", sub_topic);
+
+  status = mqtt_subscribe(&conn, NULL, (char*)sub_topic, MQTT_QOS_LEVEL_0);
   if (status == MQTT_STATUS_OUT_QUEUE_FULL)
   {
     LOG_ERR("Tried to subscribe but command queue was full!\n");
@@ -388,17 +348,26 @@ subscribe(void)
   }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static mqtt_status_t
 connect_to_broker(void)
 {
-  LOG_DBG("Sending connect request to broker at [%s]:%u\n", conf.broker_ip, conf.broker_port);
+  LOG_DBG("Sending connect request to broker at [" MQTT_CLIENT_BROKER_IP_ADDR "]:%u\n", DEFAULT_BROKER_PORT);
 
   /* Connect to MQTT server */
-  mqtt_connect(&conn, (char*)conf.broker_ip, conf.broker_port,
-               (conf.pub_interval * 3) / CLOCK_SECOND,
-               MQTT_CLEAN_SESSION_ON);
+  mqtt_status_t status;
+  status = mqtt_connect(&conn, (char*)MQTT_CLIENT_BROKER_IP_ADDR, DEFAULT_BROKER_PORT,
+                        (DEFAULT_PUBLISH_INTERVAL * 3) / CLOCK_SECOND,
+                        MQTT_CLEAN_SESSION_ON);
+  if (status == MQTT_STATUS_OK)
+  {
+    state = STATE_CONNECTING;
+  }
+  else
+  {
+    LOG_ERR("mqtt_connect failed with error %u\n", status);
+  }
 
-  state = STATE_CONNECTING;
+  return status;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -413,6 +382,7 @@ ping_parent(void)
   } else {
     LOG_WARN("ping_parent() is called while we don't have connectivity\n");
   }
+  etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -422,7 +392,8 @@ state_machine(void)
 
   LOG_DBG("state_machine() [state = %u]\n", state);
 
-  switch (state) {
+  switch (state)
+  {
   case STATE_INIT:
     LOG_DBG("Performing init...\n");
     /* If we have just been configured register MQTT connection */
@@ -436,21 +407,30 @@ state_machine(void)
     mqtt_set_username_password(&conn, MQTT_CLIENT_USERNAME, MQTT_CLIENT_AUTH_TOKEN);
 
     state = STATE_REGISTERED;
-    LOG_DBG("init complete!\n");
+    LOG_DBG("MQTT register complete!\n");
     // Continue
 
   case STATE_REGISTERED:
-    LOG_DBG("Performing register...\n");
-    if (have_connectivity()) {
-      /* Registered and with a public IP. Connect */
-      LOG_DBG("Registered!\n");
-      ping_parent();
-      connect_to_broker();
-    } else {
-      LOG_DBG("Failed to register, cannot attempt connect\n");
+    if (have_connectivity())
+    {
+      LOG_DBG("Have connectivity, so attempting to connect to broker...\n");
+      status = connect_to_broker();
+
+      if (status == MQTT_STATUS_OK)
+      {
+        LOG_DBG("Connecting...\n");
+      }
+      else
+      {
+        etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+      }
     }
-    etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
-    return;
+    else
+    {
+      LOG_DBG("No connectivity, so cannot attempt to connect to broker\n");
+      ping_parent();
+    }
+    break;
 
   case STATE_CONNECTING:
     /* Not connected yet. Wait */
@@ -460,21 +440,17 @@ state_machine(void)
   case STATE_CONNECTED:
     LOG_DBG("Connected! Sending subscribe request...\n");
     subscribe();
-    return;
-
-  case STATE_SUBSCRIBED:
-    //LOG_DBG("Subscribed!\n");
-    return;
+    break;
 
   case STATE_ERROR:
     // Try again in a bit
     state = STATE_REGISTERED;
     etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
-    return;
+    break;
   }
 
   /* If we didn't return so far, reschedule ourselves */
-  etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
+  //etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(mqtt_client_process, ev, data)
@@ -483,14 +459,10 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
 
   printf("MQTT Client Process\n");
 
-  if (init_config() != 1) {
-    PROCESS_EXIT();
-  }
-
-  update_config();
+  init();
 
   uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);
-  etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
+  etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
 
   /* Main loop */
   while (1) {
@@ -502,7 +474,6 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
 
     if (ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) {
       ping_parent();
-      etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
     }
   }
 
