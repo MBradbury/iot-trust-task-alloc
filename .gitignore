@@ -1,3 +1,5 @@
 *.zoul
 */build
 Makefile.target
+*.sublime-project
+*.sublime-workspace
