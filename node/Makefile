@@ -13,7 +13,7 @@ CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 MODULES += os/services/shell
 
 # Include application modules
-MODULES_REL += ./mqtt
+MODULES_REL += ../common/mqtt
 MODULES_REL += ./trust
 
 # MQTT configuration
