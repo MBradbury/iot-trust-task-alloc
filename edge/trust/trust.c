@@ -9,10 +9,11 @@
 
 #include <stdio.h>
 
+#include "applications.h"
 #include "trust-common.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-model"
+#define LOG_MODULE "trust"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -48,15 +49,15 @@ get_global_address(char* buf, size_t buf_len)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
-    MQTT_EDGE_NAMESPACE "/+/announce",
-    MQTT_EDGE_NAMESPACE "/+/capability/+"
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_ANNOUNCE,
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD
 };
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
-mqtt_publish_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk, uint16_t chunk_len)
+mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len)
 {
     // Interested in "iot/edge/+/fmt/json" events
-    LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, topic_len, chunk_len);
+    LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, (topic_end - topic), chunk_len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 mqtt_status_t
@@ -69,7 +70,7 @@ publish_announce(struct mqtt_connection* conn, char* app_buffer, size_t app_buff
         return MQTT_CONN_STATE_NOT_CONNECTED;
     }
 
-    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, "announce");
+    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, MQTT_EDGE_ACTION_ANNOUNCE);
     // TODO: Error checking
 
     char ip_addr_buf[UIPLIB_IPV6_MAX_STR_LEN];
@@ -106,7 +107,8 @@ publish_add_capability(struct mqtt_connection* conn, char* app_buffer, size_t ap
         return MQTT_CONN_STATE_NOT_CONNECTED;
     }
 
-    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, "capability/%s/add", name);
+    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
+             MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_ADD, name);
     // TODO: Error checking
 
     snprintf(app_buffer, app_buffer_len,
@@ -130,7 +132,8 @@ publish_remove_capability(struct mqtt_connection* conn, char* app_buffer, size_t
         return MQTT_CONN_STATE_NOT_CONNECTED;
     }
 
-    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, "capability/%s/remove", name);
+    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
+        MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE, name);
     // TODO: Error checking
 
     snprintf(app_buffer, app_buffer_len,

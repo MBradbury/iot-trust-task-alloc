@@ -1,9 +1,10 @@
 #include "contiki.h"
-#include "rpl.h"
-#include "uiplib.h"
 #include "os/sys/log.h"
 
 #include <stdio.h>
+
+#include "monitoring.h"
+#include "edge-info.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-envmon"
@@ -12,12 +13,8 @@
 #else
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
-#include "contiki.h"
-
-#include <string.h>
-#include <stdio.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(environment_monitoring, "Environment Monitoring process");
+PROCESS(environment_monitoring, MONITORING_APPLICATION_NAME);
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(environment_monitoring, ev, data)
 {

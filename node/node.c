@@ -1,12 +1,12 @@
 #include "contiki.h"
-#include "rpl.h"
-#include "os/net/ipv6/uiplib.h"
-#include "os/sys/log.h"
+//#include "rpl.h"
+//#include "os/net/ipv6/uiplib.h"
+//#include "os/sys/log.h"
 
-#include <stdio.h>
+//#include <stdio.h>
 
+//PROCESS_NAME(hello_world_process);
 PROCESS_NAME(mqtt_client_process);
-PROCESS_NAME(hello_world_process);
 PROCESS_NAME(environment_monitoring);
 PROCESS_NAME(trust_model);
 
@@ -23,16 +23,16 @@ PROCESS_NAME(trust_model);
 // https://github.com/contiki-ng/contiki-ng/wiki/Tutorial:-MQTT
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "node"
+/*#define LOG_MODULE "node"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
 #define LOG_LEVEL LOG_LEVEL_NONE
-#endif
+#endif*/
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(hello_world_process, "Hello world process");
+//PROCESS(hello_world_process, "Hello world process");
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS_THREAD(hello_world_process, ev, data)
+/*PROCESS_THREAD(hello_world_process, ev, data)
 {
     static struct etimer timer;
     static uip_ipaddr_t rpl_root_addr;
@@ -40,7 +40,7 @@ PROCESS_THREAD(hello_world_process, ev, data)
 
     PROCESS_BEGIN();
 
-    /* Setup a periodic timer that expires after 60 seconds. */
+    // Setup a periodic timer that expires after 60 seconds.
     etimer_set(&timer, CLOCK_SECOND * 120);
 
     while(1)
@@ -57,13 +57,13 @@ PROCESS_THREAD(hello_world_process, ev, data)
             LOG_DBG("Not aware of the RPL DAG root\n");
         }
 
-        /* Wait for the periodic timer to expire and then restart the timer. */
+        // Wait for the periodic timer to expire and then restart the timer.
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
         etimer_reset(&timer);
     }
 
     PROCESS_END();
-}
+}*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 
-AUTOSTART_PROCESSES(&hello_world_process, &environment_monitoring, &mqtt_client_process, &trust_model);
+AUTOSTART_PROCESSES(&environment_monitoring, &mqtt_client_process, &trust_model);

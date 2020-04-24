@@ -13,6 +13,7 @@ CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 MODULES += os/services/shell
 
 # Include application modules
+MODULES_REL += ../common
 MODULES_REL += ../common/mqtt
 MODULES_REL += ../common/trust
 MODULES_REL += ./trust
@@ -29,7 +30,7 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 #MAKE_MAC = MAKE_MAC_TSCH
 
 # Applications to include
-MODULES_REL += ../applications/monitoring/edge
+MODULES_REL += ../applications/monitoring
 
 # Main Contiki-NG compile
 CONTIKI = $(CONTIKING_DIR)

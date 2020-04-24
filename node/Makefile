@@ -14,6 +14,7 @@ MODULES += os/services/shell
 MODULES += os/lib/json
 
 # Include application modules
+MODULES_REL += ../common
 MODULES_REL += ../common/mqtt
 MODULES_REL += ../common/trust
 MODULES_REL += ./trust
@@ -31,6 +32,7 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 #MAKE_MAC = MAKE_MAC_TSCH
 
 # Applications to include
+MODULES_REL += ../applications/monitoring
 MODULES_REL += ../applications/monitoring/node
 
 # Main Contiki-NG compile

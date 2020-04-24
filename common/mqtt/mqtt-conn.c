@@ -155,7 +155,7 @@ static topic_subscribe_status_t topic_subscribe_status[TOPICS_TO_SUBSCRIBE_LEN];
 static uint16_t topic_mid[TOPICS_TO_SUBSCRIBE_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern void
-mqtt_publish_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk, uint16_t chunk_len);
+mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -237,7 +237,8 @@ mqtt_event(struct mqtt_connection* m, mqtt_event_t event, void *data)
               msg_ptr->topic, msg_ptr->payload_length);
     }
 
-    mqtt_publish_handler(msg_ptr->topic, strlen(msg_ptr->topic), msg_ptr->payload_chunk, msg_ptr->payload_length);
+    mqtt_publish_handler(msg_ptr->topic, msg_ptr->topic + strlen(msg_ptr->topic),
+                         msg_ptr->payload_chunk, msg_ptr->payload_length);
   } break;
 
   case MQTT_EVENT_SUBACK: {

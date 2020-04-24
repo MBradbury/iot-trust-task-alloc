@@ -1,9 +1,11 @@
 #include "contiki.h"
-#include "rpl.h"
-#include "uiplib.h"
 #include "os/sys/log.h"
+#include "dev/cc2538-sensors.h"
 
 #include <stdio.h>
+
+#include "monitoring.h"
+#include "edge-info.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-envmon"
@@ -12,13 +14,6 @@
 #else
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
-#include "contiki.h"
-#include "dev/cc2538-sensors.h"
-
-#include <string.h>
-#include <stdio.h>
-
-//#include "mqtt-conn.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define PERIOD (CLOCK_SECOND * 60)
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -29,45 +24,71 @@ static char msg_buf[TMP_BUF_SZ];
 static int
 generate_sensor_data(char* buf, size_t buf_len)
 {
-	int temp_value = cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
-	int vdd3_value = vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+    int temp_value = cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+    int vdd3_value = vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
 
-	int written = snprintf(buf, buf_len,
-		"{"
-			"\"temp\":%d,"
-			"\"vdd3\":%d"
-		"}",
-		temp_value, vdd3_value
-	);
+    int written = snprintf(buf, buf_len,
+        "{"
+            "\"temp\":%d,"
+            "\"vdd3\":%d"
+        "}",
+        temp_value, vdd3_value
+    );
 
-	return written;
+    return written;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(environment_monitoring, "Environment Monitoring process");
+static struct etimer publish_periodic_timer;
+static bool started;
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+periodic_action(void)
+{
+    int written = generate_sensor_data(msg_buf, sizeof(msg_buf));
+    if (written > 0 && written <= sizeof(msg_buf))
+    {
+        LOG_DBG("Generated message %s\n", msg_buf);
+        // TODO: Choose an Edge node to send information to
+    }
+
+    etimer_reset(&publish_periodic_timer);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+edge_capability_add(edge_resource_t* edge)
+{
+    if (!started)
+    {
+        // Setup a periodic timer that expires after PERIOD seconds.
+        etimer_set(&publish_periodic_timer, PERIOD);
+        started = true;
+
+        // TODO: Open connection to edge node?
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS(environment_monitoring, MONITORING_APPLICATION_NAME);
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(environment_monitoring, ev, data)
 {
-    static struct etimer timer;
-
     PROCESS_BEGIN();
 
     SENSORS_ACTIVATE(cc2538_temp_sensor);
     SENSORS_ACTIVATE(vdd3_sensor);
 
-    /* Setup a periodic timer that expires after PERIOD seconds. */
-    etimer_set(&timer, PERIOD);
+    started = false;
 
     while (1)
     {
-        int written = generate_sensor_data(msg_buf, sizeof(msg_buf));
-        if (written > 0 && written <= sizeof(msg_buf))
-        {
-        	LOG_DBG("Generated message %s\n", msg_buf);
+        PROCESS_YIELD();
+
+        if (ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) {
+          periodic_action();
         }
 
-        /* Wait for the periodic timer to expire and then restart the timer. */
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-        etimer_reset(&timer);
+        if (ev == PROCESS_EVENT_EDGE_CAPABILITY_ADD) {
+            edge_capability_add((edge_resource_t*)data);
+        }
     }
 
     PROCESS_END();

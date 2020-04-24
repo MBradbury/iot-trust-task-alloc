@@ -9,10 +9,11 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#include "applications.h"
 #include "trust-common.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-model"
+#define LOG_MODULE "trust"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -20,12 +21,12 @@
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
-	MQTT_EDGE_NAMESPACE "/+/announce",
-	MQTT_EDGE_NAMESPACE "/+/capability/+"
+	MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_ANNOUNCE,
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD
 };
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-mqtt_publish_announce_handler(const char *topic, uint16_t topic_len,
+mqtt_publish_announce_handler(const char *topic, const char* topic_end,
 	                          const uint8_t *chunk, uint16_t chunk_len,
 	                          const char* topic_identity)
 {
@@ -82,7 +83,7 @@ mqtt_publish_announce_handler(const char *topic, uint16_t topic_len,
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-mqtt_publish_capability_handler(const char *topic, uint16_t topic_len,
+mqtt_publish_capability_handler(const char *topic, const char* topic_end,
 	                            const uint8_t *chunk, uint16_t chunk_len,
 	                            const char* topic_identity)
 {
@@ -93,15 +94,92 @@ mqtt_publish_capability_handler(const char *topic, uint16_t topic_len,
 		return;
 	}
 
-	// TODO: Parse capability name
-	// TODO: Add to edge information
+	// Format of topic is now in "/%s/add"
+
+	if (*topic != '/')
+	{
+		LOG_ERR("Bad sep\n");
+		return;
+	}
+
+	topic += 1;
+
+	const char* next_slash = strchr(topic, '/');
+	if (next_slash == NULL)
+	{
+		LOG_ERR("Bad sep\n");
+		return;
+	}
+
+	// Check that capability name isn't too long
+	ptrdiff_t distance = next_slash - topic;
+	if (distance <= 0 || distance > EDGE_CAPABILITY_NAME_LEN)
+	{
+		LOG_ERR("Bad cap name\n");
+		return;
+	}
+
+	// Parse capability name
+	char capability_name[EDGE_CAPABILITY_NAME_LEN+1];
+	strncpy(capability_name, topic, distance);
+	capability_name[distance] = '\0';
+
+	topic = next_slash + 1;
+
+	if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_ADD, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
+	{
+		edge_capability_t* capability = edge_info_capability_add(edge, capability_name);
+		if (capability == NULL)
+		{
+			LOG_ERR("Failed to create capability (%s) for edge with identity %s\n", capability_name, topic_identity);
+			return;
+		}
+
+		struct jsonparse_state state;
+		jsonparse_setup(&state, (const char*)chunk, chunk_len);
+
+		int next;
+
+		if ((next = jsonparse_next(&state)) != '{')
+		{
+			LOG_ERR("jsonparse_next 1 (next=%d)\n", next);
+			return;
+		}
+
+		if ((next = jsonparse_next(&state)) != '}')
+		{
+			LOG_ERR("jsonparse_next 2 (next=%d)\n", next);
+			return;
+		}
+
+		LOG_DBG("Added capability (%s) for edge with identity %s\n", capability_name, topic_identity);
+
+		// We have at least one Edge resource to support this application, so we need to inform the process
+		struct process* proc = find_process_with_name(capability_name);
+		if (proc != NULL)
+		{
+			process_post(proc, PROCESS_EVENT_EDGE_CAPABILITY_ADD, edge);
+		}
+		else
+		{
+			LOG_DBG("Failed to find process running the application (%s)\n", capability_name);
+		}
+	}
+	else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
+	{
+		// TODO
+		LOG_ERR("Not implemented (%s)\n", topic);
+	}
+	else
+	{
+		LOG_ERR("Unknown cap action (%s)\n", topic);
+	}
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
-mqtt_publish_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk, uint16_t chunk_len)
+mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len)
 {
-	// Interested in "iot/edge/+/fmt/json" events
-	LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, topic_len, chunk_len);
+	LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, topic_end - topic, chunk_len);
 
 	int ret;
 
@@ -113,18 +191,17 @@ mqtt_publish_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk
 		return;
 	}
 
-	// Consume '/'
+	// Consume MQTT_EDGE_NAMESPACE_LEN
 	topic += MQTT_EDGE_NAMESPACE_LEN;
-	topic_len -= MQTT_EDGE_NAMESPACE_LEN;
 
-	if (topic_len < 2 + MQTT_IDENTITY_LEN || *topic != '/')
+	if ((topic_end - topic) < 2 + MQTT_IDENTITY_LEN || *topic != '/')
 	{
 		LOG_ERR("Topic does not contain identity\n");
 		return;
 	}
 
+	// Consume '/'
 	topic += 1;
-	topic_len -= 1;
 
 	// Check that the identiy is hex
 	for (int i = 0; i != MQTT_IDENTITY_LEN; ++i)
@@ -141,34 +218,30 @@ mqtt_publish_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk
 	*(topic_identity + MQTT_IDENTITY_LEN) = '\0';
 
 	topic += MQTT_IDENTITY_LEN;
-	topic_len -= MQTT_IDENTITY_LEN;
 
 	if (*topic != '/')
 	{
-		LOG_ERR("Bad separator\n");
+		LOG_ERR("Bad sep\n");
 		return;
 	}
 
 	topic += 1;
-	topic_len -= 1;
 
-	if (strcmp("announce", topic) == 0)
+	if (strncmp(MQTT_EDGE_ACTION_ANNOUNCE, topic, strlen(MQTT_EDGE_ACTION_ANNOUNCE)) == 0)
 	{
-		topic += strlen("announce");
-		topic_len -= strlen("announce");
+		topic += strlen(MQTT_EDGE_ACTION_ANNOUNCE);
 
-		mqtt_publish_announce_handler(topic, topic_len, chunk, chunk_len, topic_identity);
+		mqtt_publish_announce_handler(topic, topic_end, chunk, chunk_len, topic_identity);
 	}
-	else if (strcmp("capability", topic) == 0)
+	else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY)) == 0)
 	{
-		topic += strlen("capability");
-		topic_len -= strlen("capability");
+		topic += strlen(MQTT_EDGE_ACTION_CAPABILITY);
 
-		mqtt_publish_capability_handler(topic, topic_len, chunk, chunk_len, topic_identity);
+		mqtt_publish_capability_handler(topic, topic_end, chunk, chunk_len, topic_identity);
 	}
 	else
 	{
-		LOG_ERR("Unknown topic\n");
+		LOG_ERR("Unknown topic '%s'\n", topic);
 	}
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
