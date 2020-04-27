@@ -31,6 +31,7 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 
 # Applications to include
 MODULES_REL += ../applications/monitoring
+MODULES_REL += ../applications/monitoring/edge
 
 # Main Contiki-NG compile
 CONTIKI = $(CONTIKING_DIR)
