@@ -66,4 +66,4 @@ PROCESS_NAME(trust_model);
 }*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 
-AUTOSTART_PROCESSES(&environment_monitoring, &mqtt_client_process, &trust_model);
+AUTOSTART_PROCESSES(&trust_model, &environment_monitoring, &mqtt_client_process);

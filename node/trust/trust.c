@@ -20,6 +20,9 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+process_event_t pe_edge_capability_add;
+process_event_t pe_edge_capability_remove;
+/*-------------------------------------------------------------------------------------------------------------------*/
 const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
 	MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_ANNOUNCE,
     MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD
@@ -158,7 +161,7 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
 		struct process* proc = find_process_with_name(capability_name);
 		if (proc != NULL)
 		{
-			process_post(proc, PROCESS_EVENT_EDGE_CAPABILITY_ADD, edge);
+			process_post(proc, pe_edge_capability_add, edge);
 		}
 		else
 		{
@@ -248,7 +251,8 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
 static void
 init(void)
 {
-
+	pe_edge_capability_add = process_alloc_event();
+	pe_edge_capability_remove = process_alloc_event();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");

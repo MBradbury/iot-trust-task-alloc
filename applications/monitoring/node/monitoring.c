@@ -8,7 +8,7 @@
 #include "edge-info.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "A-envmon"
+#define LOG_MODULE "A-" MONITORING_APPLICATION_NAME
 #ifdef APP_MONITORING_LOG_LEVEL
 #define LOG_LEVEL APP_MONITORING_LOG_LEVEL
 #else
@@ -57,8 +57,12 @@ periodic_action(void)
 static void
 edge_capability_add(edge_resource_t* edge)
 {
+    LOG_DBG("Notified of edge capability for %s\n", edge->name);
+
     if (!started)
     {
+        LOG_DBG("Starting periodic timer to send information\n");
+
         // Setup a periodic timer that expires after PERIOD seconds.
         etimer_set(&publish_periodic_timer, PERIOD);
         started = true;
@@ -83,10 +87,10 @@ PROCESS_THREAD(environment_monitoring, ev, data)
         PROCESS_YIELD();
 
         if (ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) {
-          periodic_action();
+            periodic_action();
         }
 
-        if (ev == PROCESS_EVENT_EDGE_CAPABILITY_ADD) {
+        if (ev == pe_edge_capability_add) {
             edge_capability_add((edge_resource_t*)data);
         }
     }

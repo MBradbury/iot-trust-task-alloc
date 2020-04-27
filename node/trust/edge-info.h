@@ -9,9 +9,6 @@
 #include "trust-common.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PROCESS_EVENT_EDGE_CAPABILITY_ADD 0x10
-#define PROCESS_EVENT_EDGE_CAPABILITY_REMOVE 0x11
-/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_capability
 {
 	struct edge_capability *next;
@@ -41,4 +38,7 @@ edge_resource_t* edge_info_find_ident(const char* ident);
 edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_find(edge_resource_t* edge, const char* name);
+/*-------------------------------------------------------------------------------------------------------------------*/
+extern process_event_t pe_edge_capability_add;
+extern process_event_t pe_edge_capability_remove;
 /*-------------------------------------------------------------------------------------------------------------------*/

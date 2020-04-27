@@ -4,10 +4,9 @@
 #include <stdio.h>
 
 #include "monitoring.h"
-#include "edge-info.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "A-envmon"
+#define LOG_MODULE "A-" MONITORING_APPLICATION_NAME
 #ifdef APP_MONITORING_LOG_LEVEL
 #define LOG_LEVEL APP_MONITORING_LOG_LEVEL
 #else
