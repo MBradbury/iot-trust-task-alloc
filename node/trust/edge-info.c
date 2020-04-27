@@ -96,6 +96,16 @@ void edge_info_remove(edge_resource_t* edge)
     edge_resource_free(edge);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+edge_resource_t* edge_info_iter(void)
+{
+    return list_head(edge_resources);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+edge_resource_t* edge_info_next(edge_resource_t* iter)
+{
+    return list_item_next(iter);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_find_addr(uip_ipaddr_t addr)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))

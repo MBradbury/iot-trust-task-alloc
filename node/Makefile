@@ -10,7 +10,7 @@ CFLAGS += -DTRUST_MODEL_LOG_LEVEL=LOG_LEVEL_DBG
 CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 
 # Include Contiki-NG system modules
-MODULES += os/services/shell
+#MODULES += os/services/shell
 MODULES += os/lib/json
 
 # Include application modules
@@ -26,6 +26,7 @@ CFLAGS += -DMQTT_CONF_VERSION=MQTT_PROTOCOL_VERSION_3_1_1
 MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/mqtt
 
 # CoAP configuration
+#MAKE_WITH_DTLS = 1
 #MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
 
 # Set MAC protocol

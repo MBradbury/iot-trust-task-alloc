@@ -34,6 +34,9 @@ void edge_info_remove(edge_resource_t* edge);
 edge_resource_t* edge_info_find_addr(uip_ipaddr_t addr);
 edge_resource_t* edge_info_find_ident(const char* ident);
 /*-------------------------------------------------------------------------------------------------------------------*/
+edge_resource_t* edge_info_iter(void);
+edge_resource_t* edge_info_next(edge_resource_t* iter);
+/*-------------------------------------------------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/
