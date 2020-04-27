@@ -510,8 +510,6 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  printf("MQTT Client Process\n");
-
   init();
 
   uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);

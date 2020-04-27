@@ -6,6 +6,7 @@
 
 #include "monitoring.h"
 #include "edge-info.h"
+#include "trust.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" MONITORING_APPLICATION_NAME
@@ -27,7 +28,7 @@ generate_sensor_data(char* buf, size_t buf_len)
     int temp_value = cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
     int vdd3_value = vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
 
-    int written = snprintf(buf, buf_len,
+    int would_have_written = snprintf(buf, buf_len,
         "{"
             "\"temp\":%d,"
             "\"vdd3\":%d"
@@ -35,7 +36,7 @@ generate_sensor_data(char* buf, size_t buf_len)
         temp_value, vdd3_value
     );
 
-    return written;
+    return would_have_written;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer;
@@ -44,12 +45,23 @@ static bool started;
 static void
 periodic_action(void)
 {
-    int written = generate_sensor_data(msg_buf, sizeof(msg_buf));
-    if (written > 0 && written <= sizeof(msg_buf))
+    int would_have_written = generate_sensor_data(msg_buf, sizeof(msg_buf));
+    if (would_have_written < 0 || would_have_written > sizeof(msg_buf))
     {
-        LOG_DBG("Generated message %s\n", msg_buf);
-        // TODO: Choose an Edge node to send information to
+        LOG_ERR("Failed to generated message (%d)\n", would_have_written);
     }
+
+    LOG_DBG("Generated message %s\n", msg_buf);
+
+    // Choose an Edge node to send information to
+    edge_resource_t* edge = choose_edge(MONITORING_APPLICATION_NAME);
+    if (edge == NULL)
+    {
+        LOG_ERR("Failed to find an edge resource to send task to\n");
+    }
+
+    // TODO: Send task to edge node at 'edge->addr'
+    
 
     etimer_reset(&publish_periodic_timer);
 }
