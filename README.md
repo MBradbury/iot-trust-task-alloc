@@ -15,6 +15,28 @@
 
 # Setup
 
+1. Install dependancies
+
+```bash
+sudo apt-get install git
+```
+
+2. Download Contiki-NG
+
+```bash
+mkdir ~/wsn
+cd ~/wsn
+git clone https://github.com/contiki-ng/contiki-ng.git
+git submodule update --init
+```
+
+Edit `~/.bashrc` to add the path to Contiki-NG before the interactivity check:
+```bash
+export CONTIKING_DIR="~/wsn/contiki-ng"
+export COOJA_DIR="$CONTIKING_DIR/tools/cooja"
+```
+
+
 
 # Instructions to Deploy
 
