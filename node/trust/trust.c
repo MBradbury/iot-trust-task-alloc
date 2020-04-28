@@ -316,7 +316,7 @@ periodic_action(void)
     // TODO: Poll neighbours for trust information
     static const char* data = "trust-info-hello";
 
-    // Multicast
+    // Set multicast address
     uip_create_linklocal_allnodes_mcast(&bcast_conn->ripaddr);
 
     uip_udp_packet_send(bcast_conn, data, strlen(data) + 1);
@@ -339,8 +339,8 @@ init(void)
 
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
 
+    // Open UDP connection on port TRUST_PROTO_PORT that accepts all incoming packets
     bcast_conn = udp_new(NULL, UIP_HTONS(TRUST_PROTO_PORT), NULL);
-    //bcast_conn = udp_broadcast_new(UIP_HTONS(TRUST_PROTO_PORT), NULL);
     if (bcast_conn == NULL)
     {
         LOG_ERR("Failed to allocated UDP broadcast connection\n");
