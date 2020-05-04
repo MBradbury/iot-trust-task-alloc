@@ -1,16 +1,17 @@
 #pragma once
 
-#include "mqtt.h"
+#include "os/net/ipv6/tcpip.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-mqtt_status_t
-publish_announce(struct mqtt_connection* conn, char* app_buffer, size_t app_buffer_len);
+bool
+publish_announce(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-mqtt_status_t
-publish_add_capability(struct mqtt_connection* conn, char* app_buffer, size_t app_buffer_len, const char* name);
+bool
+publish_add_capability(const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/
-mqtt_status_t
-publish_remove_capability(struct mqtt_connection* conn, char* app_buffer, size_t app_buffer_len, const char* name);
+bool
+publish_remove_capability(const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/

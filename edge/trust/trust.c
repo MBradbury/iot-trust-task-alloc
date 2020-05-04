@@ -11,6 +11,9 @@
 
 #include "applications.h"
 #include "trust-common.h"
+#include "mqtt-over-coap.h"
+
+#include "monitoring.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust"
@@ -22,14 +25,15 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define BASE_PUBLISH_TOPIC_LEN     (10 + MQTT_IDENTITY_LEN)
 #define MAX_PUBLISH_TOPIC_LEN      (64)
+#define MAX_PUBLISH_LEN            (128)
+/*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLISH_PERIOD             (CLOCK_SECOND * 60)
+#define PUBLISH_ANNOUNCE_PERIOD    (CLOCK_SECOND * 120)
+#define PUBLISH_CAPABILITY_PERIOD  (CLOCK_SECOND * 5)
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define MAX_PUBLISH_LEN            (128)
-static char publish_buffer[MAX_PUBLISH_LEN];
-/*-------------------------------------------------------------------------------------------------------------------*/
-extern struct mqtt_connection conn;
+static struct etimer publish_announce_timer;
+static struct etimer publish_capability_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 get_global_address(char* buf, size_t buf_len)
@@ -50,7 +54,8 @@ get_global_address(char* buf, size_t buf_len)
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
     MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_ANNOUNCE,
-    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD,
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE,
 };
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
@@ -60,15 +65,10 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, (topic_end - topic), chunk_len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-mqtt_status_t
-publish_announce(struct mqtt_connection* conn, char* app_buffer, size_t app_buffer_len)
+bool
+publish_announce(void)
 {
     int ret;
-
-    if (!conn || conn->state != MQTT_CONN_STATE_CONNECTED_TO_BROKER)
-    {
-        return MQTT_CONN_STATE_NOT_CONNECTED;
-    }
 
     snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, MQTT_EDGE_ACTION_ANNOUNCE);
     // TODO: Error checking
@@ -78,75 +78,95 @@ publish_announce(struct mqtt_connection* conn, char* app_buffer, size_t app_buff
     if (!ret)
     {
         LOG_ERR("Failed to obtain global IP address\n");
-    }
-    else
-    {
-        // TODO: handle
+        return false;
     }
 
-    snprintf(app_buffer, app_buffer_len,
+    char publish_buffer[MAX_PUBLISH_LEN];
+    int len = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
             "\"addr\":\"%s\""
         "}",
         ip_addr_buf
     );
-    // TODO: Error checking
-
-    LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, app_buffer);
-
-    return mqtt_publish(conn, NULL, pub_topic,
-                        (uint8_t*)app_buffer, strlen(app_buffer),
-                        MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON);
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-mqtt_status_t
-publish_add_capability(struct mqtt_connection* conn, char* app_buffer, size_t app_buffer_len, const char* name)
-{
-    if (!conn || conn->state != MQTT_CONN_STATE_CONNECTED_TO_BROKER)
+    if (len <= 0 || len >= sizeof(publish_buffer))
     {
-        return MQTT_CONN_STATE_NOT_CONNECTED;
+        return false;
     }
 
+    LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, publish_buffer);
+
+    return mqtt_over_coap_publish(pub_topic, publish_buffer, len);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool
+publish_add_capability(const char* name)
+{
     snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
              MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_ADD, name);
     // TODO: Error checking
 
-    snprintf(app_buffer, app_buffer_len,
+    char publish_buffer[MAX_PUBLISH_LEN];
+    int len = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
         "}"
     );
-    // TODO: Error checking
-
-    LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, app_buffer);
-
-    return mqtt_publish(conn, NULL, pub_topic,
-                        (uint8_t*)app_buffer, strlen(app_buffer),
-                        MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON);
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-mqtt_status_t
-publish_remove_capability(struct mqtt_connection* conn, char* app_buffer, size_t app_buffer_len, const char* name)
-{
-    if (!conn || conn->state != MQTT_CONN_STATE_CONNECTED_TO_BROKER)
+    if (len <= 0 || len >= sizeof(publish_buffer))
     {
-        return MQTT_CONN_STATE_NOT_CONNECTED;
+        return false;
     }
 
+    LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, publish_buffer);
+
+    return mqtt_over_coap_publish(pub_topic, publish_buffer, len);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool
+publish_remove_capability(const char* name)
+{
     snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
         MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE, name);
     // TODO: Error checking
 
-    snprintf(app_buffer, app_buffer_len,
+    char publish_buffer[MAX_PUBLISH_LEN];
+    int len = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
         "}"
     );
-    // TODO: Error checking
+    if (len <= 0 || len >= sizeof(publish_buffer))
+    {
+        return false;
+    }
 
-    LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, app_buffer);
+    LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, publish_buffer);
 
-    return mqtt_publish(conn, NULL, pub_topic,
-                        (uint8_t*)app_buffer, strlen(app_buffer),
-                        MQTT_QOS_LEVEL_0, MQTT_RETAIN_ON);
+    return mqtt_over_coap_publish(pub_topic, publish_buffer, len+1);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+periodic_publish_announce(void)
+{
+    LOG_DBG("Attempting to publish announce...\n");
+    bool ret = publish_announce();
+    if (!ret)
+    {
+        LOG_DBG("Failed to publish announce\n");
+    }
+    else
+    {
+        LOG_DBG("Announce sent!\n");
+        etimer_set(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD);
+    }
+
+    etimer_reset(&publish_announce_timer);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+periodic_publish_capability(void)
+{
+    LOG_DBG("Attempting to publish capabilities...\n");
+    // TODO: This needs to be based off services running on the Edge observer node this sensor node is connected to.
+
+    publish_add_capability(MONITORING_APPLICATION_NAME);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -164,8 +184,6 @@ init(void)
     LOG_DBG("Base MQTT topic is set to %s\n", pub_topic);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static struct etimer timer;
-/*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(trust_model, ev, data)
@@ -175,20 +193,19 @@ PROCESS_THREAD(trust_model, ev, data)
     init();
 
     /* Setup a periodic timer that expires after PERIOD seconds. */
-    etimer_set(&timer, PUBLISH_PERIOD);
+    etimer_set(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD);
 
     while (1)
     {
-        LOG_DBG("Attemding to publish announce...\n");
-        mqtt_status_t status = publish_announce(&conn, publish_buffer, sizeof(publish_buffer));
-        if (status != MQTT_STATUS_OK)
-        {
-            LOG_DBG("Failed to publish announce (%u)\n", status);
+        PROCESS_YIELD();
+
+        if (ev == PROCESS_EVENT_TIMER && data == &publish_announce_timer) {
+          periodic_publish_announce();
         }
 
-        /* Wait for the periodic timer to expire and then restart the timer. */
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&timer));
-        etimer_reset(&timer);
+        if (ev == PROCESS_EVENT_TIMER && data == &publish_capability_timer) {
+          periodic_publish_capability();
+        }
     }
 
     PROCESS_END();

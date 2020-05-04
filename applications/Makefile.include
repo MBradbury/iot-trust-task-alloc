@@ -1,0 +1,23 @@
+# Add application path to MODULES_REL
+
+APPLICATION_DIRS = ${addprefix ../applications/,$(APPLICATIONS)}
+APPLICATION_SPECIFC_DIR = ${addsuffix /$(CONTIKI_PROJECT),$(APPLICATION_DIRS)}
+
+MODULES_REL += ../applications $(APPLICATION_DIRS) $(APPLICATION_SPECIFC_DIR)
+
+# Create a list of application names that are supported
+
+APPLICATIONS_CAP = $(shell echo '$(APPLICATIONS)' | tr '[:lower:]' '[:upper:]')
+
+# From: https://stackoverflow.com/questions/1541844/joining-elements-of-a-list-in-gnu-make
+noop=
+space := $(noop) $(noop)
+comma := ,
+
+APPLICATION_NAMES := ${addsuffix _APPLICATION_NAME,$(APPLICATIONS_CAP)}
+APPLICATION_NAMES := $(subst $(space),$(comma),$(APPLICATION_NAMES))
+
+CFLAGS += -DAPPLICATION_NUM='$(words $(APPLICATIONS))'
+CFLAGS += -DAPPLICATION_NAMES='{$(APPLICATION_NAMES)}'
+
+CFLAGS += ${addsuffix =1,${addprefix -DAPPLICATION_,$(APPLICATIONS_CAP)}}

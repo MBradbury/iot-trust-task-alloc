@@ -36,8 +36,6 @@
 #include "net/ipv6/uip-icmp6.h"
 #include "net/ipv6/sicslowpan.h"
 #include "sys/etimer.h"
-#include "lib/sensors.h"
-#include "dev/leds.h"
 #include "os/sys/log.h"
 
 #include <string.h>
@@ -87,12 +85,6 @@
 #define MQTT_CLIENT_USERNAME "use-token-auth"
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#ifdef MQTT_CLIENT_CONF_STATUS_LED
-#define MQTT_CLIENT_STATUS_LED MQTT_CLIENT_CONF_STATUS_LED
-#else
-#define MQTT_CLIENT_STATUS_LED LEDS_GREEN
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
 /* Connections and reconnections */
 #define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -132,8 +124,7 @@ PROCESS_NAME(mqtt_client_process);
  * iot-2/evt/status/fmt/json is 25 bytes
  * We also need space for the null termination
  */
-#define BUFFER_SIZE 64
-static char client_id[BUFFER_SIZE];
+static char client_id[sizeof(MQTT_CLIENT_ORG_ID) + 12 + 1];
 /*-------------------------------------------------------------------------------------------------------------------*/
 /*
  * The main MQTT buffers.
@@ -322,15 +313,15 @@ mqtt_event(struct mqtt_connection* m, mqtt_event_t event, void *data)
 static bool
 construct_client_id(void)
 {
-  int len = snprintf(client_id, BUFFER_SIZE, "%s:%02x%02x%02x%02x%02x%02x",
+  int len = snprintf(client_id, sizeof(client_id), "%s:%02x%02x%02x%02x%02x%02x",
                      MQTT_CLIENT_ORG_ID,
                      linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                      linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
                      linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
 
   /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
-  if (len < 0 || len >= BUFFER_SIZE) {
-    printf("Insufficient length for client ID: %d, Buffer %d\n", len, BUFFER_SIZE);
+  if (len < 0 || len >= sizeof(client_id)) {
+    printf("Insufficient length for client ID: %d, Buffer %d\n", len, sizeof(client_id));
     return false;
   }
 

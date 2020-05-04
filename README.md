@@ -81,7 +81,41 @@ Once `tunslip` is running, mosquitto needs to be restarted:
 sudo service mosquitto restart
 ```
 
+## On Edge MQTT-CoAP Bridge
 
+See (https://docs.emqx.io/broker/latest/en/getting-started/installation.html#packages)
+
+NO
+```bash
+sudo apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+curl -fsSL https://repos.emqx.io/gpg.pub | sudo apt-key add -
+sudo su -c "echo 'deb [arch=armhf] https://repos.emqx.io/emqx-ce/deb/raspbian/ ./$(lsb_release -cs) stable' > /etc/apt/sources.list.d/emqx.list"
+sudo apt-get update
+sudo apt install emqx
+```
+
+```bash
+sudo apt-get install -y erlang libcoap2-bin
+
+mkdir mqtt-coap
+git clone https://github.com/erlang/rebar3.git
+cd rebar3
+./bootstrap
+./rebar3 local install
+cd ..
+```
+
+Add `export PATH=/home/pi/.cache/rebar3/bin:$PATH` to `~/.bashrc` before the interactivity check.
+
+```bash
+source ~/.bashrc
+
+git clone https://github.com/emqx/emqx-rel.git -b release-4.1
+cd emqx-rel
+make emqx-pkg
+./_build/emqx/rel/emqx/bin/emqx start
+./_build/emqx/rel/emqx/bin/emqx_ctl plugins load emqx_coap
+```
 
 
 # Related Resources

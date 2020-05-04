@@ -63,6 +63,8 @@ periodic_action(void)
     // TODO: Send task to edge node at 'edge->addr'
     
 
+    // TODO: Record metrics about tasks sent to edge nodes and their ability to respond in the trust model
+
     etimer_reset(&publish_periodic_timer);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -7,6 +7,11 @@
 #include "os/net/ipv6/uiplib.h"
 #include "os/net/ipv6/uip-udp-packet.h"
 
+#ifdef WITH_DTLS
+#include "tinydtls.h"
+#include "dtls.h"
+#endif
+
 #include <stdio.h>
 #include <ctype.h>
 
@@ -33,7 +38,8 @@ static struct uip_udp_conn* bcast_conn;
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
     MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_ANNOUNCE,
-    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD,
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE,
 };
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -173,7 +179,7 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
         }
         else
         {
-            LOG_DBG("Failed to find process running the application (%s)\n", capability_name);
+            LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
         }
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
@@ -319,6 +325,8 @@ periodic_action(void)
     // Set multicast address
     uip_create_linklocal_allnodes_mcast(&bcast_conn->ripaddr);
 
+    // TODO: digital signature
+
     uip_udp_packet_send(bcast_conn, data, strlen(data) + 1);
 
     // Restore to 'accept incoming from any IP'
@@ -351,6 +359,10 @@ init(void)
         udp_bind(bcast_conn, UIP_HTONS(TRUST_PROTO_PORT));
         LOG_DBG("Listening (local:%u, remote:%u)!\n", UIP_HTONS(bcast_conn->lport), UIP_HTONS(bcast_conn->rport));
     }
+
+#ifdef WITH_DTLS
+    dtls_init();
+#endif
 
     return true;
 }

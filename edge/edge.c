@@ -5,10 +5,14 @@
 
 //#include <stdio.h>
 
+#include "applications.h"
+
 PROCESS_NAME(mqtt_client_process);
 //PROCESS_NAME(hello_world_process);
 PROCESS_NAME(environment_monitoring);
 PROCESS_NAME(trust_model);
+
+const char* const application_names[APPLICATION_NUM] = APPLICATION_NAMES;
 
 // TODO: Use NullNet for 1-hop broadcasts
 // https://github.com/contiki-ng/contiki-ng/wiki/Documentation:-NullNet
