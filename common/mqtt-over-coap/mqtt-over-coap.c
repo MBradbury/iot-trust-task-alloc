@@ -85,7 +85,9 @@ PROCESS_NAME(mqtt_client_process);
 #define DEFAULT_PING_INTERVAL       (CLOCK_SECOND * 30)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Payload length of ICMPv6 echo requests used to measure RSSI with def rt */
-#define ECHO_REQ_PAYLOAD_LEN   20
+#define ECHO_REQ_PAYLOAD_LEN        20
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define MAX_URI_LEN                 128
 /*-------------------------------------------------------------------------------------------------------------------*/
 /*
  * Buffers for Client ID and Topic.
@@ -180,6 +182,7 @@ bool
 mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
 {
   // https://github.com/emqx/emqx-coap#publish-example
+  int ret;
 
   /*mqtt_status_t mqtt_publish(struct mqtt_connection *conn,
                            uint16_t *mid,
@@ -189,15 +192,32 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
                            mqtt_qos_level_t qos_level,
                            mqtt_retain_t retain);*/
 
-  char uri_path[128];
-  snprintf(uri_path, sizeof(uri_path), "mqtt/%s?c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, topic, client_id);
+  char uri_path[MAX_URI_LEN];
+  snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
+  // TODO: error checking
+
+  char uri_query[MAX_URI_LEN];
+  snprintf(uri_query, sizeof(uri_query), "?c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
   // TODO: error checking
 
   coap_message_t msg;
   coap_init_message(&msg, COAP_TYPE_CON, COAP_PUT, 0);
-  coap_set_header_uri_path(&msg, uri_path);
 
-  int ret = coap_send_request(NULL, &server_ep, &msg, NULL);
+  ret = coap_set_header_uri_path(&msg, uri_path);
+  if (ret <= 0)
+  {
+    LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+  }
+
+  ret = coap_set_header_uri_query(&msg, uri_query);
+  if (ret <= 0)
+  {
+    LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
+  }
+
+  coap_set_payload(&msg, data, data_len);
+
+  ret = coap_send_request(NULL, &server_ep, &msg, NULL);
   if (ret)
   {
     LOG_DBG("Publish (%s) sent\n", topic);
@@ -213,6 +233,8 @@ static void
 subscribe_callback(coap_callback_request_state_t *callback_state)
 {
   uint16_t i = callback_state->state.request->mid;
+
+  LOG_DBG("Received subscribe callback for %u\n", i);
 
   // TODO: Check this correctly
   if (callback_state->state.status != COAP_REQUEST_STATUS_FINISHED)
@@ -233,15 +255,50 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
 static int
 mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
 {
+  int ret;
+
+  if (coap_callback_in_use)
+  {
+    LOG_DBG("Cannot subscribe again, waiting for existing subscribe to finish\n");
+    return -1;
+  }
+
   char uri_path[128];
-  snprintf(uri_path, sizeof(uri_path), "mqtt/%s?c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, topic, client_id);
+  snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
   // TODO: error checking
+
+  char uri_query[128];
+  snprintf(uri_query, sizeof(uri_query), "?c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+  // TODO: error checking
+
+  LOG_DBG("Subscribing to [%u]='%s'! (%s)\n", msg_id, topic, uri_path);
 
   coap_message_t msg;
   coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, msg_id);
-  coap_set_header_uri_path(&msg, uri_path);
 
-  return coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
+  ret = coap_set_header_uri_path(&msg, uri_path);
+  if (ret <= 0)
+  {
+    LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+  }
+
+  ret = coap_set_header_uri_query(&msg, uri_query);
+  if (ret <= 0)
+  {
+    LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
+  }
+
+  //const char* data = "100";
+
+  //coap_set_payload(&msg, data, strlen(data)+1);
+
+  ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
+  if (ret)
+  {
+    coap_callback_in_use = true;
+  }
+
+  return ret;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -259,15 +316,11 @@ subscribe(void)
       continue;
     }
 
-    LOG_DBG("Subscribing to [%u]='%s'!\n", i, topics_to_suscribe[i]);
-
     ret = mqtt_over_coap_subscribe(topics_to_suscribe[i], i);
     if (ret)
     {
       LOG_DBG("Subscription request (%u) sent\n", i);
       topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBING;
-
-      coap_callback_in_use = true;
 
       // Once one request is sent, the queue becomes full.
       // So we need to wait for the topic to be subscribed before sending another request.

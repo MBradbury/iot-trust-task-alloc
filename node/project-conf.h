@@ -1,14 +1,11 @@
 #pragma once
 
-/* Enable TCP */
-#define UIP_CONF_TCP 1
+//#define LOG_CONF_LEVEL_COAP                        LOG_LEVEL_DBG
 
-#define UIP_CONF_TCP_CONNS 1
-
-#define UIP_CONF_UDP_CONNS 4
+//#define UIP_CONF_UDP_CONNS 4
 
 // Use MQTT Version 3.1.1
-#define MQTT_CONF_VERSION MQTT_PROTOCOL_VERSION_3_1_1
+//#define MQTT_CONF_VERSION MQTT_PROTOCOL_VERSION_3_1_1
 
 // This is the address of the observer node connected to the border router
 #define MQTT_CLIENT_CONF_BROKER_IP_ADDR "fd00::1"
