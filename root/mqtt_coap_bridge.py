@@ -67,17 +67,17 @@ class SubscriptionManager:
             try:
                 self._subscriptions[topic].remove(source)
             except KeyError as ex:
-                logging.info(f"Failed to remove subscription to {topic} from {source} with {ex}")
+                logging.error(f"Failed to remove subscription to {topic} from {source} with {ex}")
 
     async def subscribers(self, topic):
         async with self._lock:
             subscriptions = copy.deepcopy(self._subscriptions)
 
-        subs = []
+        subs = set()
 
         for subscription in subscriptions:
             if mqtt.topic_matches_sub(subscription, topic):
-                subs.extend(self._subscriptions[subscription])
+                subs.update(subscriptions[subscription])
 
         return subs
 
@@ -164,11 +164,6 @@ class MQTTCOAPBridge:
                 result = await self.mqtt_connector.client.subscribe(topic)
 
                 if result[0] == mqtt.MQTT_ERR_SUCCESS:
-                    logging.info(f"Subscribed to {topic} from {host}...")
-
-                    # Update local table of clients who are subscribed
-                    await self.manager.subscribe(topic, host)
-
                     result = aiocoap.Message(payload=b"", code=codes.CREATED)
                 else:
                     result = aiocoap.Message(payload=mqtt.error_string(result[0]).encode("utf-8"), code=codes.INTERNAL_SERVER_ERROR)
@@ -178,6 +173,13 @@ class MQTTCOAPBridge:
         else:
             # Already subscribed, so just say things were fine
             result = aiocoap.Message(payload=b"", code=codes.CREATED)
+
+        # Update local table of clients who are subscribed
+        if result.code == codes.CREATED:
+            logging.info(f"Subscribed {host} to {topic}")
+            await self.manager.subscribe(topic, host)
+        else:
+            logging.error(f"Failed to subscribe {host} to {topic} ({result})")
 
         return result
 
@@ -190,11 +192,6 @@ class MQTTCOAPBridge:
                 result = await self.mqtt_connector.client.unsubscribe(topic)
 
                 if result[0] == mqtt.MQTT_ERR_SUCCESS:
-                    logging.info(f"Unsubscribed to {topic} from {host}...")
-
-                    # Update local table of clients who are subscribed
-                    await self.manager.unsubscribe(topic, host)
-
                     result = aiocoap.Message(payload=b"", code=codes.DELETED)
                 else:
                     result = aiocoap.Message(payload=mqtt.error_string(result[0]).encode("utf-8"), code=codes.INTERNAL_SERVER_ERROR)
@@ -204,6 +201,13 @@ class MQTTCOAPBridge:
         else:
             # Not currently subscribed, so just say things were fine
             result = aiocoap.Message(payload=b"", code=codes.DELETED)
+
+        # Update local table of clients who are subscribed
+        if result.code == codes.DELETED:
+            logging.info(f"Unsubscribed {host} from {topic}")
+            await self.manager.unsubscribe(topic, host)
+        else:
+            logging.error(f"Failed to subscribe {host} to {topic} ({result})")
 
         return result
 
@@ -223,12 +227,15 @@ class MQTTCOAPBridge:
         return result
 
     async def mqtt_to_coap_publish(self, message):
-        logging.info(f"MQTT pushed {mqtt_message_to_str(message)}")
-
-        # Push via CoAP to all subscribed clients
         subscribers = await self.manager.subscribers(message.topic)
 
-        await asyncio.gather(*[self.coap_connector.forward_mqtt(message.payload, message.topic, subscriber) for subscriber in subscribers])
+        logging.info(f"MQTT pushed {mqtt_message_to_str(message)} forwarding to {subscribers}")
+
+        # Push via CoAP to all subscribed clients
+        await asyncio.gather(*[
+            self.coap_connector.forward_mqtt(message.payload, message.topic, subscriber)
+            for subscriber in subscribers
+        ])
 
     def _coap_request_extract_mqtt_topic(self, request):
         if request.opt.uri_path[0] != "mqtt":
