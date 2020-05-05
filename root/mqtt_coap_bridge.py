@@ -114,11 +114,13 @@ class COAPConnector(aiocoap.resource.Resource):
 
     async def forward_mqtt(self, payload, topic, target):
         """Forward an MQTT message to a coap target"""
-        message = aiocoap.Message(code=codes.PUT, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt/{topic}")
+        message = aiocoap.Message(code=codes.POST, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt/{topic}")
 
         logging.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
         response = await self.context.request(message).response
+
+        logging.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
 
         return response
 
