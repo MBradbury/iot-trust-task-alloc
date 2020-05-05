@@ -82,7 +82,7 @@ class COAPConnector(aiocoap.resource.Resource):
         self.context = await aiocoap.Context.create_server_context(self)
 
     async def stop(self):
-        pass
+        await self.context.shutdown()
 
     async def render_get(self, request):
         """An MQTT Subscribe request"""
@@ -246,6 +246,8 @@ async def shutdown(signal, loop, bridge):
     loop.stop()
 
 def main(coap_target_port):
+    logging.info("Starting mqtt-coap bridge")
+
     loop = asyncio.get_event_loop()
 
     bridge = MQTTCOAPBridge(coap_target_port)
