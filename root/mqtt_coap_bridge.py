@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import logging
 import asyncio
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='MQTT-CoAP Bridge')
-    parser.add_argument('-p', '--coap-target-port', type=int, help='The target port for CoAP messages to be POSTed to', required=True)
+    parser.add_argument('-p', '--coap-target-port', type=int, help='The target port for CoAP messages to be POSTed to', default=5683)
 
     args = parser.parse_args()
 
