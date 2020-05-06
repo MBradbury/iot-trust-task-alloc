@@ -46,7 +46,7 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
 static void
 init(void)
 {
-	coap_activate_resource(&res_coap_envmon, MONITORING_APPLICATION_NAME);
+	coap_activate_resource(&res_coap_envmon, MONITORING_APPLICATION_URI);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(environment_monitoring, ev, data)

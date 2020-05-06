@@ -26,6 +26,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
+static coap_endpoint_t ep;
 static bool coap_callback_in_use;
 static char msg_buf[TMP_BUF_SZ];
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -51,10 +52,9 @@ edge_info_get_server_endpoint(edge_resource_t* edge, coap_endpoint_t* ep)
 {
     uip_ip6addr_copy(&ep->ipaddr, &edge->addr);
     ep->secure = 0;
-    ep->port = COAP_DEFAULT_PORT;
+    ep->port = UIP_HTONS(COAP_DEFAULT_PORT);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static struct etimer connect_timer;
 static struct etimer publish_periodic_timer;
 static bool started;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -121,27 +121,12 @@ periodic_action(void)
         return;
     }
 
-    coap_endpoint_t ep;
+    
     edge_info_get_server_endpoint(edge, &ep);
-
-    if (!coap_endpoint_is_connected(&ep))
-    {
-        LOG_DBG("The endpoint ");
-        coap_endpoint_log(&ep);
-        LOG_DBG_(" is not connected to, doing so now...\n");
-
-        coap_endpoint_connect(&ep);
-
-        coap_callback_in_use = false;
-
-        etimer_set(&connect_timer, CONNECT_PERIOD);
-        etimer_reset(&publish_periodic_timer);
-        return;
-    }
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
 
-    ret = coap_set_header_uri_path(&msg, MONITORING_APPLICATION_NAME);
+    ret = coap_set_header_uri_path(&msg, MONITORING_APPLICATION_URI);
     if (ret <= 0)
     {
         LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
@@ -202,10 +187,6 @@ PROCESS_THREAD(environment_monitoring, ev, data)
         PROCESS_YIELD();
 
         if (ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) {
-            periodic_action();
-        }
-
-        if (ev == PROCESS_EVENT_TIMER && data == &connect_timer) {
             periodic_action();
         }
 
