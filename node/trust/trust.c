@@ -28,7 +28,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define TRUST_PROTO_PORT 1000
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define TRUST_POLL_PERIOD (60 * CLOCK_SECOND)
+#define TRUST_POLL_PERIOD (5 * 60 * CLOCK_SECOND)
 static struct etimer periodic_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct uip_udp_conn* bcast_conn;
@@ -111,9 +111,7 @@ periodic_action(void)
 static bool
 init(void)
 {
-    pe_edge_capability_add = process_alloc_event();
-    pe_edge_capability_remove = process_alloc_event();
-
+    trust_common_init();
     edge_info_init();
 
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
