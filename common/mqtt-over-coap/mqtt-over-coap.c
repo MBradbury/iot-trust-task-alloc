@@ -41,9 +41,6 @@ typedef uint8_t topic_subscribe_status_t;
 extern const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN];
 static topic_subscribe_status_t topic_subscribe_status[TOPICS_TO_SUBSCRIBE_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-extern void
-mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len);
-/*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
 /*-------------------------------------------------------------------------------------------------------------------*/
 /*
@@ -125,304 +122,268 @@ PROCESS(mqtt_client_process, "MQTT Client");
 static bool
 have_connectivity(void)
 {
-  return uip_ds6_get_global(ADDR_PREFERRED) != NULL && uip_ds6_defrt_choose() != NULL;
+    return uip_ds6_get_global(ADDR_PREFERRED) != NULL && uip_ds6_defrt_choose() != NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t datalen)
 {
-  if (uip_ip6addr_cmp(source, uip_ds6_defrt_choose())) {
-    // Got ping from server, so we need to connect if not done so already
-    LOG_DBG("Received ping reply from server, polling mqtt_client_process\n");
-    process_poll(&mqtt_client_process);
+    if (uip_ip6addr_cmp(source, uip_ds6_defrt_choose())) {
+        // Got ping from server, so we need to connect if not done so already
+        LOG_DBG("Received ping reply from server, polling mqtt_client_process\n");
+        process_poll(&mqtt_client_process);
 
-    // No need to keep pinging
-    etimer_stop(&echo_request_timer);
-  }
+        // No need to keep pinging
+        etimer_stop(&echo_request_timer);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 topic_init(void)
 {
-  for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
-  {
-    topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
-  }
+    for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
+    {
+        topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 construct_client_id(void)
 {
-  int len = snprintf(client_id, sizeof(client_id), "%s:%02x%02x%02x%02x%02x%02x",
-                     MQTT_CLIENT_ORG_ID,
-                     linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
-                     linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
-                     linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
+    int len = snprintf(client_id, sizeof(client_id), "%s:%02x%02x%02x%02x%02x%02x",
+                                         MQTT_CLIENT_ORG_ID,
+                                         linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
+                                         linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
+                                         linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
 
-  /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
-  if (len < 0 || len >= sizeof(client_id)) {
-    printf("Insufficient length for client ID: %d, Buffer %d\n", len, sizeof(client_id));
-    return false;
-  }
+    /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
+    if (len < 0 || len >= sizeof(client_id)) {
+        printf("Insufficient length for client ID: %d, Buffer %d\n", len, sizeof(client_id));
+        return false;
+    }
 
-  return true;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static bool
-init(void)
-{
-  int ret;
-
-  if (!construct_client_id())
-  {
-    /* Fatal error. Client ID larger than the buffer */
-    return false;
-  }
-
-  topic_init();
-
-  ret = coap_endpoint_parse(COAP_CLIENT_CONF_BROKER_IP_ADDR, strlen(COAP_CLIENT_CONF_BROKER_IP_ADDR), &server_ep);
-  if (!ret)
-  {
-    LOG_ERR("CoAP Endpoint failed to be set to %s\n", COAP_CLIENT_CONF_BROKER_IP_ADDR);
-    return false;
-  }
-  else
-  {
-    LOG_DBG("CoAP Endpoint set to %s\n", COAP_CLIENT_CONF_BROKER_IP_ADDR);
-  }
-
-  coap_callback_in_use = false;
-
-  return true;
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 publish_callback(coap_callback_request_state_t *callback_state)
 {
-  if (!coap_callback_in_use)
-  {
-    return;
-  }
+    if (!coap_callback_in_use)
+    {
+        return;
+    }
 
-  coap_callback_in_use = false;
+    coap_callback_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
 mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
 {
-  int ret;
+    int ret;
 
-  if (coap_callback_in_use)
-  {
-    LOG_ERR("Cannot perform mqtt_over_coap_publish as we are busy\n");
-    return false;
-  }
+    if (coap_callback_in_use)
+    {
+        LOG_ERR("Cannot perform mqtt_over_coap_publish as we are busy\n");
+        return false;
+    }
 
-  if (data_len > MAX_COAP_PAYLOAD)
-  {
-    LOG_ERR("data_len > MAX_COAP_PAYLOAD\n");
-    return false;
-  }
+    if (data_len > MAX_COAP_PAYLOAD)
+    {
+        LOG_ERR("data_len > MAX_COAP_PAYLOAD\n");
+        return false;
+    }
 
-  coap_callback_in_use = true;
+    coap_callback_in_use = true;
 
-  /*mqtt_status_t mqtt_publish(struct mqtt_connection *conn,
-                           uint16_t *mid,
-                           char *topic,
-                           uint8_t *payload,
-                           uint32_t payload_size,
-                           mqtt_qos_level_t qos_level,
-                           mqtt_retain_t retain);*/
+    ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
+    if (ret <= 0 || ret >= sizeof(uri_path))
+    {
+        LOG_ERR("snprintf uri_path failed %d\n", ret);
+        return false;
+    }
 
-  ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
-  if (ret <= 0 || ret >= sizeof(uri_path))
-  {
-    LOG_ERR("snprintf uri_path failed %d\n", ret);
-    return -1;
-  }
+    ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+    if (ret <= 0 || ret >= sizeof(uri_query))
+    {
+        LOG_ERR("snprintf uri_query failed %d\n", ret);
+        return false;
+    }
+    
+    coap_init_message(&msg, COAP_TYPE_CON, COAP_PUT, 0);
 
-  ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
-  if (ret <= 0 || ret >= sizeof(uri_query))
-  {
-    LOG_ERR("snprintf uri_query failed %d\n", ret);
-    return -1;
-  }
+    ret = coap_set_header_uri_path(&msg, uri_path);
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+        return false;
+    }
 
-  
-  coap_init_message(&msg, COAP_TYPE_CON, COAP_PUT, 0);
+    /*ret = coap_set_header_uri_query(&msg, uri_query);
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
+    }*/
 
-  ret = coap_set_header_uri_path(&msg, uri_path);
-  if (ret <= 0)
-  {
-    LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-  }
+    memcpy(coap_payload, data, data_len);
 
-  /*ret = coap_set_header_uri_query(&msg, uri_query);
-  if (ret <= 0)
-  {
-    LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
-  }*/
+    coap_set_payload(&msg, coap_payload, data_len);
 
-  memcpy(coap_payload, data, data_len);
+    ret = coap_send_request(&coap_callback, &server_ep, &msg, publish_callback);
+    if (ret)
+    {
+        LOG_DBG("Publish (%s) sent\n", topic);
+    }
+    else
+    {
+        LOG_ERR("Failed to publish with %d\n", ret);
+        coap_callback_in_use = false;
+    }
 
-  coap_set_payload(&msg, coap_payload, data_len);
-
-  ret = coap_send_request(&coap_callback, &server_ep, &msg, publish_callback);
-  if (ret)
-  {
-    LOG_DBG("Publish (%s) sent\n", topic);
-  }
-  else
-  {
-    LOG_ERR("Failed to publish with %d\n", ret);
-    coap_callback_in_use = false;
-  }
-  return ret != 0;
+    return ret != 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 subscribe_callback(coap_callback_request_state_t *callback_state)
 {
-  LOG_DBG("Received subscribe callback\n");
+    LOG_DBG("Received subscribe callback\n");
 
-  assert(callback_state != NULL);
+    assert(callback_state != NULL);
 
-  if (!coap_callback_in_use)
-  {
-    return;
-  }
-
-  uint16_t i = coap_callback_i;
-
-  coap_message_t* response = callback_state->state.response;
-
-  if ((callback_state->state.status == COAP_REQUEST_STATUS_FINISHED ||
-      callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE) && response != NULL)
-  {
-    if (response->code == CREATED_2_01)
+    if (!coap_callback_in_use)
     {
-      LOG_DBG("Subscription to topic %s successful\n", topics_to_suscribe[i]);
+        return;
+    }
 
-      topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBED;
+    uint16_t i = coap_callback_i;
+
+    coap_message_t* response = callback_state->state.response;
+
+    if ((callback_state->state.status == COAP_REQUEST_STATUS_FINISHED ||
+            callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE) && response != NULL)
+    {
+        if (response->code == CREATED_2_01)
+        {
+            LOG_DBG("Subscription to topic %s successful\n", topics_to_suscribe[i]);
+
+            topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBED;
+        }
+        else
+        {
+            LOG_ERR("Failed to subscribe to topic %s with error (%d) %.*s (len=%d)\n",
+                topics_to_suscribe[i], response->code,
+                response->payload_len, response->payload, response->payload_len);
+
+            topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+        }
     }
     else
     {
-      LOG_ERR("Failed to subscribe to topic %s with error (%d) %.*s (len=%d)\n",
-        topics_to_suscribe[i], response->code,
-        response->payload_len, response->payload, response->payload_len);
+        if (callback_state->state.status == COAP_REQUEST_STATUS_TIMEOUT)
+        {
+            LOG_ERR("Failed to subscribe to topic %s with status %d (timeout)\n", topics_to_suscribe[i], callback_state->state.status);
+        }
+        else
+        {
+            LOG_ERR("Failed to subscribe to topic %s with status %d\n", topics_to_suscribe[i], callback_state->state.status);
+        }
 
-      topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
-    }
-  }
-  else
-  {
-    if (callback_state->state.status == COAP_REQUEST_STATUS_TIMEOUT)
-    {
-      LOG_ERR("Failed to subscribe to topic %s with status %d (timeout)\n", topics_to_suscribe[i], callback_state->state.status);
-    }
-    else
-    {
-      LOG_ERR("Failed to subscribe to topic %s with status %d\n", topics_to_suscribe[i], callback_state->state.status);
+        topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
     }
 
-    topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
-  }
+    coap_callback_in_use = false;
 
-  coap_callback_in_use = false;
-
-  // Poll the process to trigger subsequent subscribes
-  process_poll(&mqtt_client_process);
+    // Poll the process to trigger subsequent subscribes
+    process_poll(&mqtt_client_process);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
 mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
 {
-  int ret;
+    int ret;
 
-  if (coap_callback_in_use)
-  {
-    LOG_DBG("Cannot subscribe again, waiting for existing subscribe to finish\n");
-    return -1;
-  }
+    if (coap_callback_in_use)
+    {
+        LOG_DBG("Cannot subscribe again, waiting for existing subscribe to finish\n");
+        return -1;
+    }
 
-  coap_callback_in_use = true;
-  
-  ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
-  if (ret <= 0 || ret >= sizeof(uri_path))
-  {
-    LOG_ERR("snprintf uri_path failed %d\n", ret);
-    return -1;
-  }
+    coap_callback_in_use = true;
+    
+    ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
+    if (ret <= 0 || ret >= sizeof(uri_path))
+    {
+        LOG_ERR("snprintf uri_path failed %d\n", ret);
+        return -1;
+    }
 
-  ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
-  if (ret <= 0 || ret >= sizeof(uri_query))
-  {
-    LOG_ERR("snprintf uri_query failed %d\n", ret);
-    return -1;
-  }
+    ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+    if (ret <= 0 || ret >= sizeof(uri_query))
+    {
+        LOG_ERR("snprintf uri_query failed %d\n", ret);
+        return -1;
+    }
 
-  LOG_DBG("Subscribing to [%u]='%s'! (%s)\n", msg_id, topic, uri_path);
+    LOG_DBG("Subscribing to [%u]='%s'! (%s)\n", msg_id, topic, uri_path);
 
-  coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
+    coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
 
-  ret = coap_set_header_uri_path(&msg, uri_path);
-  if (ret <= 0)
-  {
-    LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-  }
+    ret = coap_set_header_uri_path(&msg, uri_path);
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+    }
 
-  /*ret = coap_set_header_uri_query(&msg, uri_query);
-  if (ret <= 0)
-  {
-    LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
-  }*/
+    /*ret = coap_set_header_uri_query(&msg, uri_query);
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
+    }*/
 
-  const char* data = "Request";
+    const char* data = "Request";
 
-  coap_set_payload(&msg, data, strlen(data)+1);
+    coap_set_payload(&msg, data, strlen(data)+1);
 
-  ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
-  if (ret)
-  {
-    coap_callback_i = msg_id;
-  }
-  else
-  {
-    coap_callback_in_use = false;
-  }
+    ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
+    if (ret)
+    {
+        coap_callback_i = msg_id;
+    }
+    else
+    {
+        coap_callback_in_use = false;
+    }
 
-  return ret;
+    return ret;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 subscribe(void)
 {
-  int ret;
+    int ret;
 
-  for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
-  {
-    if (topic_subscribe_status[i] != TOPIC_STATE_NOT_SUBSCRIBED)
+    for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
     {
-      continue;
-    }
+        if (topic_subscribe_status[i] != TOPIC_STATE_NOT_SUBSCRIBED)
+        {
+            continue;
+        }
 
-    ret = mqtt_over_coap_subscribe(topics_to_suscribe[i], i);
-    if (ret)
-    {
-      LOG_DBG("Subscription request (%u) sent\n", i);
-      topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBING;
+        ret = mqtt_over_coap_subscribe(topics_to_suscribe[i], i);
+        if (ret)
+        {
+            LOG_DBG("Subscription request (%u) sent\n", i);
+            topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBING;
 
-      // Once one request is sent, the queue becomes full.
-      // So we need to wait for the topic to be subscribed before sending another request.
-      break;
+            // Once one request is sent, the queue becomes full.
+            // So we need to wait for the topic to be subscribed before sending another request.
+            break;
+        }
+        else
+        {
+            LOG_ERR("Failed to subscribe with %d\n", ret);
+            etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+        }
     }
-    else
-    {
-      LOG_ERR("Failed to subscribe with %d\n", ret);
-      etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
-    }
-  }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern void
@@ -432,119 +393,151 @@ static void
 res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
 PARENT_RESOURCE(res_coap_mqtt,
-         "title=\"MQTT-over-CoAP Notify\";rt=\"MQTT\"",
-         NULL,                       /*GET*/
-         res_coap_mqtt_post_handler, /*POST*/
-         NULL,                       /*PUT*/
-         NULL                        /*DELETE*/);
+                 "title=\"MQTT-over-CoAP Notify\";rt=\"MQTT\"",
+                 NULL,                       /*GET*/
+                 res_coap_mqtt_post_handler, /*POST*/
+                 NULL,                       /*PUT*/
+                 NULL                        /*DELETE*/);
 
 static void
 res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
-  const char* uri_path = NULL;
-  int uri_len = coap_get_header_uri_path(request, &uri_path);
+    const char* uri_path = NULL;
+    int uri_len = coap_get_header_uri_path(request, &uri_path);
 
-  int base_url_len = strlen(res_coap_mqtt.url);
+    int base_url_len = strlen(res_coap_mqtt.url);
 
-  if (!uri_path)
-  {
-    LOG_ERR("No URI path\n");
-    return;
-  }
-  if (uri_len <= base_url_len + 1)
-  {
-    LOG_ERR("Insufficient URI length\n");
-    return;
-  }
+    if (!uri_path)
+    {
+        LOG_ERR("No URI path\n");
+        return;
+    }
+    if (uri_len <= base_url_len + 1)
+    {
+        LOG_ERR("Insufficient URI length\n");
+        return;
+    }
 
-  const char* topic = uri_path + base_url_len + 1;
-  int topic_len = uri_len - base_url_len - 1;
+    const char* topic = uri_path + base_url_len + 1;
+    int topic_len = uri_len - base_url_len - 1;
 
-  LOG_DBG("Received publish %.*s\n", topic_len, topic);
+    const uint8_t* payload;
+    int payload_len = coap_get_payload(request, &payload);
 
-  // Forward the publish back up to the clients
-  mqtt_publish_handler(topic, topic + topic_len, buffer, preferred_size);
+    LOG_DBG("Received publish topic=%.*s, payload len=%d\n", topic_len, topic, payload_len);
+
+    // Forward the publish back up to the clients
+    mqtt_publish_handler(topic, topic + topic_len, payload, payload_len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 ping_parent(void)
 {
-  if (have_connectivity()) {
-    const uip_ipaddr_t* defrt = uip_ds6_defrt_choose();
-    LOG_DBG("Pinging parent ");
-    LOG_DBG_6ADDR(defrt);
-    LOG_DBG_("!\n");
-    uip_icmp6_send(defrt, ICMP6_ECHO_REQUEST, 0, ECHO_REQ_PAYLOAD_LEN);
-  } else {
-    LOG_WARN("ping_parent() is called while we don't have connectivity\n");
-  }
-  etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
+    if (have_connectivity()) {
+        const uip_ipaddr_t* defrt = uip_ds6_defrt_choose();
+        LOG_DBG("Pinging parent ");
+        LOG_DBG_6ADDR(defrt);
+        LOG_DBG_("!\n");
+        uip_icmp6_send(defrt, ICMP6_ECHO_REQUEST, 0, ECHO_REQ_PAYLOAD_LEN);
+    } else {
+        LOG_WARN("ping_parent() is called while we don't have connectivity\n");
+    }
+    etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 ping_mqtt_over_coap(void)
 {
-  // As per https://github.com/emqx/emqx-coap#coap-client-keep-alive
-  // To keep MQTT sessions online, a periodic GET needs to be sent.
-  //mqtt_over_coap_subscribe("ping", -1);
+    // As per https://github.com/emqx/emqx-coap#coap-client-keep-alive
+    // To keep MQTT sessions online, a periodic GET needs to be sent.
+    //mqtt_over_coap_subscribe("ping", -1);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 state_machine(void)
 {
-  if (have_connectivity())
-  {
-    if (!coap_endpoint_is_connected(&server_ep))
+    if (have_connectivity())
     {
-      LOG_DBG("Have connectivity, but coap endpoint not connected, connecting...\n");
-      coap_endpoint_connect(&server_ep);
-      etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+        if (!coap_endpoint_is_connected(&server_ep))
+        {
+            LOG_DBG("Have connectivity, but coap endpoint not connected, connecting...\n");
+            coap_endpoint_connect(&server_ep);
+            etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+        }
+        else
+        {
+            LOG_DBG("Have connectivity and coap endpoint connected, subscribing...\n");
+            subscribe();
+        }
     }
     else
     {
-      LOG_DBG("Have connectivity and coap endpoint connected, subscribing...\n");
-      subscribe();
+        LOG_DBG("No connectivity, so cannot attempt to connect to broker\n");
+        ping_parent();
     }
-  }
-  else
-  {
-    LOG_DBG("No connectivity, so cannot attempt to connect to broker\n");
-    ping_parent();
-  }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static bool
+init(void)
+{
+    int ret;
+
+    if (!construct_client_id())
+    {
+        /* Fatal error. Client ID larger than the buffer */
+        return false;
+    }
+
+    topic_init();
+
+    ret = coap_endpoint_parse(COAP_CLIENT_CONF_BROKER_IP_ADDR, strlen(COAP_CLIENT_CONF_BROKER_IP_ADDR), &server_ep);
+    if (!ret)
+    {
+        LOG_ERR("CoAP Endpoint failed to be set to %s\n", COAP_CLIENT_CONF_BROKER_IP_ADDR);
+        return false;
+    }
+    else
+    {
+        LOG_DBG("CoAP Endpoint set to %s\n", COAP_CLIENT_CONF_BROKER_IP_ADDR);
+    }
+
+    coap_callback_in_use = false;
+
+    uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);
+    etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
+    etimer_set(&ping_mqtt_over_coap_timer, DEFAULT_KEEP_ALIVE_TIMER);
+
+    coap_activate_resource(&res_coap_mqtt, "mqtt");
+
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(mqtt_client_process, ev, data)
 {
-  PROCESS_BEGIN();
+    PROCESS_BEGIN();
 
-  if (!init())
-  {
-    PROCESS_EXIT();
-  }
-
-  uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);
-  etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
-  etimer_set(&ping_mqtt_over_coap_timer, DEFAULT_KEEP_ALIVE_TIMER);
-
-  coap_activate_resource(&res_coap_mqtt, "mqtt");
-
-  /* Main loop */
-  while (1) {
-    PROCESS_YIELD();
-
-    if ((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) || ev == PROCESS_EVENT_POLL) {
-      state_machine();
+    if (!init())
+    {
+        PROCESS_EXIT();
     }
 
-    if (ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) {
-      ping_parent();
+    /* Main loop */
+    while (1) {
+        PROCESS_YIELD();
+
+        if ((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) || ev == PROCESS_EVENT_POLL) {
+            state_machine();
+        }
+
+        if (ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) {
+            ping_parent();
+        }
+
+        if (ev == PROCESS_EVENT_TIMER && data == &ping_mqtt_over_coap_timer) {
+            ping_mqtt_over_coap();
+        }
     }
 
-    if (ev == PROCESS_EVENT_TIMER && data == &ping_mqtt_over_coap_timer) {
-      ping_mqtt_over_coap();
-    }
-  }
-
-  PROCESS_END();
+    PROCESS_END();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

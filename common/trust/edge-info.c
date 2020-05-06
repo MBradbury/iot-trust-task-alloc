@@ -16,7 +16,8 @@ MEMB(edge_capabilities_memb, edge_capability_t, NUM_EDGE_RESOURCES * NUM_EDGE_CA
 /*-------------------------------------------------------------------------------------------------------------------*/
 LIST(edge_resources);
 /*-------------------------------------------------------------------------------------------------------------------*/
-static edge_capability_t* edge_capability_new(void)
+static edge_capability_t*
+edge_capability_new(void)
 {
     edge_capability_t* capability = memb_alloc(&edge_capabilities_memb);
     if (capability == NULL)
@@ -27,12 +28,14 @@ static edge_capability_t* edge_capability_new(void)
     return capability;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void edge_capability_free(edge_capability_t* capability)
+static void
+edge_capability_free(edge_capability_t* capability)
 {
     memb_free(&edge_capabilities_memb, capability);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static edge_resource_t* edge_resource_new(void)
+static edge_resource_t*
+edge_resource_new(void)
 {
     edge_resource_t* edge = memb_alloc(&edge_resources_memb);
     if (edge == NULL)
@@ -45,7 +48,8 @@ static edge_resource_t* edge_resource_new(void)
     return edge;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void edge_resource_free(edge_resource_t* edge)
+static void
+edge_resource_free(edge_resource_t* edge)
 {
     // Free capabilities
     edge_capability_t* capability;
@@ -57,14 +61,16 @@ static void edge_resource_free(edge_resource_t* edge)
     memb_free(&edge_resources_memb, edge);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void edge_info_init(void)
+void
+edge_info_init(void)
 {
     memb_init(&edge_resources_memb);
     memb_init(&edge_capabilities_memb);
     list_init(edge_resources);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_add(uip_ipaddr_t addr, const char* ident)
+edge_resource_t*
+edge_info_add(uip_ipaddr_t addr, const char* ident)
 {
     edge_resource_t* edge;
 
@@ -89,24 +95,28 @@ edge_resource_t* edge_info_add(uip_ipaddr_t addr, const char* ident)
     return edge;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void edge_info_remove(edge_resource_t* edge)
+void
+edge_info_remove(edge_resource_t* edge)
 {
     list_remove(edge_resources, edge);
 
     edge_resource_free(edge);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_iter(void)
+edge_resource_t*
+edge_info_iter(void)
 {
     return list_head(edge_resources);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_next(edge_resource_t* iter)
+edge_resource_t*
+edge_info_next(edge_resource_t* iter)
 {
     return list_item_next(iter);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_find_addr(uip_ipaddr_t addr)
+edge_resource_t*
+edge_info_find_addr(uip_ipaddr_t addr)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
     {
@@ -119,7 +129,8 @@ edge_resource_t* edge_info_find_addr(uip_ipaddr_t addr)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_find_ident(const char* ident)
+edge_resource_t*
+edge_info_find_ident(const char* ident)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
     {
@@ -132,7 +143,8 @@ edge_resource_t* edge_info_find_ident(const char* ident)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* name)
+edge_capability_t*
+edge_info_capability_add(edge_resource_t* edge, const char* name)
 {
     edge_capability_t* capability;
 
@@ -155,7 +167,8 @@ edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* n
     return capability;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_capability_t* edge_info_capability_find(edge_resource_t* edge, const char* name)
+edge_capability_t*
+edge_info_capability_find(edge_resource_t* edge, const char* name)
 {
     for (edge_capability_t* iter = list_head(edge->capabilities); iter != NULL; iter = list_item_next(iter))
     {

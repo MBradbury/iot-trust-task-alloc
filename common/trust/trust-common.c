@@ -177,18 +177,18 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
     {
         // TODO
-        LOG_ERR("Not implemented (%s)\n", topic);
+        LOG_ERR("Not implemented (%.*s)\n", topic_end - topic, topic);
     }
     else
     {
-        LOG_ERR("Unknown cap action (%s)\n", topic);
+        LOG_ERR("Unknown cap action (%.*s)\n", topic_end - topic, topic);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
 mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len)
 {
-    LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, topic_end - topic, chunk_len);
+    LOG_DBG("Pub Handler: topic='%.*s' (len=%u), chunk_len=%u\n", topic_end - topic, topic, topic_end - topic, chunk_len);
 
     int ret;
 
@@ -250,7 +250,7 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     }
     else
     {
-        LOG_ERR("Unknown topic '%s'\n", topic);
+        LOG_ERR("Unknown topic '%.*s'\n", topic_end - topic, topic);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
