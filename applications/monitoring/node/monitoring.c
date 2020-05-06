@@ -87,6 +87,8 @@ send_callback(coap_callback_request_state_t *callback_state)
     }
 
     coap_callback_in_use = false;
+
+    etimer_reset(&publish_periodic_timer);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -121,7 +123,6 @@ periodic_action(void)
         return;
     }
 
-    
     edge_info_get_server_endpoint(edge, &ep);
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
