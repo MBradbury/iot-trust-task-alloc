@@ -6,6 +6,7 @@ import signal
 from collections import defaultdict
 import urllib.parse
 import copy
+import pickle
 
 import asyncio_mqtt
 import paho.mqtt.client as mqtt
@@ -21,9 +22,10 @@ def mqtt_message_to_str(message):
 
 
 class SubscriptionManager:
-    def __init__(self):
+    def __init__(self, database):
         self._subscriptions = defaultdict(set)
         self._lock = asyncio.Lock()
+        self._database = database
 
     async def should_subscribe(self, topic, source):
         async with self._lock:
@@ -41,10 +43,18 @@ class SubscriptionManager:
         async with self._lock:
             self._subscriptions[topic].add(source)
 
+            # Persist to disk
+            with open(self._database, "wb") as db:
+                pickle.dump(self._subscriptions, db)
+
     async def unsubscribe(self, topic, source):
         async with self._lock:
             try:
                 self._subscriptions[topic].remove(source)
+
+                # Persist to disk
+                with open(self._database, "wb") as db:
+                    pickle.dump(self._subscriptions, db)
             except KeyError as ex:
                 logging.error(f"Failed to remove subscription to {topic} from {source} with {ex}")
 
@@ -59,6 +69,18 @@ class SubscriptionManager:
                 subs.update(subscriptions[subscription])
 
         return subs
+
+    def deserialise(self):
+        try:
+            # Load _subscriptions from database
+            with open(self._database, "rb") as db:
+                self._subscriptions = pickle.load(db)
+
+            logging.info(f"Loaded subscriptions from {self._database}")
+        except FileNotFoundError as ex:
+            logging.warning(f"Failed to load subscriptions from {self._database} because {ex}")
+
+        return list(self._subscriptions.keys())
 
 class NonMQTTOperation(error.RenderableError):
     code = codes.BAD_REQUEST
@@ -97,9 +119,14 @@ class COAPConnector(aiocoap.resource.Resource):
 
         logging.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
-        response = await self.context.request(message).response
+        try:
+            response = await self.context.request(message).response
 
-        logging.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
+            logging.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
+        except error.RequestTimedOut as ex:
+            logging.warning(f"Forwarding MQTT over CoAP to {target} timed out {ex}")
+
+            response = None
 
         return response
 
@@ -123,14 +150,24 @@ class MQTTConnector:
 
 
 class MQTTCOAPBridge:
-    def __init__(self, coap_target_port):
+    def __init__(self, database, coap_target_port):
         self.coap_connector = COAPConnector(self, coap_target_port)
         self.mqtt_connector = MQTTConnector(self)
-        self.manager = SubscriptionManager()
+        self.manager = SubscriptionManager(database)
 
     async def start(self):
-        await self.coap_connector.start()
         await self.mqtt_connector.start()
+
+        # Try and load saved subscriptions
+        topics = self.manager.deserialise()
+        for topic in topics:
+            result = await self.mqtt_connector.client.subscribe(topic)
+            if result[0] != mqtt.MQTT_ERR_SUCCESS:
+                logging.error(f"Failed to subscribe to {topic} due to {mqtt.error_string(result[0])}")
+            else:
+                logging.info(f"Subscribe to saved topic {topic}")
+
+        await self.coap_connector.start()
 
     async def stop(self):
         await self.coap_connector.stop()
@@ -213,6 +250,7 @@ class MQTTCOAPBridge:
         logging.info(f"MQTT pushed {mqtt_message_to_str(message)} forwarding to {subscribers}")
 
         # Push via CoAP to all subscribed clients
+        # TODO: need to handle error.RequestTimedOut from forward_mqtt
         await asyncio.gather(*[
             self.coap_connector.forward_mqtt(message.payload, message.topic, subscriber)
             for subscriber in subscribers
@@ -247,12 +285,18 @@ async def shutdown(signal, loop, bridge):
 
     loop.stop()
 
-def main(coap_target_port):
+def main(database, coap_target_port, flush=False):
     logging.info("Starting mqtt-coap bridge")
 
     loop = asyncio.get_event_loop()
 
-    bridge = MQTTCOAPBridge(coap_target_port)
+    if flush:
+        try:
+            os.remove(database)
+        except FileNotFoundError:
+            pass
+
+    bridge = MQTTCOAPBridge(database, coap_target_port)
 
     # May want to catch other signals too
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
@@ -271,8 +315,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='MQTT-CoAP Bridge')
-    parser.add_argument('-p', '--coap-target-port', type=int, help='The target port for CoAP messages to be POSTed to', default=5683)
+    parser.add_argument('-p', '--coap-target-port', type=int, default=5683, help='The target port for CoAP messages to be POSTed to')
+    parser.add_argument('-d', '--database', type=str, default="mqtt_coap_bridge.pickle", help='The location of serialised database')
+    parser.add_argument('-f', '--flush', action="store_true", default=False, help='Clear previous database')
 
     args = parser.parse_args()
 
-    main(args.coap_target_port)
+    main(database=args.database, coap_target_port=args.coap_target_port, flush=args.flush)
