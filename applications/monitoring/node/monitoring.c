@@ -71,7 +71,7 @@ send_callback(coap_callback_request_state_t *callback_state)
     if ((callback_state->state.status == COAP_REQUEST_STATUS_FINISHED ||
         callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE) && response != NULL)
     {
-        LOG_DBG("Message sent with code (%d) %.*s (len=%d)\n",
+        LOG_DBG("Message send complete with code (%d) '%.*s' (len=%d)\n",
             response->code, response->payload_len, response->payload, response->payload_len);
     }
     else
@@ -87,14 +87,14 @@ send_callback(coap_callback_request_state_t *callback_state)
     }
 
     coap_callback_in_use = false;
-
-    etimer_reset(&publish_periodic_timer);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 periodic_action(void)
 {
     int ret;
+
+    etimer_reset(&publish_periodic_timer);
 
     if (coap_callback_in_use)
     {
