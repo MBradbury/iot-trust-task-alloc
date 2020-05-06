@@ -13,6 +13,7 @@
 #include <string.h>
 #include <strings.h>
 #include <stdint.h>
+#include <assert.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "mqtt-conn"
 #ifdef MQTT_CLIENT_CONF_LOG_LEVEL
@@ -203,7 +204,7 @@ publish_callback(coap_callback_request_state_t *callback_state)
   {
     return;
   }
-  
+
   coap_callback_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -234,11 +235,19 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
                            mqtt_qos_level_t qos_level,
                            mqtt_retain_t retain);*/
 
-  snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
-  // TODO: error checking
+  ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
+  if (ret <= 0 || ret >= sizeof(uri_path))
+  {
+    LOG_ERR("snprintf uri_path failed %d\n", ret);
+    return -1;
+  }
 
-  snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
-  // TODO: error checking
+  ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+  if (ret <= 0 || ret >= sizeof(uri_query))
+  {
+    LOG_ERR("snprintf uri_query failed %d\n", ret);
+    return -1;
+  }
 
   
   coap_init_message(&msg, COAP_TYPE_CON, COAP_PUT, 0);
@@ -277,11 +286,7 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
 {
   LOG_DBG("Received subscribe callback\n");
 
-  if (!callback_state)
-  {
-    LOG_ERR("callback_state == NULL\n");
-    goto end;
-  }
+  assert(callback_state != NULL);
 
   if (!coap_callback_in_use)
   {
@@ -324,7 +329,6 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
     topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
   }
 
-end:
   coap_callback_in_use = false;
 
   // Poll the process to trigger subsequent subscribes
@@ -344,11 +348,19 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
 
   coap_callback_in_use = true;
   
-  snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
-  // TODO: error checking
+  ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
+  if (ret <= 0 || ret >= sizeof(uri_path))
+  {
+    LOG_ERR("snprintf uri_path failed %d\n", ret);
+    return -1;
+  }
 
-  snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
-  // TODO: error checking
+  ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+  if (ret <= 0 || ret >= sizeof(uri_query))
+  {
+    LOG_ERR("snprintf uri_query failed %d\n", ret);
+    return -1;
+  }
 
   LOG_DBG("Subscribing to [%u]='%s'! (%s)\n", msg_id, topic, uri_path);
 
@@ -386,9 +398,6 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
 static void
 subscribe(void)
 {
-  /* Publish MQTT topic */
-  // https://github.com/emqx/emqx-coap#subscribe-example
-
   int ret;
 
   for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
@@ -416,6 +425,9 @@ subscribe(void)
   }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+extern void
+mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len);
+
 static void
 res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
@@ -450,7 +462,8 @@ res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, ui
 
   LOG_DBG("Received publish %.*s\n", topic_len, topic);
 
-  // TODO: forward the publish back up to the clients
+  // Forward the publish back up to the clients
+  mqtt_publish_handler(topic, topic + topic_len, buffer, preferred_size);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
