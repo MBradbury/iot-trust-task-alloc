@@ -52,26 +52,17 @@ get_global_address(char* buf, size_t buf_len)
   return false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
-    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_ANNOUNCE,
-    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD,
-    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE,
-};
-/*-------------------------------------------------------------------------------------------------------------------*/
-void
-mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len)
-{
-    // Interested in "iot/edge/+/fmt/json" events
-    LOG_DBG("Pub Handler: topic='%s' (len=%u), chunk_len=%u\n", topic, (topic_end - topic), chunk_len);
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 bool
 publish_announce(void)
 {
     int ret;
 
-    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, MQTT_EDGE_ACTION_ANNOUNCE);
-    // TODO: Error checking
+    ret = snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN, MQTT_EDGE_ACTION_ANNOUNCE);
+    if (ret <= 0 || ret >= MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN)
+    {
+        LOG_ERR("snprintf pub_topic failed %d\n", ret);
+        return false;
+    }
 
     char ip_addr_buf[UIPLIB_IPV6_MAX_STR_LEN];
     ret = get_global_address(ip_addr_buf, sizeof(ip_addr_buf));
@@ -82,64 +73,76 @@ publish_announce(void)
     }
 
     char publish_buffer[MAX_PUBLISH_LEN];
-    int len = snprintf(publish_buffer, sizeof(publish_buffer),
+    ret = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
             "\"addr\":\"%s\""
         "}",
         ip_addr_buf
     );
-    if (len <= 0 || len >= sizeof(publish_buffer))
+    if (ret <= 0 || ret >= sizeof(publish_buffer))
     {
         return false;
     }
 
     LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, publish_buffer);
 
-    return mqtt_over_coap_publish(pub_topic, publish_buffer, len);
+    return mqtt_over_coap_publish(pub_topic, publish_buffer, ret+1);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
 publish_add_capability(const char* name)
 {
-    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
-             MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_ADD, name);
-    // TODO: Error checking
+    int ret;
+
+    ret = snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
+                   MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_ADD, name);
+    if (ret <= 0 || ret >= MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN)
+    {
+        LOG_ERR("snprintf pub_topic failed %d\n", ret);
+        return false;
+    }
 
     char publish_buffer[MAX_PUBLISH_LEN];
-    int len = snprintf(publish_buffer, sizeof(publish_buffer),
+    ret = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
         "}"
     );
-    if (len <= 0 || len >= sizeof(publish_buffer))
+    if (ret <= 0 || ret >= sizeof(publish_buffer))
     {
         return false;
     }
 
     LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, publish_buffer);
 
-    return mqtt_over_coap_publish(pub_topic, publish_buffer, len);
+    return mqtt_over_coap_publish(pub_topic, publish_buffer, ret+1);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
 publish_remove_capability(const char* name)
 {
-    snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
-        MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE, name);
-    // TODO: Error checking
+    int ret;
+
+    ret = snprintf(pub_topic + BASE_PUBLISH_TOPIC_LEN, MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN,
+                   MQTT_EDGE_ACTION_CAPABILITY "/%s/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE, name);
+    if (ret <= 0 || ret >= MAX_PUBLISH_TOPIC_LEN - BASE_PUBLISH_TOPIC_LEN)
+    {
+        LOG_ERR("snprintf pub_topic failed %d\n", ret);
+        return false;
+    }
 
     char publish_buffer[MAX_PUBLISH_LEN];
-    int len = snprintf(publish_buffer, sizeof(publish_buffer),
+    ret = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
         "}"
     );
-    if (len <= 0 || len >= sizeof(publish_buffer))
+    if (ret <= 0 || ret >= sizeof(publish_buffer))
     {
         return false;
     }
 
     LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, publish_buffer);
 
-    return mqtt_over_coap_publish(pub_topic, publish_buffer, len+1);
+    return mqtt_over_coap_publish(pub_topic, publish_buffer, ret+1);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -169,7 +172,7 @@ periodic_publish_capability(void)
     publish_add_capability(MONITORING_APPLICATION_NAME);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static bool
 init(void)
 {
     int len = snprintf(pub_topic, BASE_PUBLISH_TOPIC_LEN+1, MQTT_EDGE_NAMESPACE "/%02x%02x%02x%02x%02x%02x/",
@@ -179,9 +182,14 @@ init(void)
     if (len != BASE_PUBLISH_TOPIC_LEN)
     {
         LOG_ERR("Failed to create pub_topic (%d != %u)\n", len, BASE_PUBLISH_TOPIC_LEN);
+        return false;
     }
 
     LOG_DBG("Base MQTT topic is set to %s\n", pub_topic);
+
+    trust_common_init();
+
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
@@ -190,7 +198,11 @@ PROCESS_THREAD(trust_model, ev, data)
 {
     PROCESS_BEGIN();
 
-    init();
+    bool ret = init();
+    if (!ret)
+    {
+        PROCESS_EXIT();
+    }
 
     /* Setup a periodic timer that expires after PERIOD seconds. */
     etimer_set(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD);

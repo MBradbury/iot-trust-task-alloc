@@ -11,6 +11,7 @@ CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 
 # Include Contiki-NG system modules
 #MODULES += os/services/shell
+MODULES += os/lib/json
 
 # Include application modules
 MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust}
