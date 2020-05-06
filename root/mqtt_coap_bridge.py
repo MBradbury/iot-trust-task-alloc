@@ -15,27 +15,6 @@ import aiocoap.error as error
 import aiocoap.numbers.codes as codes
 import aiocoap.resource
 
-# Need to patch _cb_and_generator to get msg contents instead of just payload
-# See: https://github.com/sbtinstruments/asyncio-mqtt/issues/2
-Client = asyncio_mqtt.Client
-def _cb_and_generator(self, *, log_context, queue_maxsize=0):
-        # Queue to hold the incoming messages
-        messages = asyncio.Queue(maxsize=queue_maxsize)
-        # Callback for the underlying API
-        def _put_in_queue(client, userdata, msg):
-            try:
-                messages.put_nowait(msg)
-            except asyncio.QueueFull:
-                asyncio_mqtt.MQTT_LOGGER.warning(f'[{log_context}] Message queue is full. Discarding message.')
-        # The generator that we give to the caller
-        async def _message_generator():
-            # Forward all messages from the queue
-            while True:
-                yield await messages.get()
-        return _put_in_queue, _message_generator()
-Client._cb_and_generator = _cb_and_generator
-
-
 def mqtt_message_to_str(message):
     """__str__ impelementation for https://github.com/eclipse/paho.mqtt.python/blob/master/src/paho/mqtt/client.py#L355"""
     return ", ".join(f"{slot}={getattr(message, slot, None)}" for slot in type(message).__slots__)
