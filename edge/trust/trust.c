@@ -29,7 +29,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLISH_ANNOUNCE_PERIOD    (CLOCK_SECOND * 120)
+#define PUBLISH_ANNOUNCE_PERIOD    (CLOCK_SECOND * 5 * 60)
 #define PUBLISH_CAPABILITY_PERIOD  (CLOCK_SECOND * 5)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_announce_timer;
