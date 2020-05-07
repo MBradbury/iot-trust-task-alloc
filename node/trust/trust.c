@@ -5,7 +5,9 @@
 #include "os/sys/log.h"
 #include "os/lib/json/jsonparse.h"
 #include "os/net/ipv6/uiplib.h"
-#include "os/net/ipv6/uip-udp-packet.h"
+
+#include "coap.h"
+#include "coap-callback-api.h"
 
 #ifdef WITH_DTLS
 #include "tinydtls.h"
@@ -26,12 +28,8 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define TRUST_PROTO_PORT 1000
-/*-------------------------------------------------------------------------------------------------------------------*/
 #define TRUST_POLL_PERIOD (5 * 60 * CLOCK_SECOND)
 static struct etimer periodic_timer;
-/*-------------------------------------------------------------------------------------------------------------------*/
-static struct uip_udp_conn* bcast_conn;
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* choose_edge(const char* capability_name)
 {
@@ -49,63 +47,77 @@ edge_resource_t* choose_edge(const char* capability_name)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-udp_rx_callback(const uip_ipaddr_t *sender_addr, uint16_t sender_port,
-                const uip_ipaddr_t *receiver_addr, uint16_t receiver_port,
-                const uint8_t *data, uint16_t datalen)
-{
-    // TODO: process receive from neighbour
-    LOG_DBG("Received trust info from [");
-    LOG_DBG_6ADDR(sender_addr);
-    LOG_DBG_("]:%u to [", sender_port);
-    LOG_DBG_6ADDR(receiver_addr);
-    LOG_DBG_("]:%u. Data=%s of length %u\n", receiver_port, (const char*)data, datalen);
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
+res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
+
 static void
-handle_tcpip_event(void)
+res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
+
+RESOURCE(res_trust,
+         "title=\"Trust information\";rt=\"trust\"",
+         res_trust_get_handler,  /*GET*/  // Handle requests for our trust information
+         res_trust_post_handler, /*POST*/ // Handle periodic broadcasts of neighbour's information
+         NULL,                   /*PUT*/
+         NULL                    /*DELETE*/);
+
+static void
+res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
-    //static uint8_t databuffer[UIP_APPDATA_SIZE];
+    // Received a request for our trust information, need to respond to the requester
 
-    // If we were called because of incoming data, we should call the reception callback.
-    if (!uip_newdata())
-    {
-        return;
-    }
+    // TODO: correct this implementation (setting payload works)
+    coap_set_payload(response, "trust-information-GET-response", strlen("trust-information-GET-response"));
+}
 
-    // TODO:
-    // Copy the data from the uIP data buffer into our own buffer
-    // to avoid the uIP buffer being messed with by the callee.
-    //memcpy(databuffer, uip_appdata, uip_datalen());
-    const uint8_t* databuffer = uip_appdata;
+static void
+res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+{
+    // Received trust information from another node, need to update our reputation database
 
-    // Call the client process. We use the PROCESS_CONTEXT mechanism
-    // to temporarily switch process context to the client process.
-    udp_rx_callback(&(UIP_IP_BUF->srcipaddr),
-                    UIP_HTONS(UIP_UDP_BUF->srcport),
-                    &(UIP_IP_BUF->destipaddr),
-                    UIP_HTONS(UIP_UDP_BUF->destport),
-                    databuffer, uip_datalen());
+    const uint8_t* payload;
+    int payload_len = coap_get_payload(request, &payload);
+
+    LOG_DBG("Received trust info from ");
+    coap_endpoint_log(request->src_ep);
+    LOG_DBG_(" Data=%.*s of length %u\n", payload_len, (const char*)payload, payload_len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 periodic_action(void)
 {
-    // TODO: Poll neighbours for trust information
-    static const char* data = "trust-info-hello";
-
-    // Set multicast address
-    uip_create_linklocal_allnodes_mcast(&bcast_conn->ripaddr);
-
-    // TODO: digital signature
-
-    uip_udp_packet_send(bcast_conn, data, strlen(data) + 1);
-
-    // Restore to 'accept incoming from any IP'
-    uip_create_unspecified(&bcast_conn->ripaddr);
-
-    LOG_DBG("Sent trust info\n");
+    int ret;
 
     etimer_reset(&periodic_timer);
+
+    coap_endpoint_t ep;
+    uip_create_linklocal_allnodes_mcast(&ep.ipaddr);
+    ep.secure = 0;
+    ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
+
+    // This is a non-confirmable message
+    coap_message_t msg;
+    coap_init_message(&msg, COAP_TYPE_NON, COAP_POST, 0);
+
+    ret = coap_set_header_uri_path(&msg, TRUST_COAP_URI);
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+        return;
+    }
+
+    //char coap_payload[MAX_COAP_PAYLOAD];
+    coap_set_payload(&msg, "trust-information-POST", strlen("trust-information-POST"));
+
+    // No callback is set, as no confirmation of the message being received will be sent to us
+    coap_callback_request_state_t coap_callback;
+    ret = coap_send_request(&coap_callback, &ep, &msg, NULL);
+    if (ret)
+    {
+        LOG_DBG("coap_send_request trust done\n");
+    }
+    else
+    {
+        LOG_ERR("coap_send_request trust failed %d\n", ret);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
@@ -114,20 +126,9 @@ init(void)
     trust_common_init();
     edge_info_init();
 
-    etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
+    coap_activate_resource(&res_trust, TRUST_COAP_URI);
 
-    // Open UDP connection on port TRUST_PROTO_PORT that accepts all incoming packets
-    bcast_conn = udp_new(NULL, UIP_HTONS(TRUST_PROTO_PORT), NULL);
-    if (bcast_conn == NULL)
-    {
-        LOG_ERR("Failed to allocated UDP broadcast connection\n");
-        return false;
-    }
-    else
-    {
-        udp_bind(bcast_conn, UIP_HTONS(TRUST_PROTO_PORT));
-        LOG_DBG("Listening (local:%u, remote:%u)!\n", UIP_HTONS(bcast_conn->lport), UIP_HTONS(bcast_conn->rport));
-    }
+    etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
 
 #ifdef WITH_DTLS
     dtls_init();
@@ -154,10 +155,6 @@ PROCESS_THREAD(trust_model, ev, data)
 
         if (ev == PROCESS_EVENT_TIMER && data == &periodic_timer) {
             periodic_action();
-        }
-
-        if (ev == tcpip_event) {
-            handle_tcpip_event();
         }
     }
 
