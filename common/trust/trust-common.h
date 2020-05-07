@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include <stddef.h>
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define MQTT_EDGE_NAMESPACE "iot/edge"
 #define MQTT_EDGE_NAMESPACE_LEN 8
@@ -13,6 +16,8 @@
 #define MQTT_EDGE_ACTION_CAPABILITY_ADD "add"
 #define MQTT_EDGE_ACTION_CAPABILITY_REMOVE "remove"
 /*-------------------------------------------------------------------------------------------------------------------*/
-void
-trust_common_init(void);
+void trust_common_init(void);
+/*-------------------------------------------------------------------------------------------------------------------*/
+int serialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len);
+int deserialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len);
 /*-------------------------------------------------------------------------------------------------------------------*/

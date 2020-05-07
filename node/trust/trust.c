@@ -31,6 +31,8 @@
 #define TRUST_POLL_PERIOD (5 * 60 * CLOCK_SECOND)
 static struct etimer periodic_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
+static uint8_t coap_payload_get_buf[MAX_TRUST_PAYLOAD];
+/*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* choose_edge(const char* capability_name)
 {
     // For now FCFS
@@ -64,8 +66,18 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
 {
     // Received a request for our trust information, need to respond to the requester
 
+    // TODO: might ask for information on specific edge resource, so could only send that information
+
+    int payload_len = serialise_trust(NULL, coap_payload_get_buf, sizeof(coap_payload_get_buf));
+    if (payload_len <= 0 || payload_len > sizeof(coap_payload_get_buf))
+    {
+        LOG_DBG("serialise_trust failed %d\n", payload_len);
+        //TODO: Set error code
+        return;
+    }
+
     // TODO: correct this implementation (setting payload works)
-    coap_set_payload(response, "trust-information-GET-response", strlen("trust-information-GET-response"));
+    coap_set_payload(response, coap_payload_get_buf, payload_len);
 }
 
 static void
@@ -104,8 +116,15 @@ periodic_action(void)
         return;
     }
 
-    //char coap_payload[MAX_COAP_PAYLOAD];
-    coap_set_payload(&msg, "trust-information-POST", strlen("trust-information-POST"));
+    uint8_t coap_payload_buf[MAX_TRUST_PAYLOAD];
+    int payload_len = serialise_trust(NULL, coap_payload_buf, sizeof(coap_payload_buf));
+    if (payload_len <= 0 || payload_len > sizeof(coap_payload_buf))
+    {
+        LOG_DBG("serialise_trust failed %d\n", payload_len);
+        return;
+    }
+
+    coap_set_payload(&msg, coap_payload_buf, payload_len);
 
     // No callback is set, as no confirmation of the message being received will be sent to us
     coap_callback_request_state_t coap_callback;

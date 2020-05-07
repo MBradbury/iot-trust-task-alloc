@@ -254,6 +254,16 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int serialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len)
+{
+	return snprintf((char*)buffer, buffer_len, "trust-information");
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int deserialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len)
+{
+	return 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void
 trust_common_init(void)
 {
