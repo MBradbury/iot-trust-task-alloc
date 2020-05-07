@@ -33,15 +33,18 @@ static char msg_buf[TMP_BUF_SZ];
 static int
 generate_sensor_data(char* buf, size_t buf_len)
 {
+    uint32_t time_secs = clock_seconds();
+
     int temp_value = cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
     int vdd3_value = vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
 
     int would_have_written = snprintf(buf, buf_len,
         "{"
+            "\"time\":%" PRIu32 ","
             "\"temp\":%d,"
             "\"vdd3\":%d"
         "}",
-        temp_value, vdd3_value
+        time_secs, temp_value, vdd3_value
     );
 
     return would_have_written;
