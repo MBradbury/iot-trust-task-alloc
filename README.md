@@ -61,7 +61,9 @@ Flash and run the terminal
 ./flash.py "/dev/ttyUSB0" node.bin zolertia contiki &&  ./tools/pyterm -b 115200 -p /dev/ttyUSB0
 ```
 
-## On Observer for Border Router
+## On Root Observer
+
+### Border Router
 
 Set up tun0 interface
 
@@ -70,7 +72,7 @@ cd ~/contiki-ng/tools/serial-io
 sudo ./tunslip6 -s /dev/ttyUSB0 fd00::1/64
 ```
 
-## On Edge MQTT
+### MQTT
 
 ```bash
 sudo apt-get install mosquitto mosquitto-clients
@@ -81,41 +83,18 @@ Once `tunslip` is running, mosquitto needs to be restarted:
 sudo service mosquitto restart
 ```
 
-## On Edge MQTT-CoAP Bridge
+### MQTT-CoAP Bridge
 
 ```bash
 sudo apt-get install libcoap2-bin
-python -m pip install asyncio-mqtt aiocoap
+python3 -m pip install asyncio-mqtt aiocoap
 ```
-
-## On Edge MQTT-CoAP Bridge (NO)
-
-See (https://docs.emqx.io/broker/latest/en/getting-started/installation.html#packages)
-
-```bash
-sudo apt-get install -y erlang libcoap2-bin
-
-mkdir mqtt-coap
-git clone https://github.com/erlang/rebar3.git
-cd rebar3
-./bootstrap
-./rebar3 local install
-cd ..
-```
-
-Add `export PATH=/home/pi/.cache/rebar3/bin:$PATH` to `~/.bashrc` before the interactivity check.
-
-```bash
-source ~/.bashrc
-
-git clone https://github.com/emqx/emqx-rel.git -b release-4.0
-cd emqx-rel
-make emqx-pkg
-./_build/emqx/rel/emqx/bin/emqx start
-./_build/emqx/rel/emqx/bin/emqx_ctl plugins load emqx_coap
-```
-
 
 # Related Resources
 
  - https://link.springer.com/content/pdf/10.1007%2F978-981-13-2324-9_28.pdf
+ - https://tools.ietf.org/id/draft-ietf-core-object-security-04.html#rfc.appendix.C.3 
+    - https://tools.ietf.org/id/draft-ietf-core-object-security-16.html
+    - https://github.com/contiki-ng/contiki-ng/issues/285
+    - https://github.com/core-wg/oscore
+    - https://github.com/Gunzter/contiki-ng
