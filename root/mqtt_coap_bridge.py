@@ -17,6 +17,10 @@ import aiocoap.error as error
 import aiocoap.numbers.codes as codes
 import aiocoap.resource
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("mqtt-coap-bridge")
+logger.setLevel(logging.DEBUG)
+
 def mqtt_message_to_str(message):
     """__str__ impelementation for https://github.com/eclipse/paho.mqtt.python/blob/master/src/paho/mqtt/client.py#L355"""
     return ", ".join(f"{slot}={getattr(message, slot, None)}" for slot in type(message).__slots__)
@@ -57,7 +61,7 @@ class SubscriptionManager:
                 with open(self._database, "wb") as db:
                     pickle.dump(self._subscriptions, db)
             except KeyError as ex:
-                logging.error(f"Failed to remove subscription to {topic} from {source} with {ex}")
+                logger.error(f"Failed to remove subscription to {topic} from {source} with {ex}")
 
     async def subscribers(self, topic):
         async with self._lock:
@@ -77,9 +81,9 @@ class SubscriptionManager:
             with open(self._database, "rb") as db:
                 self._subscriptions = pickle.load(db)
 
-            logging.info(f"Loaded subscriptions from {self._database}")
+            logger.info(f"Loaded subscriptions from {self._database}")
         except FileNotFoundError as ex:
-            logging.warning(f"Failed to load subscriptions from {self._database} because {ex}")
+            logger.warning(f"Failed to load subscriptions from {self._database} because {ex}")
 
         return list(self._subscriptions.keys())
 
@@ -118,14 +122,14 @@ class COAPConnector(aiocoap.resource.Resource):
         """Forward an MQTT message to a coap target"""
         message = aiocoap.Message(code=codes.POST, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt/{topic}")
 
-        logging.info(f"Forwarding MQTT over CoAP {message} to {target}")
+        logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
         try:
             response = await self.context.request(message).response
 
-            logging.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
+            logger.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
         except error.RequestTimedOut as ex:
-            logging.warning(f"Forwarding MQTT over CoAP to {target} timed out {ex}")
+            logger.warning(f"Forwarding MQTT over CoAP to {target} timed out {ex}")
 
             response = None
 
@@ -164,9 +168,9 @@ class MQTTCOAPBridge:
         for topic in topics:
             result = await self.mqtt_connector.client.subscribe(topic)
             if result[0] != mqtt.MQTT_ERR_SUCCESS:
-                logging.error(f"Failed to subscribe to {topic} due to {mqtt.error_string(result[0])}")
+                logger.error(f"Failed to subscribe to {topic} due to {mqtt.error_string(result[0])}")
             else:
-                logging.info(f"Subscribe to saved topic {topic}")
+                logger.info(f"Subscribe to saved topic {topic}")
 
         await self.coap_connector.start()
 
@@ -195,10 +199,10 @@ class MQTTCOAPBridge:
 
         # Update local table of clients who are subscribed
         if result.code == codes.CREATED:
-            logging.info(f"Subscribed {host} to {topic}")
+            logger.info(f"Subscribed {host} to {topic}")
             await self.manager.subscribe(topic, host)
         else:
-            logging.error(f"Failed to subscribe {host} to {topic} ({result})")
+            logger.error(f"Failed to subscribe {host} to {topic} ({result})")
 
         return result
 
@@ -223,10 +227,10 @@ class MQTTCOAPBridge:
 
         # Update local table of clients who are subscribed
         if result.code == codes.DELETED:
-            logging.info(f"Unsubscribed {host} from {topic}")
+            logger.info(f"Unsubscribed {host} from {topic}")
             await self.manager.unsubscribe(topic, host)
         else:
-            logging.error(f"Failed to subscribe {host} to {topic} ({result})")
+            logger.error(f"Failed to subscribe {host} to {topic} ({result})")
 
         return result
 
@@ -237,7 +241,7 @@ class MQTTCOAPBridge:
         try:
             await self.mqtt_connector.client.publish(topic, request.payload, qos=1)
 
-            logging.info(f"Published {request.payload} to {topic} from {host}")
+            logger.info(f"Published {request.payload} to {topic} from {host}")
 
             result = aiocoap.Message(payload=b"", code=codes.CONTENT)
         except Exception as ex:
@@ -248,7 +252,7 @@ class MQTTCOAPBridge:
     async def mqtt_to_coap_publish(self, message):
         subscribers = await self.manager.subscribers(message.topic)
 
-        logging.info(f"MQTT pushed {mqtt_message_to_str(message)} forwarding to {subscribers}")
+        logger.info(f"MQTT pushed {mqtt_message_to_str(message)} forwarding to {subscribers}")
 
         # Push via CoAP to all subscribed clients
         # TODO: need to handle error.RequestTimedOut from forward_mqtt
@@ -267,12 +271,10 @@ class MQTTCOAPBridge:
         return request.remote.sockaddr[0]
 
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("mqtt-coap-bridge").setLevel(logging.DEBUG)
 
 async def shutdown(signal, loop, bridge):
     """Cleanup tasks tied to the service's shutdown."""
-    logging.info(f"Received exit signal {signal.name}...")
+    logger.info(f"Received exit signal {signal.name}...")
 
     await bridge.stop()
 
@@ -280,14 +282,14 @@ async def shutdown(signal, loop, bridge):
     for task in tasks:
         task.cancel()
 
-    logging.info(f"Cancelling {len(tasks)} outstanding tasks...")
+    logger.info(f"Cancelling {len(tasks)} outstanding tasks...")
     await asyncio.gather(*tasks, return_exceptions=True)
-    logging.info(f"Finished cancelling tasks!")
+    logger.info(f"Finished cancelling tasks!")
 
     loop.stop()
 
 def main(database, coap_target_port, flush=False):
-    logging.info("Starting mqtt-coap bridge")
+    logger.info("Starting mqtt-coap bridge")
 
     loop = asyncio.get_event_loop()
 
@@ -309,7 +311,7 @@ def main(database, coap_target_port, flush=False):
         loop.run_forever()
     finally:
         loop.close()
-        logging.info("Successfully shutdown the mqtt-coap bridge.")
+        logger.info("Successfully shutdown the mqtt-coap bridge.")
 
 if __name__ == "__main__":
     import sys
