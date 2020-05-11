@@ -7,6 +7,7 @@ from collections import defaultdict
 import urllib.parse
 import copy
 import pickle
+import os
 
 import asyncio_mqtt
 import paho.mqtt.client as mqtt
