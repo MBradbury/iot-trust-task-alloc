@@ -25,11 +25,10 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define BASE_PUBLISH_TOPIC_LEN     (10 + MQTT_IDENTITY_LEN)
 #define MAX_PUBLISH_TOPIC_LEN      (64)
-#define MAX_PUBLISH_LEN            (128)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLISH_ANNOUNCE_PERIOD    (CLOCK_SECOND * 5 * 60)
+#define PUBLISH_ANNOUNCE_PERIOD    (CLOCK_SECOND * 2 * 60)
 #define PUBLISH_CAPABILITY_PERIOD  (CLOCK_SECOND * 5)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_announce_timer;
@@ -72,7 +71,7 @@ publish_announce(void)
         return false;
     }
 
-    char publish_buffer[MAX_PUBLISH_LEN];
+    char publish_buffer[2 + 9 + UIPLIB_IPV6_MAX_STR_LEN + 1];
     ret = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
             "\"addr\":\"%s\""
@@ -102,7 +101,7 @@ publish_add_capability(const char* name)
         return false;
     }
 
-    char publish_buffer[MAX_PUBLISH_LEN];
+    char publish_buffer[2 + 1];
     ret = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
         "}"
@@ -130,7 +129,7 @@ publish_remove_capability(const char* name)
         return false;
     }
 
-    char publish_buffer[MAX_PUBLISH_LEN];
+    char publish_buffer[2 + 1];
     ret = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
         "}"
@@ -156,7 +155,7 @@ periodic_publish_announce(void)
     }
     else
     {
-        LOG_DBG("Announce sent!\n");
+        LOG_DBG("Announce sent! Starting capability publish timer...\n");
         etimer_set(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD);
     }
 

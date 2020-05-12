@@ -28,10 +28,8 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define TRUST_POLL_PERIOD (5 * 60 * CLOCK_SECOND)
+#define TRUST_POLL_PERIOD (2 * 60 * CLOCK_SECOND)
 static struct etimer periodic_timer;
-/*-------------------------------------------------------------------------------------------------------------------*/
-static uint8_t coap_payload_get_buf[MAX_TRUST_PAYLOAD];
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* choose_edge(const char* capability_name)
 {
@@ -64,26 +62,34 @@ RESOURCE(res_trust,
 static void
 res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
+    LOG_DBG("Generating trust info packet in response to a GET\n");
+
     // Received a request for our trust information, need to respond to the requester
 
     // TODO: might ask for information on specific edge resource, so could only send that information
 
-    int payload_len = serialise_trust(NULL, coap_payload_get_buf, sizeof(coap_payload_get_buf));
-    if (payload_len <= 0 || payload_len > sizeof(coap_payload_get_buf))
+    static uint8_t coap_payload_buf[MAX_TRUST_PAYLOAD];
+
+    int payload_len = serialise_trust(NULL, coap_payload_buf, sizeof(coap_payload_buf));
+    if (payload_len <= 0 || payload_len > sizeof(coap_payload_buf))
     {
         LOG_DBG("serialise_trust failed %d\n", payload_len);
         //TODO: Set error code
         return;
     }
 
+    // TODO: how to sign here?
+    // Don't attempt to sign here
+
     // TODO: correct this implementation (setting payload works)
-    coap_set_payload(response, coap_payload_get_buf, payload_len);
+    coap_set_payload(response, coap_payload_buf, payload_len);
 }
 
 static void
 res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
     // Received trust information from another node, need to update our reputation database
+    LOG_DBG("Received trust info packet via POST\n");
 
     const uint8_t* payload;
     int payload_len = coap_get_payload(request, &payload);
@@ -93,50 +99,76 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
     LOG_DBG_(" Data=%.*s of length %u\n", payload_len, (const char*)payload, payload_len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
-periodic_action(void)
+PROCESS(trust_model, "Trust Model process");
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct
 {
+    struct pt pt;
     int ret;
+
+    coap_endpoint_t ep;
+    coap_message_t msg;
+    uint8_t coap_payload_buf[MAX_TRUST_PAYLOAD];
+
+    int payload_len;
+
+    sign_trust_state_t sign_state;
+
+    coap_callback_request_state_t coap_callback;
+
+} periodic_action_state_t;
+
+PT_THREAD(periodic_action(periodic_action_state_t* state))
+{
+    PT_BEGIN(&state->pt);
 
     etimer_reset(&periodic_timer);
 
-    coap_endpoint_t ep;
-    uip_create_linklocal_allnodes_mcast(&ep.ipaddr);
-    ep.secure = 0;
-    ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
+    LOG_DBG("Generating a periodic trust info packet\n");
+
+    uip_create_linklocal_allnodes_mcast(&state->ep.ipaddr);
+    state->ep.secure = 0;
+    state->ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
 
     // This is a non-confirmable message
-    coap_message_t msg;
-    coap_init_message(&msg, COAP_TYPE_NON, COAP_POST, 0);
+    coap_init_message(&state->msg, COAP_TYPE_NON, COAP_POST, 0);
 
-    ret = coap_set_header_uri_path(&msg, TRUST_COAP_URI);
-    if (ret <= 0)
+    state->ret = coap_set_header_uri_path(&state->msg, TRUST_COAP_URI);
+    if (state->ret <= 0)
     {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-        return;
+        LOG_DBG("coap_set_header_uri_path failed %d\n", state->ret);
+        PT_EXIT(&state->pt);
     }
 
-    uint8_t coap_payload_buf[MAX_TRUST_PAYLOAD];
-    int payload_len = serialise_trust(NULL, coap_payload_buf, sizeof(coap_payload_buf));
-    if (payload_len <= 0 || payload_len > sizeof(coap_payload_buf))
+    state->payload_len = serialise_trust(NULL, state->coap_payload_buf, sizeof(state->coap_payload_buf));
+    if (state->payload_len <= 0 || state->payload_len > sizeof(state->coap_payload_buf))
     {
-        LOG_DBG("serialise_trust failed %d\n", payload_len);
-        return;
+        LOG_DBG("serialise_trust failed %d\n", state->payload_len);
+        PT_EXIT(&state->pt);
     }
 
-    coap_set_payload(&msg, coap_payload_buf, payload_len);
+    LOG_DBG("Spawning PT to sign message...\n");
+
+    state->sign_state.process = &trust_model;
+    PT_SPAWN(&state->pt, &state->sign_state.pt,
+        sign_trust(&state->sign_state, state->coap_payload_buf, sizeof(state->coap_payload_buf), state->payload_len));
+
+    state->payload_len += state->sign_state.sig_len;
+
+    coap_set_payload(&state->msg, state->coap_payload_buf, state->payload_len);
 
     // No callback is set, as no confirmation of the message being received will be sent to us
-    coap_callback_request_state_t coap_callback;
-    ret = coap_send_request(&coap_callback, &ep, &msg, NULL);
-    if (ret)
+    state->ret = coap_send_request(&state->coap_callback, &state->ep, &state->msg, NULL);
+    if (state->ret)
     {
         LOG_DBG("coap_send_request trust done\n");
     }
     else
     {
-        LOG_ERR("coap_send_request trust failed %d\n", ret);
+        LOG_ERR("coap_send_request trust failed %d\n", state->ret);
     }
+
+    PT_END(&state->pt);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
@@ -149,14 +181,11 @@ init(void)
 
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
 
-#ifdef WITH_DTLS
-    dtls_init();
-#endif
+    pka_init();
+    pka_disable();
 
     return true;
 }
-/*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(trust_model, "Trust Model process");
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(trust_model, ev, data)
 {
@@ -173,7 +202,8 @@ PROCESS_THREAD(trust_model, ev, data)
         PROCESS_YIELD();
 
         if (ev == PROCESS_EVENT_TIMER && data == &periodic_timer) {
-            periodic_action();
+            static periodic_action_state_t state;
+            PT_SPAWN(&trust_model.pt, &state.pt, periodic_action(&state));
         }
     }
 

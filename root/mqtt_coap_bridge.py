@@ -100,6 +100,16 @@ class COAPConnector(aiocoap.resource.Resource):
     async def start(self):
         self.context = await aiocoap.Context.create_server_context(self)
 
+        # See: https://github.com/chrysn/aiocoap/blob/master/aiocoap/transports/tinydtls.py#L29
+        """self.context.client_credentials.load_from_dict({
+            'coaps://localhost/*': {
+                'dtls': {
+                    'psk': b'secretPSK',
+                    'client-identity': b'client_Identity',
+                }
+            }
+        })"""
+
     async def stop(self):
         await self.context.shutdown()
 

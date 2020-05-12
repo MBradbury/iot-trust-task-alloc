@@ -98,3 +98,5 @@ python3 -m pip install asyncio-mqtt aiocoap
     - https://github.com/contiki-ng/contiki-ng/issues/285
     - https://github.com/core-wg/oscore
     - https://github.com/Gunzter/contiki-ng
+
+ - https://github.com/contiki-ng/contiki-ng/issues/863

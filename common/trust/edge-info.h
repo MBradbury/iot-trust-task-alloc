@@ -8,6 +8,8 @@
 
 #include "trust-common.h"
 
+#include "coap-endpoint.h"
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_capability
 {

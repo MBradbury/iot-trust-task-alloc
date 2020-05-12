@@ -4,18 +4,15 @@
 #include "contiki.h"
 #include "os/sys/log.h"
 #include "os/lib/json/jsonparse.h"
+#include "os/net/ipv6/uip-ds6.h"
 #include "os/net/ipv6/uiplib.h"
-
-#ifdef WITH_DTLS
-#include "tinydtls.h"
-#include "dtls.h"
-#endif
 
 #include <stdio.h>
 #include <ctype.h>
 
 #include "applications.h"
 #include "trust-common.h"
+#include "crypto-support.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-common"
@@ -33,6 +30,23 @@ const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
 /*-------------------------------------------------------------------------------------------------------------------*/
 process_event_t pe_edge_capability_add;
 process_event_t pe_edge_capability_remove;
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool is_our_addr(const uip_ip6addr_t* addr)
+{
+    for (int i = 0; i < UIP_DS6_ADDR_NB; i++)
+    {
+        uint8_t state = uip_ds6_if.addr_list[i].state;
+
+        if (uip_ds6_if.addr_list[i].isused &&
+            (state == ADDR_TENTATIVE || state == ADDR_PREFERRED) &&
+            uip_ip6addr_cmp(addr, &uip_ds6_if.addr_list[i].ipaddr)
+            )
+        {
+            return true;
+        }
+    }
+    return false;
+}
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 mqtt_publish_announce_handler(const char *topic, const char* topic_end,
@@ -88,6 +102,24 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     else
     {
         LOG_ERR("Failed to allocate edge resource\n");
+    }
+
+    // We should connect to the Edge resource that has announced themselves here
+    // This means that if we are using DTLS, the handshake has already been performed,
+    // so we will be ready to communicate tasks to them and receive responses.
+    // This should only be done if another edge resource has been announced other
+    // then ourselves.
+    if (!is_our_addr(&ip_addr))
+    {
+        coap_endpoint_t ep;
+        edge_info_get_server_endpoint(edge_resource, &ep, false);
+
+        LOG_DBG("Connecting to CoAP endpoint ");
+        coap_endpoint_log(&ep);
+        LOG_DBG_("\n");
+
+        // TODO: delays this by a random amount to space out connects
+        coap_endpoint_connect(&ep);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -256,18 +288,179 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len)
 {
-	return snprintf((char*)buffer, buffer_len, "trust-information");
+    uint32_t time_secs = clock_seconds();
+
+    int len = snprintf((char*)buffer, buffer_len,
+        "{"
+            "\"name\":\"serialised-trust\","
+            "\"time\":%" PRIu32
+        "}",
+        time_secs
+    );
+    if (len < 0 || len >= buffer_len)
+    {
+        return -1;
+    }
+
+    // Include NUL byte
+    len += 1;
+
+    /*LOG_DBG("1\n");
+
+    uint32_t point_r[9];
+    uint32_t point_s[9];
+
+    if (len + sizeof(point_r) + sizeof(point_s) > buffer_len)
+    {
+        return -1;
+    }
+
+    dtls_hash_ctx data;
+    uint8_t sha256hash[DTLS_HMAC_DIGEST_SIZE];
+
+    dtls_hash_init(&data);
+    dtls_hash_update(&data, buffer, len);
+    dtls_hash_finalize(sha256hash, &data);
+
+    dtls_ecdsa_create_sig_hash(our_key.priv_key, DTLS_EC_KEY_SIZE, sha256hash, sizeof(sha256hash), point_r, point_s);
+
+    memcpy((char*)buffer + len,                   point_r, sizeof(point_r));
+    memcpy((char*)buffer + len + sizeof(point_r), point_s, sizeof(point_s));
+
+    return len + sizeof(point_r) + sizeof(point_s);*/
+
+    return len;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-int deserialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len)
+int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len)
 {
-	return 0;
+    return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
+{
+    PT_BEGIN(&state->pt);
+
+    state->sig_len = 0;
+
+    LOG_DBG("Starting sha256()...\n");
+    state->time = RTIMER_NOW();
+    crypto_enable();
+    sha256_init(&state->sha256_state);
+    sha256_process(&state->sha256_state, buffer, msg_len);
+    sha256_done(&state->sha256_state, (uint8_t*)state->ecc_sign_state.hash);
+    crypto_disable();
+    state->time = RTIMER_NOW() - state->time;
+    LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+
+    state->ecc_sign_state.process = state->process;
+    state->ecc_sign_state.curve_info = &nist_p_256;
+
+    // Set secret key from our private key
+    memcpy(state->ecc_sign_state.secret, our_key.priv_key.u8, DTLS_EC_KEY_SIZE);
+
+    crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
+
+    LOG_DBG("Starting ecc_dsa_sign()...\n");
+    state->time = RTIMER_NOW();
+    pka_enable();
+    PT_SPAWN(&state->pt, &state->ecc_sign_state.pt, ecc_dsa_sign(&state->ecc_sign_state));
+    pka_disable();
+    state->time = RTIMER_NOW() - state->time;
+    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+
+    if (state->ecc_sign_state.result != PKA_STATUS_SUCCESS)
+    {
+        LOG_ERR("Failed to sign message with %d\n", state->ecc_sign_state.result);
+        PT_EXIT(&state->pt);
+    }
+
+    LOG_DBG("Message sign success!\n");
+
+    // Add signature into the message
+    memcpy(buffer + msg_len,                        state->ecc_sign_state.point_r.x,   sizeof(uint32_t) * 8);
+    memcpy(buffer + msg_len + sizeof(uint32_t) * 8, state->ecc_sign_state.signature_s, sizeof(uint32_t) * 8);
+
+    state->sig_len = sizeof(uint32_t) * 8 * 2;
+
+#if 1
+    static verify_trust_state_t test;
+    test.process = state->process;
+    PT_SPAWN(&state->pt, &test.pt, verify_trust(&test, buffer, msg_len + state->sig_len));
+#endif
+
+    PT_END(&state->pt);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PT_THREAD(verify_trust(verify_trust_state_t* state, const uint8_t* buffer, size_t buffer_len))
+{
+    PT_BEGIN(&state->pt);
+
+    // Extract signature
+    if (buffer_len < sizeof(uint32_t) * 8 * 2)
+    {
+        LOG_ERR("No signature\n");
+        PT_EXIT(&state->pt);
+    }
+
+    const uint8_t* sig_r = buffer + buffer_len - sizeof(uint32_t) * 8 * 2;
+    const uint8_t* sig_s = buffer + buffer_len - sizeof(uint32_t) * 8;
+
+    // Extract signature from buffer
+    memcpy(state->ecc_verify_state.signature_r, sig_r, sizeof(uint32_t) * 8);
+    memcpy(state->ecc_verify_state.signature_s, sig_s, sizeof(uint32_t) * 8);
+
+    size_t msg_len = buffer_len - sizeof(uint32_t) * 8 * 2;
+
+    state->time = RTIMER_NOW();
+    crypto_enable();
+    sha256_init(&state->sha256_state);
+    sha256_process(&state->sha256_state, buffer, msg_len);
+    sha256_done(&state->sha256_state, (uint8_t*)state->ecc_verify_state.hash);
+    crypto_disable();
+    state->time = RTIMER_NOW() - state->time;
+    LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+
+    state->ecc_verify_state.process = state->process;
+    state->ecc_verify_state.curve_info = &nist_p_256;
+
+    // TODO: get public key from key store
+    memcpy(state->ecc_verify_state.public.x, our_key.pub_key.x.u32, DTLS_EC_KEY_SIZE);
+    memcpy(state->ecc_verify_state.public.y, our_key.pub_key.y.u32, DTLS_EC_KEY_SIZE);
+
+    state->time = RTIMER_NOW();
+    pka_enable();
+    PT_SPAWN(&state->pt, &state->ecc_verify_state.pt, ecc_dsa_verify(&state->ecc_verify_state));
+    pka_disable();
+    state->time = RTIMER_NOW() - state->time;
+    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+
+    if (state->ecc_verify_state.result != PKA_STATUS_SUCCESS)
+    {
+        if (state->ecc_verify_state.result == PKA_STATUS_SIGNATURE_INVALID)
+        {
+            LOG_ERR("Failed to verify message with PKA_STATUS_SIGNATURE_INVALID\n");
+        }
+        else
+        {
+            LOG_ERR("Failed to verify message with %d\n", state->ecc_verify_state.result);
+        }
+        
+        PT_EXIT(&state->pt);
+    }
+
+    LOG_DBG("Message verify success!\n");
+
+    PT_END(&state->pt);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
 trust_common_init(void)
 {
-	pe_edge_capability_add = process_alloc_event();
+    pe_edge_capability_add = process_alloc_event();
     pe_edge_capability_remove = process_alloc_event();
+
+    crypto_init();
+    crypto_disable();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

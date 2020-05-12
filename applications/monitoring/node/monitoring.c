@@ -20,7 +20,7 @@
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define PERIOD (CLOCK_SECOND * 60)
-#define CONNECT_PERIOD (CLOCK_SECOND * 1)
+#define CONNECT_PERIOD (CLOCK_SECOND * 5)
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define TMP_BUF_SZ 64
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -50,7 +50,7 @@ generate_sensor_data(char* buf, size_t buf_len)
     return would_have_written;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static struct etimer publish_periodic_timer;
+static struct etimer publish_periodic_timer, publish_short_timer;
 static bool started;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -120,6 +120,20 @@ periodic_action(void)
 
     edge_info_get_server_endpoint(edge, &ep, false);
 
+    if (!coap_endpoint_is_connected(&ep))
+    {
+        LOG_DBG("We are not connected to ");
+        coap_endpoint_log(&ep);
+        LOG_DBG_(", so will initiate a connection to it.\n");
+
+        // Initiate a connect
+        coap_endpoint_connect(&ep);
+
+        // Wait for a bit and then try sending again
+        etimer_set(&publish_short_timer, CONNECT_PERIOD);
+        return;
+    }
+
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
 
     ret = coap_set_header_uri_path(&msg, MONITORING_APPLICATION_URI);
@@ -182,7 +196,7 @@ PROCESS_THREAD(environment_monitoring, ev, data)
     {
         PROCESS_YIELD();
 
-        if (ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) {
+        if (ev == PROCESS_EVENT_TIMER && (data == &publish_periodic_timer || data == &publish_short_timer)) {
             periodic_action();
         }
 

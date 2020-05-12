@@ -4,3 +4,4 @@ Makefile.target
 *.sublime-project
 *.sublime-workspace
 root/mqtt_coap_bridge.pickle
+*.pem

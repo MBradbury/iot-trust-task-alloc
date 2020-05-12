@@ -14,7 +14,7 @@ CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 MODULES += os/lib/json
 
 # Include application modules
-MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust}
+MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust crypto}
 MODULES_REL += ./trust
 
 # MQTT configuration
@@ -25,7 +25,10 @@ CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=3
 
 # CoAP configuration
 #MAKE_WITH_DTLS = 1
+#MAKE_COAP_DTLS_KEYSTORE := MAKE_COAP_DTLS_KEYSTORE_SIMPLE
 MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
+#CFLAGS += -DDTLS_PEER_MAX=10 -DDTLS_HANDSHAKE_MAX=5
+
 # Set MAC protocol
 #MAKE_MAC = MAKE_MAC_TSCH
 
