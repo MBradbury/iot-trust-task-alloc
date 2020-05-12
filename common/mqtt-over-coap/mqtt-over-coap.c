@@ -86,7 +86,7 @@ PROCESS_NAME(mqtt_client_process);
 #define ECHO_REQ_PAYLOAD_LEN        20
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define MAX_URI_LEN                 128
-#define MAX_QUERY_LEN               128
+//#define MAX_QUERY_LEN               128
 #define MAX_COAP_PAYLOAD            255
 /*-------------------------------------------------------------------------------------------------------------------*/
 /*
@@ -104,7 +104,7 @@ static coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static char uri_path[MAX_URI_LEN];
-static char uri_query[MAX_QUERY_LEN];
+//static char uri_query[MAX_QUERY_LEN];
 static char coap_payload[MAX_COAP_PAYLOAD];
 static coap_callback_request_state_t coap_callback;
 static bool coap_callback_in_use;
@@ -155,10 +155,8 @@ construct_client_id(void)
                                          linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                                          linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
                                          linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
-
-    /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
     if (len < 0 || len >= sizeof(client_id)) {
-        printf("Insufficient length for client ID: %d, Buffer %d\n", len, sizeof(client_id));
+        LOG_ERR("Insufficient length for client ID: %d, Buffer %d\n", len, sizeof(client_id));
         return false;
     }
 
@@ -202,12 +200,12 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
         return false;
     }
 
-    ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+    /*ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
         return false;
-    }
+    }*/
     
     coap_init_message(&msg, COAP_TYPE_CON, COAP_PUT, 0);
 
@@ -316,12 +314,12 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
         return -1;
     }
 
-    ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+    /*ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
         return -1;
-    }
+    }*/
 
     LOG_DBG("Subscribing to [%u]='%s'! (%s)\n", msg_id, topic, uri_path);
 
@@ -484,7 +482,6 @@ init(void)
 
     if (!construct_client_id())
     {
-        /* Fatal error. Client ID larger than the buffer */
         return false;
     }
 
