@@ -50,14 +50,6 @@ generate_sensor_data(char* buf, size_t buf_len)
     return would_have_written;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
-edge_info_get_server_endpoint(edge_resource_t* edge, coap_endpoint_t* ep)
-{
-    uip_ip6addr_copy(&ep->ipaddr, &edge->addr);
-    ep->secure = 0;
-    ep->port = UIP_HTONS(COAP_DEFAULT_PORT);
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer;
 static bool started;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -126,7 +118,7 @@ periodic_action(void)
         return;
     }
 
-    edge_info_get_server_endpoint(edge, &ep);
+    edge_info_get_server_endpoint(edge, &ep, false);
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
 

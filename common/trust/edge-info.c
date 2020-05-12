@@ -2,6 +2,8 @@
 
 #include "lib/memb.h"
 
+#include "coap-constants.h"
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef NUM_EDGE_RESOURCES
 #define NUM_EDGE_RESOURCES 4
@@ -179,5 +181,16 @@ edge_info_capability_find(edge_resource_t* edge, const char* name)
     }
 
     return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void edge_info_get_server_endpoint(edge_resource_t* edge, coap_endpoint_t* ep, bool secure)
+{
+    uip_ip6addr_copy(&ep->ipaddr, &edge->addr);
+    ep->secure = secure;
+#ifdef WITH_DTLS
+    ep->port = secure ? UIP_HTONS(COAP_DEFAULT_SECURE_PORT) : UIP_HTONS(COAP_DEFAULT_PORT);
+#else
+    ep->port = UIP_HTONS(COAP_DEFAULT_PORT);
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

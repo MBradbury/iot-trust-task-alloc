@@ -42,6 +42,8 @@ edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* n
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_find(edge_resource_t* edge, const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/
+void edge_info_get_server_endpoint(edge_resource_t* edge, coap_endpoint_t* ep, bool secure);
+/*-------------------------------------------------------------------------------------------------------------------*/
 extern process_event_t pe_edge_capability_add;
 extern process_event_t pe_edge_capability_remove;
 /*-------------------------------------------------------------------------------------------------------------------*/
