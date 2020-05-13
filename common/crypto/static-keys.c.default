@@ -1,0 +1,21 @@
+#include "keys.h"
+/*-------------------------------------------------------------------------------------------------------------------*/
+/**
+ * This file provides a template to store the ECC public/private keys for this device and the public key of the
+ * root node. These keys can be generated using the tool in tools/eckeygen.py.
+ *
+ * This file should be renamed to static-keys.c and should not be commited to a git repository.
+ */
+/*-------------------------------------------------------------------------------------------------------------------*/
+const ecdsa_secp256r1_key_t our_key = {
+    .priv_key = {  },
+    .pub_key = {
+           .x = {  },
+           .y = {  } }
+};
+/*-------------------------------------------------------------------------------------------------------------------*/
+const ecdsa_secp256r1_pubkey_t root_key = { // ./eckeygen.py -d "fd00::1"
+    .x        = {  },
+    .y        = {  }
+};
+/*-------------------------------------------------------------------------------------------------------------------*/

@@ -357,7 +357,7 @@ PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_l
     state->ecc_sign_state.curve_info = &nist_p_256;
 
     // Set secret key from our private key
-    memcpy(state->ecc_sign_state.secret, our_key.priv_key.u8, DTLS_EC_KEY_SIZE);
+    dtls_ec_key_to_uint32(our_key.priv_key, DTLS_EC_KEY_SIZE, state->ecc_sign_state.secret);
 
     crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
 
@@ -383,7 +383,7 @@ PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_l
 
     state->sig_len = sizeof(uint32_t) * 8 * 2;
 
-#if 1
+#if 0
     static verify_trust_state_t test;
     test.process = state->process;
     PT_SPAWN(&state->pt, &test.pt, verify_trust(&test, buffer, msg_len + state->sig_len));
@@ -425,8 +425,8 @@ PT_THREAD(verify_trust(verify_trust_state_t* state, const uint8_t* buffer, size_
     state->ecc_verify_state.curve_info = &nist_p_256;
 
     // TODO: get public key from key store
-    memcpy(state->ecc_verify_state.public.x, our_key.pub_key.x.u32, DTLS_EC_KEY_SIZE);
-    memcpy(state->ecc_verify_state.public.y, our_key.pub_key.y.u32, DTLS_EC_KEY_SIZE);
+    dtls_ec_key_to_uint32(our_key.pub_key.x, DTLS_EC_KEY_SIZE, state->ecc_verify_state.public.x);
+    dtls_ec_key_to_uint32(our_key.pub_key.y, DTLS_EC_KEY_SIZE, state->ecc_verify_state.public.y);
 
     state->time = RTIMER_NOW();
     pka_enable();
