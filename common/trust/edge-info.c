@@ -72,7 +72,7 @@ edge_info_init(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t*
-edge_info_add(uip_ipaddr_t addr, const char* ident)
+edge_info_add(const uip_ipaddr_t* addr, const char* ident)
 {
     edge_resource_t* edge;
 
@@ -89,7 +89,7 @@ edge_info_add(uip_ipaddr_t addr, const char* ident)
         return NULL;
     }
 
-    uip_ipaddr_copy(&edge->addr, &addr);
+    uip_ipaddr_copy(&edge->addr, addr);
     strcpy(edge->name, ident);
 
     list_push(edge_resources, edge);
@@ -118,11 +118,11 @@ edge_info_next(edge_resource_t* iter)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t*
-edge_info_find_addr(uip_ipaddr_t addr)
+edge_info_find_addr(const uip_ipaddr_t* addr)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
     {
-        if (uip_ip6addr_cmp(&iter->addr, &addr) == 0)
+        if (uip_ip6addr_cmp(&iter->addr, addr) == 0)
         {
             return iter;
         }

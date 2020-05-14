@@ -94,7 +94,7 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
         return;
     }
 
-    edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity);
+    edge_resource_t* edge_resource = edge_info_add(&ip_addr, topic_identity);
     if (edge_resource != NULL)
     {
         LOG_DBG("Received announce for %s with address %s\n", topic_identity, ip_addr_buf);

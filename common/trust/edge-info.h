@@ -30,10 +30,10 @@ typedef struct edge_resource
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_info_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_add(uip_ipaddr_t addr, const char* ident);
+edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident);
 void edge_info_remove(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_find_addr(uip_ipaddr_t addr);
+edge_resource_t* edge_info_find_addr(const uip_ipaddr_t* addr);
 edge_resource_t* edge_info_find_ident(const char* ident);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_iter(void);
