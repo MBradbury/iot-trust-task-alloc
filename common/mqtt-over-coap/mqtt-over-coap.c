@@ -378,34 +378,40 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
 static void
 res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
-PARENT_RESOURCE(res_coap_mqtt,
-                 "title=\"MQTT-over-CoAP Notify\";rt=\"MQTT\"",
-                 NULL,                       /*GET*/
-                 res_coap_mqtt_post_handler, /*POST*/
-                 NULL,                       /*PUT*/
-                 NULL                        /*DELETE*/);
+RESOURCE(res_coap_mqtt,
+         "title=\"MQTT-over-CoAP Notify\";rt=\"MQTT\"",
+         NULL,                       /*GET*/
+         res_coap_mqtt_post_handler, /*POST*/
+         NULL,                       /*PUT*/
+         NULL                        /*DELETE*/);
 
 static void
 res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
-    const char* uri_path = NULL;
-    int uri_len = coap_get_header_uri_path(request, &uri_path);
+    const char* uri_query = NULL;
+    int uri_query_len = coap_get_header_uri_query(request, &uri_query);
 
-    int base_url_len = strlen(res_coap_mqtt.url);
-
-    if (!uri_path)
+    if (!uri_query)
     {
-        LOG_ERR("No URI path\n");
+        LOG_WARN("No URI query\n");
+        coap_set_status_code(response, BAD_REQUEST_4_00);
         return;
     }
-    if (uri_len <= base_url_len + 1)
+    if (uri_query_len <= 3)
     {
-        LOG_ERR("Insufficient URI length\n");
+        LOG_WARN("Insufficient URI length\n");
+        coap_set_status_code(response, BAD_REQUEST_4_00);
+        return;
+    }
+    if (uri_query[0] != 't' && uri_query[1] != '=')
+    {
+        LOG_WARN("Missing topic query in %s\n", uri_query);
+        coap_set_status_code(response, BAD_REQUEST_4_00);
         return;
     }
 
-    const char* topic = uri_path + base_url_len + 1;
-    int topic_len = uri_len - base_url_len - 1;
+    const char* topic = uri_query + 2;
+    int topic_len = uri_query_len - 2;
 
     const uint8_t* payload;
     int payload_len = coap_get_payload(request, &payload);
@@ -492,7 +498,7 @@ init(void)
     etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
     etimer_set(&ping_mqtt_over_coap_timer, DEFAULT_KEEP_ALIVE_TIMER);
 
-    coap_activate_resource(&res_coap_mqtt, "mqtt");
+    coap_activate_resource(&res_coap_mqtt, MQTT_URI_PATH);
 
     return true;
 }
