@@ -6,15 +6,14 @@
 #include "keys.h"
 #include "dev/ecc-algorithm.h"
 #include "dev/ecc-curve.h"
-#include "dev/sha256.h"
 
 #include "rtimer.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define MQTT_EDGE_NAMESPACE "iot/edge"
-#define MQTT_EDGE_NAMESPACE_LEN 8
+#define MQTT_EDGE_NAMESPACE "edge"
+#define MQTT_EDGE_NAMESPACE_LEN 4
 
-#define MQTT_IDENTITY_LEN 12
+#define MQTT_IDENTITY_LEN (8 * 2) // Eight two character hex digits
 
 #define EDGE_CAPABILITY_NAME_LEN 15
 
@@ -32,13 +31,11 @@ typedef struct {
     struct pt      pt;
     struct process *process;
 
-    sha256_state_t sha256_state;
-
     ecc_dsa_sign_state_t ecc_sign_state;
 
-    rtimer_clock_t time;
-
     uint16_t sig_len;
+
+    rtimer_clock_t time;
 
 } sign_trust_state_t;
 
@@ -47,8 +44,6 @@ PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_l
 typedef struct {
     struct pt      pt;
     struct process *process;
-
-    sha256_state_t sha256_state;
 
     ecc_dsa_verify_state_t ecc_verify_state;
 

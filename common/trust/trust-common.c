@@ -7,6 +7,8 @@
 #include "os/net/ipv6/uip-ds6.h"
 #include "os/net/ipv6/uiplib.h"
 
+#include "dev/sha256.h"
+
 #include <stdio.h>
 #include <ctype.h>
 
@@ -31,7 +33,7 @@ const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
 process_event_t pe_edge_capability_add;
 process_event_t pe_edge_capability_remove;
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool is_our_addr(const uip_ip6addr_t* addr)
+static bool is_our_addr(const uip_ip6addr_t* addr)
 {
     for (int i = 0; i < UIP_DS6_ADDR_NB; i++)
     {
@@ -305,30 +307,6 @@ int serialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len)
     // Include NUL byte
     len += 1;
 
-    /*LOG_DBG("1\n");
-
-    uint32_t point_r[9];
-    uint32_t point_s[9];
-
-    if (len + sizeof(point_r) + sizeof(point_s) > buffer_len)
-    {
-        return -1;
-    }
-
-    dtls_hash_ctx data;
-    uint8_t sha256hash[DTLS_HMAC_DIGEST_SIZE];
-
-    dtls_hash_init(&data);
-    dtls_hash_update(&data, buffer, len);
-    dtls_hash_finalize(sha256hash, &data);
-
-    dtls_ecdsa_create_sig_hash(our_key.priv_key, DTLS_EC_KEY_SIZE, sha256hash, sizeof(sha256hash), point_r, point_s);
-
-    memcpy((char*)buffer + len,                   point_r, sizeof(point_r));
-    memcpy((char*)buffer + len + sizeof(point_r), point_s, sizeof(point_s));
-
-    return len + sizeof(point_r) + sizeof(point_s);*/
-
     return len;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -337,21 +315,29 @@ int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len
     return false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static void sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
+{
+    sha256_state_t sha256_state;
+    rtimer_clock_t time;
+
+    LOG_DBG("Starting sha256()...\n");
+    time = RTIMER_NOW();
+    crypto_enable();
+    sha256_init(&sha256_state);
+    sha256_process(&sha256_state, buffer, len);
+    sha256_done(&sha256_state, hash);
+    crypto_disable();
+    time = RTIMER_NOW() - time;
+    LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)time * 1000000 / RTIMER_SECOND));
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
 {
     PT_BEGIN(&state->pt);
 
     state->sig_len = 0;
 
-    LOG_DBG("Starting sha256()...\n");
-    state->time = RTIMER_NOW();
-    crypto_enable();
-    sha256_init(&state->sha256_state);
-    sha256_process(&state->sha256_state, buffer, msg_len);
-    sha256_done(&state->sha256_state, (uint8_t*)state->ecc_sign_state.hash);
-    crypto_disable();
-    state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+    sha256_hash(buffer, msg_len, (uint8_t*)state->ecc_sign_state.hash);
 
     state->ecc_sign_state.process = state->process;
     state->ecc_sign_state.curve_info = &nist_p_256;
@@ -383,7 +369,7 @@ PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_l
 
     state->sig_len = sizeof(uint32_t) * 8 * 2;
 
-#if 0
+#if 1
     static verify_trust_state_t test;
     test.process = state->process;
     PT_SPAWN(&state->pt, &test.pt, verify_trust(&test, buffer, msg_len + state->sig_len));
@@ -412,14 +398,7 @@ PT_THREAD(verify_trust(verify_trust_state_t* state, const uint8_t* buffer, size_
 
     size_t msg_len = buffer_len - sizeof(uint32_t) * 8 * 2;
 
-    state->time = RTIMER_NOW();
-    crypto_enable();
-    sha256_init(&state->sha256_state);
-    sha256_process(&state->sha256_state, buffer, msg_len);
-    sha256_done(&state->sha256_state, (uint8_t*)state->ecc_verify_state.hash);
-    crypto_disable();
-    state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+    sha256_hash(buffer, msg_len, (uint8_t*)state->ecc_verify_state.hash);
 
     state->ecc_verify_state.process = state->process;
     state->ecc_verify_state.curve_info = &nist_p_256;
