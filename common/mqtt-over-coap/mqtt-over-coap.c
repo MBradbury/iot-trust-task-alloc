@@ -75,6 +75,8 @@ PROCESS_NAME(mqtt_client_process);
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define COAP_CLIENT_CONF_BROKER_IP_ADDR "coap://[" MQTT_CLIENT_CONF_BROKER_IP_ADDR "]"
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define MQTT_URI_PATH "mqtt"
+/*-------------------------------------------------------------------------------------------------------------------*/
 /* A timeout used when waiting to connect to a network */
 #define NET_CONNECT_PERIODIC        (CLOCK_SECOND * 1)
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -85,8 +87,8 @@ PROCESS_NAME(mqtt_client_process);
 /* Payload length of ICMPv6 echo requests used to measure RSSI with def rt */
 #define ECHO_REQ_PAYLOAD_LEN        20
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define MAX_URI_LEN                 128
-//#define MAX_QUERY_LEN               128
+//#define MAX_URI_LEN                 128
+#define MAX_QUERY_LEN               128
 #define MAX_COAP_PAYLOAD            255
 /*-------------------------------------------------------------------------------------------------------------------*/
 /*
@@ -103,8 +105,8 @@ static char client_id[sizeof(MQTT_CLIENT_ORG_ID) + 1 + 12];
 static coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
-static char uri_path[MAX_URI_LEN];
-//static char uri_query[MAX_QUERY_LEN];
+//static char uri_path[MAX_URI_LEN];
+static char uri_query[MAX_QUERY_LEN];
 static char coap_payload[MAX_COAP_PAYLOAD];
 static coap_callback_request_state_t coap_callback;
 static bool coap_callback_in_use;
@@ -193,34 +195,27 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
 
     coap_callback_in_use = true;
 
-    ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
-    if (ret <= 0 || ret >= sizeof(uri_path))
-    {
-        LOG_ERR("snprintf uri_path failed %d\n", ret);
-        return false;
-    }
-
-    /*ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+    ret = snprintf(uri_query, sizeof(uri_query), "t=%s", topic);
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
         return false;
-    }*/
+    }
     
     coap_init_message(&msg, COAP_TYPE_CON, COAP_PUT, 0);
 
-    ret = coap_set_header_uri_path(&msg, uri_path);
+    ret = coap_set_header_uri_path(&msg, MQTT_URI_PATH);
     if (ret <= 0)
     {
         LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
         return false;
     }
 
-    /*ret = coap_set_header_uri_query(&msg, uri_query);
+    ret = coap_set_header_uri_query(&msg, uri_query);
     if (ret <= 0)
     {
         LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
-    }*/
+    }
 
     memcpy(coap_payload, data, data_len);
 
@@ -306,36 +301,29 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
     }
 
     coap_callback_in_use = true;
-    
-    ret = snprintf(uri_path, sizeof(uri_path), "mqtt/%s", topic);
-    if (ret <= 0 || ret >= sizeof(uri_path))
-    {
-        LOG_ERR("snprintf uri_path failed %d\n", ret);
-        return -1;
-    }
 
-    /*ret = snprintf(uri_query, sizeof(uri_query), "c=%s&u=" MQTT_CLIENT_USERNAME "&p=" MQTT_CLIENT_AUTH_TOKEN, client_id);
+    ret = snprintf(uri_query, sizeof(uri_query), "t=%s", topic);
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
         return -1;
-    }*/
+    }
 
-    LOG_DBG("Subscribing to [%u]='%s'! (%s)\n", msg_id, topic, uri_path);
+    LOG_DBG("Subscribing to [%u]='%s'! (" MQTT_URI_PATH "?%s)\n", msg_id, topic, uri_query);
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
 
-    ret = coap_set_header_uri_path(&msg, uri_path);
+    ret = coap_set_header_uri_path(&msg, MQTT_URI_PATH);
     if (ret <= 0)
     {
         LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
     }
 
-    /*ret = coap_set_header_uri_query(&msg, uri_query);
+    ret = coap_set_header_uri_query(&msg, uri_query);
     if (ret <= 0)
     {
         LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
-    }*/
+    }
 
     const char* data = "Request";
 

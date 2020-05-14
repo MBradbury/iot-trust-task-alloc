@@ -15,7 +15,7 @@ import paho.mqtt.client as mqtt
 import aiocoap
 import aiocoap.error as error
 import aiocoap.numbers.codes as codes
-import aiocoap.resource
+import aiocoap.resource as resource
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mqtt-coap-bridge")
@@ -87,18 +87,18 @@ class SubscriptionManager:
 
         return list(self._subscriptions.keys())
 
-class NonMQTTOperation(error.RenderableError):
+class MissingMQTTTopic(error.RenderableError):
     code = codes.BAD_REQUEST
-    message = "Error: Not an MQTT operation"
+    message = "Error: MQTT topic not provided"
 
-class COAPConnector(aiocoap.resource.Resource):
+class COAPConnector(resource.Resource):
     def __init__(self, bridge, coap_target_port):
         super().__init__()
         self.bridge = bridge
         self.coap_target_port = coap_target_port
 
     async def start(self):
-        self.context = await aiocoap.Context.create_server_context(self)
+        self.context = await aiocoap.Context.create_server_context(self.bridge.coap_site)
 
         # See: https://github.com/chrysn/aiocoap/blob/master/aiocoap/transports/tinydtls.py#L29
         """self.context.client_credentials.load_from_dict({
@@ -115,9 +115,6 @@ class COAPConnector(aiocoap.resource.Resource):
 
     async def render_get(self, request):
         """An MQTT Subscribe request"""
-        if request.opt.uri_path == ('.well-known', 'core'):
-            return aiocoap.Message(payload=b"</>;ct=40", content_format=40)
-
         return await self.bridge.coap_to_mqtt_subscribe(request)
 
     async def render_delete(self, request):
@@ -130,7 +127,7 @@ class COAPConnector(aiocoap.resource.Resource):
 
     async def forward_mqtt(self, payload, topic, target):
         """Forward an MQTT message to a coap target"""
-        message = aiocoap.Message(code=codes.POST, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt/{topic}")
+        message = aiocoap.Message(code=codes.POST, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt?t={topic}")
 
         logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
@@ -167,6 +164,12 @@ class MQTTConnector:
 class MQTTCOAPBridge:
     def __init__(self, database, coap_target_port):
         self.coap_connector = COAPConnector(self, coap_target_port)
+
+        self.coap_site = resource.Site()
+        self.coap_site.add_resource(['.well-known', 'core'],
+            resource.WKCResource(self.coap_site.get_resources_as_linkheader, impl_info=None))
+        self.coap_site.add_resource(['mqtt'], self.coap_connector)
+
         self.mqtt_connector = MQTTConnector(self)
         self.manager = SubscriptionManager(database)
 
@@ -272,10 +275,13 @@ class MQTTCOAPBridge:
         ])
 
     def _coap_request_extract_mqtt_topic(self, request):
-        if request.opt.uri_path[0] != "mqtt":
-            raise NonMQTTOperation()
+        for query in request.opt.uri_query:
+            k,v = query.split("=", 1)
 
-        return "/".join(request.opt.uri_path[1:])
+            if k == "t":
+                return v
+
+        raise MissingMQTTTopic()
 
     def _coap_request_extract_host(self, request):
         return request.remote.sockaddr[0]
