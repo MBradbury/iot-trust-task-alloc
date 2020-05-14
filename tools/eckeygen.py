@@ -57,7 +57,7 @@ def format_individual(number, size, line_group_size=None):
         return ", ".join(wrapped)
     else:
         chunked = list(chunks(wrapped, line_group_size))
-        return ",\n                   ".join([", ".join(chunk) for chunk in chunked])
+        return ",\n                  ".join([", ".join(chunk) for chunk in chunked])
 
 def contiking_format(private_key):
     public_key_nums = private_key.public_key().public_numbers()
@@ -75,18 +75,14 @@ def contiking_format(private_key):
     public_key_nums_x_formatted = format_individual(public_key_nums.x, 2, line_group_size=8)
     public_key_nums_y_formatted = format_individual(public_key_nums.y, 2, line_group_size=8)
 
-    print(f"""static const dtls_ecdsa_secp256r1_key_t key_data = {{ // {' '.join(sys.argv)}
-    .priv_key  = {{ {private_key_hex_formatted} }},
-    .pub_key_x = {{ {public_key_nums_x_formatted} }},
-    .pub_key_y = {{ {public_key_nums_y_formatted} }}
+    print(f"""
+const ecdsa_secp256r1_key_t key = {{ // {' '.join(sys.argv)}
+    .priv_key = {{ {private_key_hex_formatted} }},
+    .pub_key = {{
+           .x = {{ {public_key_nums_x_formatted} }},
+           .y = {{ {public_key_nums_y_formatted} }} }}
 }};""")
 
-    print(f"""const dtls_ecdsa_key_t key = {{
-    .curve     = DTLS_ECDH_CURVE_SECP256R1,
-    .priv_key  = key_data.priv_key,
-    .pub_key_x = key_data.pub_key_x,
-    .pub_key_y = key_data.pub_key_y,
-}};""")
 
 def main(deterministic_string):
     if deterministic_string is None:
