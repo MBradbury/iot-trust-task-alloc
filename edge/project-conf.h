@@ -44,3 +44,5 @@
 
 #define COAP_DTLS_PSK_DEFAULT_IDENTITY "username"
 #define COAP_DTLS_PSK_DEFAULT_KEY "password"
+
+#define COAP_MAX_CHUNK_SIZE 256
