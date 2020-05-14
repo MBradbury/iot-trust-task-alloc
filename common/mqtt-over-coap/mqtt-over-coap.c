@@ -76,6 +76,7 @@ PROCESS_NAME(mqtt_client_process);
 #define COAP_CLIENT_CONF_BROKER_IP_ADDR "coap://[" MQTT_CLIENT_CONF_BROKER_IP_ADDR "]"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define MQTT_URI_PATH "mqtt"
+#define MQTT_TOPIC_QUERY_NAME "t"
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* A timeout used when waiting to connect to a network */
 #define NET_CONNECT_PERIODIC        (CLOCK_SECOND * 1)
@@ -195,7 +196,7 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
 
     coap_callback_in_use = true;
 
-    ret = snprintf(uri_query, sizeof(uri_query), "t=%s", topic);
+    ret = snprintf(uri_query, sizeof(uri_query), MQTT_TOPIC_QUERY_NAME "=%s", topic);
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
@@ -302,7 +303,7 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
 
     coap_callback_in_use = true;
 
-    ret = snprintf(uri_query, sizeof(uri_query), "t=%s", topic);
+    ret = snprintf(uri_query, sizeof(uri_query), MQTT_TOPIC_QUERY_NAME "=%s", topic);
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
@@ -388,30 +389,15 @@ RESOURCE(res_coap_mqtt,
 static void
 res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
-    const char* uri_query = NULL;
-    int uri_query_len = coap_get_header_uri_query(request, &uri_query);
+    const char* topic = NULL;
+    int topic_len = coap_get_query_variable(request, MQTT_TOPIC_QUERY_NAME, &topic);
 
-    if (!uri_query)
+    if (!topic || topic_len <= 0)
     {
-        LOG_WARN("No URI query\n");
+        LOG_WARN("No mqtt topic in query\n");
         coap_set_status_code(response, BAD_REQUEST_4_00);
         return;
     }
-    if (uri_query_len <= 3)
-    {
-        LOG_WARN("Insufficient URI length\n");
-        coap_set_status_code(response, BAD_REQUEST_4_00);
-        return;
-    }
-    if (uri_query[0] != 't' && uri_query[1] != '=')
-    {
-        LOG_WARN("Missing topic query in %s\n", uri_query);
-        coap_set_status_code(response, BAD_REQUEST_4_00);
-        return;
-    }
-
-    const char* topic = uri_query + 2;
-    int topic_len = uri_query_len - 2;
 
     const uint8_t* payload;
     int payload_len = coap_get_payload(request, &payload);
