@@ -19,6 +19,7 @@
 
 #include "applications.h"
 #include "trust-common.h"
+#include "crypto-support.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust"
@@ -97,6 +98,8 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
     LOG_DBG("Received trust info from ");
     coap_endpoint_log(request->src_ep);
     LOG_DBG_(" Data=%.*s of length %u\n", payload_len, (const char*)payload, payload_len);
+
+    // TODO: add data to a queue for verification
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
@@ -147,7 +150,7 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
         PT_EXIT(&state->pt);
     }
 
-    LOG_DBG("Spawning PT to sign message...\n");
+    LOG_DBG("Spawning PT to sign message of length %u...\n", state->payload_len);
 
     state->sign_state.process = &trust_model;
     PT_SPAWN(&state->pt, &state->sign_state.pt,
@@ -155,7 +158,15 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
 
     state->payload_len += state->sign_state.sig_len;
 
-    coap_set_payload(&state->msg, state->coap_payload_buf, state->payload_len);
+    LOG_DBG("Messaged signed new length = %u\n", state->payload_len);
+
+    int payload_len = coap_set_payload(&state->msg, state->coap_payload_buf, state->payload_len);
+
+    if (payload_len < state->payload_len)
+    {
+        LOG_WARN("Messaged length truncated to = %d\n", payload_len);
+        // TODO: how to handle block-wise transfer?
+    }
 
     // No callback is set, as no confirmation of the message being received will be sent to us
     state->ret = coap_send_request(&state->coap_callback, &state->ep, &state->msg, NULL);
