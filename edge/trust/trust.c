@@ -23,8 +23,8 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define BASE_PUBLISH_TOPIC_LEN     (10 + MQTT_IDENTITY_LEN)
-#define MAX_PUBLISH_TOPIC_LEN      (64)
+#define BASE_PUBLISH_TOPIC_LEN     (MQTT_EDGE_NAMESPACE_LEN + 1 + MQTT_IDENTITY_LEN + 1)
+#define MAX_PUBLISH_TOPIC_LEN      (BASE_PUBLISH_TOPIC_LEN + 64)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -174,9 +174,10 @@ periodic_publish_capability(void)
 static bool
 init(void)
 {
-    int len = snprintf(pub_topic, BASE_PUBLISH_TOPIC_LEN+1, MQTT_EDGE_NAMESPACE "/%02x%02x%02x%02x%02x%02x/",
+    int len = snprintf(pub_topic, BASE_PUBLISH_TOPIC_LEN+1, MQTT_EDGE_NAMESPACE "/%02x%02x%02x%02x%02x%02x%02x%02x/",
                        linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
-                       linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
+                       linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[3],
+                       linkaddr_node_addr.u8[4], linkaddr_node_addr.u8[5],
                        linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
     if (len != BASE_PUBLISH_TOPIC_LEN)
     {
