@@ -92,16 +92,16 @@ class MissingMQTTTopic(error.ConstructionRenderableError):
     message = "Error: MQTT topic not provided"
 
 class COAPConnector(resource.Resource):
-    def __init__(self, bridge, coap_target_port):
+    def __init__(self, bridge):
         super().__init__()
         self.bridge = bridge
-        self.coap_target_port = coap_target_port
 
-    async def start(self):
-        self.context = await aiocoap.Context.create_server_context(self.bridge.coap_site)
+    """async def start(self):
+        pass
+        #self.context = await aiocoap.Context.create_server_context(self.bridge.coap_site)
 
         # See: https://github.com/chrysn/aiocoap/blob/master/aiocoap/transports/tinydtls.py#L29
-        """self.context.client_credentials.load_from_dict({
+        "" "self.context.client_credentials.load_from_dict({
             'coaps://localhost/*': {
                 'dtls': {
                     'psk': b'secretPSK',
@@ -110,8 +110,9 @@ class COAPConnector(resource.Resource):
             }
         })"""
 
-    async def stop(self):
-        await self.context.shutdown()
+    #async def stop(self):
+    #    pass
+    #    #await self.context.shutdown()
 
     async def render_get(self, request):
         """An MQTT Subscribe request"""
@@ -124,23 +125,6 @@ class COAPConnector(resource.Resource):
     async def render_put(self, request):
         """An MQTT publish request"""
         return await self.bridge.coap_to_mqtt_publish(request)
-
-    async def forward_mqtt(self, payload, topic, target):
-        """Forward an MQTT message to a coap target"""
-        message = aiocoap.Message(code=codes.POST, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt?t={topic}")
-
-        logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
-
-        try:
-            response = await self.context.request(message).response
-
-            logger.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
-        except error.RequestTimedOut as ex:
-            logger.warning(f"Forwarding MQTT over CoAP to {target} timed out {ex}")
-
-            response = None
-
-        return response
 
 
 class MQTTConnector:
@@ -163,15 +147,11 @@ class MQTTConnector:
 
 class MQTTCOAPBridge:
     def __init__(self, database, coap_target_port):
-        self.coap_connector = COAPConnector(self, coap_target_port)
-
-        self.coap_site = resource.Site()
-        self.coap_site.add_resource(['.well-known', 'core'],
-            resource.WKCResource(self.coap_site.get_resources_as_linkheader, impl_info=None))
-        self.coap_site.add_resource(['mqtt'], self.coap_connector)
-
+        self.coap_target_port = coap_target_port
+        self.coap_connector = COAPConnector(self)
         self.mqtt_connector = MQTTConnector(self)
         self.manager = SubscriptionManager(database)
+        self.context = None
 
     async def start(self):
         await self.mqtt_connector.start()
@@ -185,10 +165,7 @@ class MQTTCOAPBridge:
             else:
                 logger.info(f"Subscribe to saved topic {topic}")
 
-        await self.coap_connector.start()
-
     async def stop(self):
-        await self.coap_connector.stop()
         await self.mqtt_connector.stop()
 
     async def coap_to_mqtt_subscribe(self, request):
@@ -270,9 +247,26 @@ class MQTTCOAPBridge:
         # Push via CoAP to all subscribed clients
         # TODO: need to handle error.RequestTimedOut from forward_mqtt
         await asyncio.gather(*[
-            self.coap_connector.forward_mqtt(message.payload, message.topic, subscriber)
+            self.forward_mqtt(message.payload, message.topic, subscriber)
             for subscriber in subscribers
         ])
+
+    async def forward_mqtt(self, payload, topic, target):
+        """Forward an MQTT message to a coap target"""
+        message = aiocoap.Message(code=codes.POST, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt?t={topic}")
+
+        logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
+
+        try:
+            response = await self.context.request(message).response
+
+            logger.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
+        except error.RequestTimedOut as ex:
+            logger.warning(f"Forwarding MQTT over CoAP to {target} timed out {ex}")
+
+            response = None
+
+        return response
 
     def _coap_request_extract_mqtt_topic(self, request):
         for query in request.opt.uri_query:
@@ -304,6 +298,10 @@ async def shutdown(signal, loop, bridge):
 
     loop.stop()
 
+async def start(coap_site, bridge):
+    bridge.context = await aiocoap.Context.create_server_context(coap_site)
+    await bridge.start()
+
 def main(database, coap_target_port, flush=False):
     logger.info("Starting mqtt-coap bridge")
 
@@ -315,7 +313,12 @@ def main(database, coap_target_port, flush=False):
         except FileNotFoundError:
             pass
 
+    coap_site = resource.Site()
+    coap_site.add_resource(['.well-known', 'core'],
+        resource.WKCResource(coap_site.get_resources_as_linkheader, impl_info=None))
+    
     bridge = MQTTCOAPBridge(database, coap_target_port)
+    coap_site.add_resource(['mqtt'], bridge.coap_connector)
 
     # May want to catch other signals too
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
@@ -323,7 +326,7 @@ def main(database, coap_target_port, flush=False):
         loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, bridge)))
 
     try:
-        loop.create_task(bridge.start())
+        loop.create_task(start(coap_site, bridge))
         loop.run_forever()
     finally:
         loop.close()
@@ -335,9 +338,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='MQTT-CoAP Bridge')
     parser.add_argument('-p', '--coap-target-port', type=int, default=5683, help='The target port for CoAP messages to be POSTed to')
-    parser.add_argument('-d', '--database', type=str, default="mqtt_coap_bridge.pickle", help='The location of serialised database')
-    parser.add_argument('-f', '--flush', action="store_true", default=False, help='Clear previous database')
+    parser.add_argument('-d', '--mqtt-database', type=str, default="mqtt_coap_bridge.pickle", help='The location of serialised database')
+    parser.add_argument('-f', '--mqtt-flush', action="store_true", default=False, help='Clear previous mqtt subscription database')
 
     args = parser.parse_args()
 
-    main(database=args.database, coap_target_port=args.coap_target_port, flush=args.flush)
+    main(database=args.mqtt_database, coap_target_port=args.coap_target_port, flush=args.mqtt_flush)
