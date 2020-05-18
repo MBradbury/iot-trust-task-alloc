@@ -9,6 +9,7 @@ openssl ec -in private.pem -pubout -out public.pem
 """
 
 from textwrap import wrap
+import pathlib
 
 from hashlib import sha256
 
@@ -23,8 +24,10 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-def save_key(pk, name):
+def save_key(pk, name, keystore_dir):
     """From: https://stackoverflow.com/questions/45146504/python-cryptography-module-save-load-rsa-keys-to-from-file"""
+
+    pathlib.Path(keystore_dir).mkdir(parents=True, exist_ok=True)
 
     if name is not None:
         prefix = name.replace(":", "_") + "-"
@@ -36,7 +39,7 @@ def save_key(pk, name):
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption()
     )
-    with open(f"{prefix}private.pem", 'wb') as pem_out:
+    with open(f"{keystore_dir}/{prefix}private.pem", 'wb') as pem_out:
         pem_out.write(pem)
 
 
@@ -44,7 +47,7 @@ def save_key(pk, name):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
-    with open(f"{prefix}public.pem", 'wb') as pem_out:
+    with open(f"{keystore_dir}/{prefix}public.pem", 'wb') as pem_out:
         pem_out.write(pem)
 
 
@@ -59,32 +62,41 @@ def format_individual(number, size, line_group_size=None):
         chunked = list(chunks(wrapped, line_group_size))
         return ",\n                  ".join([", ".join(chunk) for chunk in chunked])
 
-def contiking_format(private_key):
+def contiking_format_our_key(private_key, deterministic_string=None):
     public_key_nums = private_key.public_key().public_numbers()
     private_value = private_key.private_numbers().private_value
 
-    private_key_hex_formatted = format_individual(private_value, 8)
+    """private_key_hex_formatted = format_individual(private_value, 8)
     public_key_nums_x_formatted = format_individual(public_key_nums.x, 8)
     public_key_nums_y_formatted = format_individual(public_key_nums.y, 8)
 
     print(f"const uint32_t private[8] = {{ {private_key_hex_formatted} }};")
     print(f"const uint32_t publicx[8] = {{ {public_key_nums_x_formatted} }};")
-    print(f"const uint32_t publicy[8] = {{ {public_key_nums_y_formatted} }};")
+    print(f"const uint32_t publicy[8] = {{ {public_key_nums_y_formatted} }};")"""
 
     private_key_hex_formatted = format_individual(private_value, 2, line_group_size=8)
     public_key_nums_x_formatted = format_individual(public_key_nums.x, 2, line_group_size=8)
     public_key_nums_y_formatted = format_individual(public_key_nums.y, 2, line_group_size=8)
 
-    print(f"""
-const ecdsa_secp256r1_key_t key = {{ // {' '.join(sys.argv)}
+    return f"""const ecdsa_secp256r1_key_t our_key = {{ // {deterministic_string}
     .priv_key = {{ {private_key_hex_formatted} }},
     .pub_key = {{
            .x = {{ {public_key_nums_x_formatted} }},
            .y = {{ {public_key_nums_y_formatted} }} }}
-}};""")
+}};"""
 
+def contiking_format_root_key(private_key, deterministic_string=None):
+    public_key_nums = private_key.public_key().public_numbers()
 
-def main(deterministic_string):
+    public_key_nums_x_formatted = format_individual(public_key_nums.x, 2, line_group_size=8)
+    public_key_nums_y_formatted = format_individual(public_key_nums.y, 2, line_group_size=8)
+
+    return f"""const ecdsa_secp256r1_pubkey_t root_key = {{ // {deterministic_string}
+           .x = {{ {public_key_nums_x_formatted} }},
+           .y = {{ {public_key_nums_y_formatted} }}
+}};"""
+
+def main(deterministic_string, keystore_dir):
     if deterministic_string is None:
         private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
     else:
@@ -94,8 +106,9 @@ def main(deterministic_string):
 
         private_key = ec.derive_private_key(private_value, ec.SECP256R1(), default_backend())
 
-    contiking_format(private_key)
-    save_key(private_key, deterministic_string)
+    save_key(private_key, deterministic_string, keystore_dir)
+
+    return private_key
 
 if __name__ == "__main__":
     import argparse
@@ -103,7 +116,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='ECC Keygen')
     parser.add_argument('-d', '--deterministic', type=str, default=None, help='The deterministic string to use.')
+    parser.add_argument('--keystore-dir', type=str, default="keystore", help='The location to store the output files.')
 
     args = parser.parse_args()
 
-    main(args.deterministic)
+    private_key = main(args.deterministic)
+    out_format = contiking_format(private_key, deterministic_string)
+    print(out_format)

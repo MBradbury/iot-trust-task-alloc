@@ -6,3 +6,6 @@ Makefile.target
 root/mqtt_coap_bridge.pickle
 *.pem
 common/crypto/static-keys.c
+*/keystore
+setup
+__pycache__
