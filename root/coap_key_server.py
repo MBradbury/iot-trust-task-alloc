@@ -8,6 +8,7 @@ import os
 import aiocoap
 import aiocoap.error as error
 import aiocoap.numbers.codes as codes
+from aiocoap.numbers import media_types_rev
 import aiocoap.resource as resource
 
 from cryptography.hazmat.backends import default_backend
@@ -71,7 +72,7 @@ class COAPKeyServer(resource.Resource):
 
         payload += sig
 
-        return aiocoap.Message(payload=payload, content_format=b'application/octet-stream')
+        return aiocoap.Message(payload=payload, content_format=media_types_rev['application/octet-stream'])
 
     async def render_get(self, request):
         """An MQTT Subscribe request"""
@@ -87,7 +88,7 @@ class COAPKeyServer(resource.Resource):
             else:
                 raise InvalidAddressRequest()
 
-        logger.info(f"Received request for {request_address}")
+        logger.info(f"Received request for {request_address} from {request.remote}")
 
         key = self.keystore.get(request_address, None)
         if key is None:
@@ -95,6 +96,8 @@ class COAPKeyServer(resource.Resource):
                 key = self._load_key(request_address)
             except FileNotFoundError:
                 raise UnknownAddressRequest()
+        else:
+            logger.info(f"Using cached public key for {request_address} as response")
 
         return self._key_to_message(request_address, key)
 
