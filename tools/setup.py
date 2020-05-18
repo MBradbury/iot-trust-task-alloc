@@ -52,6 +52,10 @@ def create_static_keys(ip):
         print(eckeygen.contiking_format_root_key(keys[root_ip], root_ip),  file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
 
+# Back-up static-keys.c
+if os.path.exists("common/crypto/static-keys.c"):
+    shutil.move("common/crypto/static-keys.c", "common/crypto/static-keys.c.orig")
+
 for (target, ip) in ips.items():
     # Skip building for root ip
     if ip == root_ip:
@@ -72,6 +76,10 @@ for (target, ip) in ips.items():
         shutil.move(f"{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
 
     shutil.move("common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
+
+# Move backed-up static-keys.c back
+if os.path.exists("common/crypto/static-keys.c.orig"):
+    shutil.move("common/crypto/static-keys.c.orig", "common/crypto/static-keys.c")
 
 print("Deploying build binaries to targets")
 
