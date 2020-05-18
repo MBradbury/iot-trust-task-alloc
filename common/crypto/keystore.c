@@ -3,6 +3,7 @@
 #include "lib/memb.h"
 #include "lib/list.h"
 #include "os/sys/log.h"
+#include "os/net/ipv6/uiplib.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "keystore"
@@ -39,7 +40,7 @@ keystore_evict(keystore_eviction_policy_t evict)
     case EVICT_OLDEST: {
         for (public_key_item_t* iter = list_item_next(found); iter != NULL; iter = list_item_next(iter))
         {
-            if (iter->age > found->age)
+            if (iter->age > found->age) // TODO: check for clock overflow
             {
                 found = iter;
             }
@@ -96,5 +97,29 @@ keystore_find(const uip_ip6addr_t* addr)
     }
 
     return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
+{
+    uip_ip6addr_t root;
+    if (uiplib_ipaddrconv(MQTT_CLIENT_CONF_BROKER_IP_ADDR, &root))
+    {
+        if (uip_ip6addr_cmp(addr, &root))
+        {
+            return &root_key;
+        }
+    }
+    else
+    {
+        LOG_WARN("Failed to parse root IP address '" MQTT_CLIENT_CONF_BROKER_IP_ADDR "'\n");
+    }
+
+    public_key_item_t* item = keystore_find(addr);
+    if (!item)
+    {
+        return NULL;
+    }
+
+    return &item->pubkey;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -107,7 +107,6 @@ PROCESS(trust_model, "Trust Model process");
 typedef struct
 {
     struct pt pt;
-    int ret;
 
     coap_endpoint_t ep;
     coap_message_t msg;
@@ -125,6 +124,8 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
 {
     PT_BEGIN(&state->pt);
 
+    int ret;
+
     etimer_reset(&periodic_timer);
 
     LOG_DBG("Generating a periodic trust info packet\n");
@@ -136,10 +137,10 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
     // This is a non-confirmable message
     coap_init_message(&state->msg, COAP_TYPE_NON, COAP_POST, 0);
 
-    state->ret = coap_set_header_uri_path(&state->msg, TRUST_COAP_URI);
-    if (state->ret <= 0)
+    ret = coap_set_header_uri_path(&state->msg, TRUST_COAP_URI);
+    if (ret <= 0)
     {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", state->ret);
+        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
         PT_EXIT(&state->pt);
     }
 
@@ -154,7 +155,7 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
 
     state->sign_state.process = &trust_model;
     PT_SPAWN(&state->pt, &state->sign_state.pt,
-        sign_trust(&state->sign_state, state->coap_payload_buf, sizeof(state->coap_payload_buf), state->payload_len));
+        ecc_sign(&state->sign_state, state->coap_payload_buf, sizeof(state->coap_payload_buf), state->payload_len));
 
     state->payload_len += state->sign_state.sig_len;
 
@@ -169,14 +170,14 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
     }
 
     // No callback is set, as no confirmation of the message being received will be sent to us
-    state->ret = coap_send_request(&state->coap_callback, &state->ep, &state->msg, NULL);
-    if (state->ret)
+    ret = coap_send_request(&state->coap_callback, &state->ep, &state->msg, NULL);
+    if (ret)
     {
         LOG_DBG("coap_send_request trust done\n");
     }
     else
     {
-        LOG_ERR("coap_send_request trust failed %d\n", state->ret);
+        LOG_ERR("coap_send_request trust failed %d\n", ret);
     }
 
     PT_END(&state->pt);

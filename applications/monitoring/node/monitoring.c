@@ -134,6 +134,8 @@ periodic_action(void)
         return;
     }
 
+    // TODO: encrypt and sign message
+
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
 
     ret = coap_set_header_uri_path(&msg, MONITORING_APPLICATION_URI);

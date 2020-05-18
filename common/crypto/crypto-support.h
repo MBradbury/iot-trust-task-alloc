@@ -28,7 +28,7 @@ typedef struct {
 
 } sign_trust_state_t;
 
-PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
+PT_THREAD(ecc_sign(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt      pt;
@@ -40,5 +40,5 @@ typedef struct {
 
 } verify_trust_state_t;
 
-PT_THREAD(verify_trust(verify_trust_state_t* state, const uint8_t* buffer, size_t buffer_len));
+PT_THREAD(ecc_verify(verify_trust_state_t* state, const uint8_t* buffer, size_t buffer_len));
 /*-------------------------------------------------------------------------------------------------------------------*/

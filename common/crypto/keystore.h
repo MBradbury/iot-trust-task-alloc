@@ -26,4 +26,5 @@ public_key_item_t* keystore_add(const uip_ip6addr_t* addr,
                                 keystore_eviction_policy_t evict);
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_find(const uip_ip6addr_t* addr);
+const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr);
 /*-------------------------------------------------------------------------------------------------------------------*/

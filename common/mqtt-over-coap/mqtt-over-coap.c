@@ -498,7 +498,6 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
         PROCESS_EXIT();
     }
 
-    /* Main loop */
     while (1) {
         PROCESS_YIELD();
 

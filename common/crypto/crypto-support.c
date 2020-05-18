@@ -72,7 +72,7 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
     LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)time * 1000000 / RTIMER_SECOND));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
+PT_THREAD(ecc_sign(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
 {
     PT_BEGIN(&state->pt);
 
@@ -113,13 +113,13 @@ PT_THREAD(sign_trust(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_l
 #if 1
     static verify_trust_state_t test;
     test.process = state->process;
-    PT_SPAWN(&state->pt, &test.pt, verify_trust(&test, buffer, msg_len + state->sig_len));
+    PT_SPAWN(&state->pt, &test.pt, ecc_verify(&test, buffer, msg_len + state->sig_len));
 #endif
 
     PT_END(&state->pt);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PT_THREAD(verify_trust(verify_trust_state_t* state, const uint8_t* buffer, size_t buffer_len))
+PT_THREAD(ecc_verify(verify_trust_state_t* state, const uint8_t* buffer, size_t buffer_len))
 {
     PT_BEGIN(&state->pt);
 
@@ -165,11 +165,11 @@ PT_THREAD(verify_trust(verify_trust_state_t* state, const uint8_t* buffer, size_
         {
             LOG_ERR("Failed to verify message with %d\n", state->ecc_verify_state.result);
         }
-        
-        PT_EXIT(&state->pt);
     }
-
-    LOG_DBG("Message verify success!\n");
+    else
+    {
+        LOG_DBG("Message verify success!\n");
+    }
 
     PT_END(&state->pt);
 }
