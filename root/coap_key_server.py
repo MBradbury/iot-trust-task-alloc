@@ -90,6 +90,14 @@ class COAPKeyServer(resource.Resource):
 
         logger.info(f"Received request for {request_address} from {request.remote}")
 
+        # Convert to global address, if request is for link-local
+        if str(request_address).startswith("fe80"):
+            global_request_address = ipaddress.IPv6Address("fd00" + str(request_address)[4:])
+
+            logger.info(f"Request is for link-local address {request_address}, converting to global address {global_request_address}")
+
+            request_address = global_request_address
+
         key = self.keystore.get(request_address, None)
         if key is None:
             try:
