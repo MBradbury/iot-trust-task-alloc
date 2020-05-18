@@ -87,7 +87,7 @@ class SubscriptionManager:
 
         return list(self._subscriptions.keys())
 
-class MissingMQTTTopic(error.RenderableError):
+class MissingMQTTTopic(error.ConstructionRenderableError):
     code = codes.BAD_REQUEST
     message = "Error: MQTT topic not provided"
 
