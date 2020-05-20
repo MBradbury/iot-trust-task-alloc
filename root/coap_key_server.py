@@ -14,7 +14,7 @@ import aiocoap.resource as resource
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+from cryptography.hazmat.primitives.asymmetric import utils
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("coap-key-server")
@@ -36,6 +36,8 @@ class COAPKeyServer(resource.Resource):
 
         # Load the server's public/private key
         self.privkey = self._load_privkey(os.path.join(key_dir, "private.pem"))
+
+        self.sig_endianness = "big"
 
     def _load_privkey(self, path):
         with open(path, 'rb') as f:
@@ -60,20 +62,20 @@ class COAPKeyServer(resource.Resource):
         # 16 bytes for the IP address who the key belongs to
         addr_bytes = int(addr).to_bytes(16, byteorder='big')
 
-        # Raw Public Key (64 bytes_)
+        # Raw Public Key (64 bytes)
         public_numbers = key.public_numbers()
-        x = public_numbers.x.to_bytes(32, byteorder='big')
-        y = public_numbers.y.to_bytes(32, byteorder='big')
+        x = public_numbers.x.to_bytes(32, byteorder=self.sig_endianness)
+        y = public_numbers.y.to_bytes(32, byteorder=self.sig_endianness)
 
         payload = addr_bytes + x + y
 
         # Raw signature (64 bytes)
         sig = self.privkey.sign(payload, ec.ECDSA(hashes.SHA256()))
 
-        (r, s) = decode_dss_signature(sig)
+        (r, s) = utils.decode_dss_signature(sig)
 
-        r = r.to_bytes(32, byteorder='big')
-        s = s.to_bytes(32, byteorder='big')
+        r = r.to_bytes(32, byteorder=self.sig_endianness)
+        s = s.to_bytes(32, byteorder=self.sig_endianness)
 
         payload += (r + s)
 

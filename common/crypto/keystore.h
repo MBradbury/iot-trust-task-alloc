@@ -20,11 +20,12 @@ typedef enum {
     EVICT_OLDEST = 1,
 } keystore_eviction_policy_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
-void keystore_init(void);
 public_key_item_t* keystore_add(const uip_ip6addr_t* addr,
                                 const ecdsa_secp256r1_pubkey_t* pubkey,
                                 keystore_eviction_policy_t evict);
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_find(const uip_ip6addr_t* addr);
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr);
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool request_public_key(const uip_ip6addr_t* addr);
 /*-------------------------------------------------------------------------------------------------------------------*/

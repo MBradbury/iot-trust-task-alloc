@@ -12,10 +12,6 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 void crypto_support_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool crypto_fill_random(uint8_t* buffer, size_t len);
-/*-------------------------------------------------------------------------------------------------------------------*/
-void dtls_ec_key_to_uint32(const uint8_t* key, size_t key_size, uint32_t* result);
-/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt      pt;
     struct process *process;
@@ -26,9 +22,9 @@ typedef struct {
 
     rtimer_clock_t time;
 
-} sign_trust_state_t;
+} sign_state_t;
 
-PT_THREAD(ecc_sign(sign_trust_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
+PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt      pt;
@@ -38,7 +34,7 @@ typedef struct {
 
     rtimer_clock_t time;
 
-} verify_trust_state_t;
+} verify_state_t;
 
-PT_THREAD(ecc_verify(verify_trust_state_t* state, const uint8_t* buffer, size_t buffer_len));
+PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
 /*-------------------------------------------------------------------------------------------------------------------*/

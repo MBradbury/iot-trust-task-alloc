@@ -23,7 +23,6 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
-
 def save_key(pk, name, keystore_dir):
     """From: https://stackoverflow.com/questions/45146504/python-cryptography-module-save-load-rsa-keys-to-from-file"""
 
@@ -52,7 +51,7 @@ def save_key(pk, name, keystore_dir):
 
 
 def format_individual(number, size, line_group_size=None):
-    hex_num = hex(number).upper()[2:]
+    hex_num = number.to_bytes(32, 'big').hex().upper()
 
     wrapped = [f"0x{part}" for part in wrap(hex_num, size)]
 
@@ -65,14 +64,6 @@ def format_individual(number, size, line_group_size=None):
 def contiking_format_our_key(private_key, deterministic_string=None):
     public_key_nums = private_key.public_key().public_numbers()
     private_value = private_key.private_numbers().private_value
-
-    """private_key_hex_formatted = format_individual(private_value, 8)
-    public_key_nums_x_formatted = format_individual(public_key_nums.x, 8)
-    public_key_nums_y_formatted = format_individual(public_key_nums.y, 8)
-
-    print(f"const uint32_t private[8] = {{ {private_key_hex_formatted} }};")
-    print(f"const uint32_t publicx[8] = {{ {public_key_nums_x_formatted} }};")
-    print(f"const uint32_t publicy[8] = {{ {public_key_nums_y_formatted} }};")"""
 
     private_key_hex_formatted = format_individual(private_value, 2, line_group_size=8)
     public_key_nums_x_formatted = format_individual(public_key_nums.x, 2, line_group_size=8)
@@ -102,6 +93,7 @@ def main(deterministic_string, keystore_dir):
     else:
         print(f"Generating deterministic key using {deterministic_string}")
 
+        # Byteorder and signed here doesn't matter, is just needed to convert into an int
         private_value = int.from_bytes(sha256(deterministic_string.encode("utf-8")).digest(), byteorder="little", signed=False)
 
         private_key = ec.derive_private_key(private_value, ec.SECP256R1(), default_backend())
@@ -116,10 +108,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='ECC Keygen')
     parser.add_argument('-d', '--deterministic', type=str, default=None, help='The deterministic string to use.')
-    parser.add_argument('--keystore-dir', type=str, default="keystore", help='The location to store the output files.')
+    parser.add_argument('-k', '--keystore-dir', type=str, default="keystore", help='The location to store the output files.')
 
     args = parser.parse_args()
 
-    private_key = main(args.deterministic)
-    out_format = contiking_format(private_key, deterministic_string)
+    private_key = main(args.deterministic, args.keystore_dir)
+    out_format = contiking_format_our_key(private_key, args.deterministic)
     print(out_format)

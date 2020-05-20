@@ -43,6 +43,8 @@ static topic_subscribe_status_t topic_subscribe_status[TOPICS_TO_SUBSCRIBE_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
 /*-------------------------------------------------------------------------------------------------------------------*/
+static process_event_t pe_state_machine;
+/*-------------------------------------------------------------------------------------------------------------------*/
 /*
  * MQTT Org ID.
  *
@@ -102,8 +104,7 @@ PROCESS_NAME(mqtt_client_process);
  */
 static char client_id[sizeof(MQTT_CLIENT_ORG_ID) + 1 + 12];
 /*-------------------------------------------------------------------------------------------------------------------*/
-//struct mqtt_connection conn;
-static coap_endpoint_t server_ep;
+coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 //static char uri_path[MAX_URI_LEN];
@@ -134,7 +135,7 @@ echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t da
     if (uip_ip6addr_cmp(source, uip_ds6_defrt_choose())) {
         // Got ping from server, so we need to connect if not done so already
         LOG_DBG("Received ping reply from server, polling mqtt_client_process\n");
-        process_poll(&mqtt_client_process);
+        process_post(&mqtt_client_process, pe_state_machine, NULL);
 
         // No need to keep pinging
         etimer_stop(&echo_request_timer);
@@ -243,18 +244,12 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
 
     assert(callback_state != NULL);
 
-    if (!coap_callback_in_use)
-    {
-        return;
-    }
-
     uint16_t i = coap_callback_i;
 
-    coap_message_t* response = callback_state->state.response;
-
-    if ((callback_state->state.status == COAP_REQUEST_STATUS_FINISHED ||
-            callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE) && response != NULL)
+    if (callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE)
     {
+        coap_message_t* response = callback_state->state.response;
+
         if (response->code == CREATED_2_01)
         {
             LOG_DBG("Subscription to topic %s successful\n", topics_to_suscribe[i]);
@@ -270,6 +265,17 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
             topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
         }
     }
+    else if (callback_state->state.status == COAP_REQUEST_STATUS_MORE)
+    {
+        LOG_ERR("COAP_REQUEST_STATUS_MORE not implemented\n");
+    }
+    else if (callback_state->state.status == COAP_REQUEST_STATUS_FINISHED)
+    {
+        coap_callback_in_use = false;
+
+        // Poll the process to trigger subsequent subscribes
+        process_post(&mqtt_client_process, pe_state_machine, NULL);
+    }
     else
     {
         if (callback_state->state.status == COAP_REQUEST_STATUS_TIMEOUT)
@@ -282,12 +288,12 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
         }
 
         topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+
+        coap_callback_in_use = false;
+
+        // Poll the process to trigger subsequent subscribes
+        process_post(&mqtt_client_process, pe_state_machine, NULL);
     }
-
-    coap_callback_in_use = false;
-
-    // Poll the process to trigger subsequent subscribes
-    process_poll(&mqtt_client_process);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
@@ -486,6 +492,8 @@ init(void)
 
     coap_activate_resource(&res_coap_mqtt, MQTT_URI_PATH);
 
+    pe_state_machine = process_alloc_event();
+
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -501,7 +509,7 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
     while (1) {
         PROCESS_YIELD();
 
-        if ((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) || ev == PROCESS_EVENT_POLL) {
+        if ((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) || ev == pe_state_machine) {
             state_machine();
         }
 

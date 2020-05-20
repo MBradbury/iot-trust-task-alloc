@@ -20,6 +20,7 @@
 #include "applications.h"
 #include "trust-common.h"
 #include "crypto-support.h"
+#include "keystore.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust"
@@ -99,6 +100,17 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
     coap_endpoint_log(request->src_ep);
     LOG_DBG_(" Data=%.*s of length %u\n", payload_len, (const char*)payload, payload_len);
 
+    public_key_item_t* key = keystore_find(&request->src_ep->ipaddr);
+    if (key == NULL)
+    {
+        LOG_DBG("Missing public key, need to request it.\n");
+        request_public_key(&request->src_ep->ipaddr);
+    }
+    else
+    {
+        LOG_DBG("Have public key.\n");
+    }
+
     // TODO: add data to a queue for verification
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -114,7 +126,7 @@ typedef struct
 
     int payload_len;
 
-    sign_trust_state_t sign_state;
+    sign_state_t sign_state;
 
     coap_callback_request_state_t coap_callback;
 
