@@ -54,6 +54,10 @@ keystore_evict(keystore_eviction_policy_t evict)
         return false;
     }
 
+    LOG_DBG("Evicting ");
+    uiplib_ipaddr_print(&found->addr);
+    LOG_DBG_(" from the keystore.\n");
+
     list_remove(public_keys, found);
     memb_free(&public_keys_memb, found);
 
@@ -96,7 +100,7 @@ keystore_find(const uip_ip6addr_t* addr)
 
     for (public_key_item_t* iter = list_head(public_keys); iter != NULL; iter = list_item_next(iter))
     {
-        if (uip_ip6addr_cmp(&iter->addr, addr) == 0)
+        if (uip_ip6addr_cmp(&iter->addr, addr))
         {
             return iter;
         }
@@ -133,7 +137,7 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern coap_endpoint_t server_ep;
 
-static uint8_t req_resp[16 + 64 + 64];
+static uint8_t req_resp[16 + 64 + 64]; // 16 bytes for ipv6 address, 2*32 for the public key, 2*32 for the signature
 static int req_resp_len;
 
 static coap_message_t msg;
