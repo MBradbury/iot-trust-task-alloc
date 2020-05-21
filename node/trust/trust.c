@@ -152,7 +152,7 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
     ret = coap_set_header_uri_path(&state->msg, TRUST_COAP_URI);
     if (ret <= 0)
     {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+        LOG_ERR("coap_set_header_uri_path failed %d\n", ret);
         PT_EXIT(&state->pt);
     }
 
@@ -168,6 +168,12 @@ PT_THREAD(periodic_action(periodic_action_state_t* state))
     state->sign_state.process = &trust_model;
     PT_SPAWN(&state->pt, &state->sign_state.pt,
         ecc_sign(&state->sign_state, state->coap_payload_buf, sizeof(state->coap_payload_buf), state->payload_len));
+
+    if (state->sign_state.ecc_sign_state.result != PKA_STATUS_SUCCESS)
+    {
+        LOG_ERR("Sign of trust information failed %d\n", state->sign_state.ecc_sign_state.result);
+        PT_EXIT(&state->pt);
+    }
 
     state->payload_len += state->sign_state.sig_len;
 
