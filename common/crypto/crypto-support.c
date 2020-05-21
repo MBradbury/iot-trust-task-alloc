@@ -101,17 +101,24 @@ static void
 sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
 {
     sha256_state_t sha256_state;
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     rtimer_clock_t time;
 
     LOG_DBG("Starting sha256()...\n");
     time = RTIMER_NOW();
+#endif
+
     crypto_enable();
     sha256_init(&sha256_state);
     sha256_process(&sha256_state, buffer, len);
     sha256_done(&sha256_state, hash);
     crypto_disable();
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
     LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)time * 1000000 / RTIMER_SECOND));
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
@@ -131,7 +138,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 
     state->sig_len = 0;
 
-    uint8_t digest[32];
+    uint8_t digest[SHA256_DIGEST_LEN_BYTES];
     sha256_hash(buffer, msg_len, digest);
     ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_sign_state.hash);
 
@@ -148,13 +155,19 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 
     crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
 
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_sign()...\n");
     state->time = RTIMER_NOW();
+#endif
+
     pka_enable();
     PT_SPAWN(&state->pt, &state->ecc_sign_state.pt, ecc_dsa_sign(&state->ecc_sign_state));
     pka_disable();
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
     LOG_DBG("ecc_dsa_sign(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+#endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
 
@@ -173,7 +186,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     ec_uint32v_to_uint8v(state->ecc_sign_state.signature_s, DTLS_EC_KEY_SIZE, buffer + msg_len + DTLS_EC_KEY_SIZE);
     state->sig_len = DTLS_EC_KEY_SIZE * 2;
 
-#if 1
+#if 0
     LOG_DBG("Performing sign self-check...\n");
     static verify_state_t test;
     test.process = state->process;
@@ -211,7 +224,7 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
     ec_uint8v_to_uint32v(sig_r, DTLS_EC_KEY_SIZE, state->ecc_verify_state.signature_r);
     ec_uint8v_to_uint32v(sig_s, DTLS_EC_KEY_SIZE, state->ecc_verify_state.signature_s);
 
-    uint8_t digest[32];
+    uint8_t digest[SHA256_DIGEST_LEN_BYTES];
     sha256_hash(buffer, msg_len, digest);
     ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_verify_state.hash);
 
@@ -227,13 +240,19 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
     //hexdump("x", pubkey->x, DTLS_EC_KEY_SIZE);
     //hexdump("y", pubkey->y, DTLS_EC_KEY_SIZE);
 
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_verify()...\n");
     state->time = RTIMER_NOW();
+#endif
+
     pka_enable();
     PT_SPAWN(&state->pt, &state->ecc_verify_state.pt, ecc_dsa_verify(&state->ecc_verify_state));
     pka_disable();
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
     LOG_DBG("ecc_dsa_verify(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+#endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
 

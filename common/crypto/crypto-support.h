@@ -20,8 +20,9 @@ typedef struct {
 
     uint16_t sig_len;
 
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     rtimer_clock_t time;
-
+#endif
 } sign_state_t;
 
 PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
@@ -32,8 +33,9 @@ typedef struct {
 
     ecc_dsa_verify_state_t ecc_verify_state;
 
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
     rtimer_clock_t time;
-
+#endif
 } verify_state_t;
 
 PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
