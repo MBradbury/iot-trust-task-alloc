@@ -54,31 +54,41 @@ static struct etimer publish_periodic_timer, publish_short_timer;
 static bool started;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-send_callback(coap_callback_request_state_t *callback_state)
+send_callback(coap_callback_request_state_t* callback_state)
 {
-    if (!coap_callback_in_use)
+    switch (callback_state->state.status)
     {
-        return;
-    }
-
-    coap_message_t* response = callback_state->state.response;
-
-    if ((callback_state->state.status == COAP_REQUEST_STATUS_FINISHED ||
-        callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE) && response != NULL)
+    case COAP_REQUEST_STATUS_RESPONSE:
     {
+        coap_message_t* response = callback_state->state.response;
+
         LOG_DBG("Message send complete with code (%d) '%.*s' (len=%d)\n",
             response->code, response->payload_len, response->payload, response->payload_len);
-    }
-    else
+    } break;
+
+    case COAP_REQUEST_STATUS_MORE:
     {
-        if (callback_state->state.status == COAP_REQUEST_STATUS_TIMEOUT)
-        {
-            LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
-        }
-        else
-        {
-            LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
-        }
+        LOG_ERR("Unhandled COAP_REQUEST_STATUS_MORE\n");
+    } break;
+
+    case COAP_REQUEST_STATUS_FINISHED:
+    {
+    } break;
+
+    case COAP_REQUEST_STATUS_TIMEOUT:
+    {
+        LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
+    } break;
+
+    case COAP_REQUEST_STATUS_BLOCK_ERROR:
+    {
+        LOG_ERR("Failed to send message with status %d (block error)\n", callback_state->state.status);
+    } break;
+
+    default:
+    {
+        LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
+    } break;
     }
 
     coap_callback_in_use = false;
