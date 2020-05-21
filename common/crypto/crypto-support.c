@@ -30,6 +30,10 @@ crypto_support_init(void)
 {
     crypto_init();
     crypto_disable();
+
+    pka_init();
+    pka_disable();
+
     PT_SEM_INIT(&crypto_processor_mutex, 1);
 
     pe_message_signed = process_alloc_event();

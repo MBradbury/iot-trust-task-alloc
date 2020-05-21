@@ -116,93 +116,92 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
 /*-------------------------------------------------------------------------------------------------------------------*/
-typedef struct
+static coap_endpoint_t ep;
+static coap_message_t msg;
+static coap_callback_request_state_t coap_callback;
+static uint8_t coap_payload_buf[MAX_TRUST_PAYLOAD];
+static bool in_use;
+/*-------------------------------------------------------------------------------------------------------------------*/
+static bool periodic_action(void)
 {
-    struct pt pt;
+    if (in_use)
+    {
+        LOG_WARN("Already doing a periodic action\n");
+        return false;
+    }
 
-    coap_endpoint_t ep;
-    coap_message_t msg;
-    uint8_t coap_payload_buf[MAX_TRUST_PAYLOAD];
-
-    int payload_len;
-
-    sign_state_t sign_state;
-
-    coap_callback_request_state_t coap_callback;
-
-} periodic_action_state_t;
-
-PT_THREAD(periodic_action(periodic_action_state_t* state))
-{
-    PT_BEGIN(&state->pt);
-
-    int ret;
+    in_use = true;
 
     etimer_reset(&periodic_timer);
 
     LOG_DBG("Generating a periodic trust info packet\n");
 
-    uip_create_linklocal_allnodes_mcast(&state->ep.ipaddr);
-    state->ep.secure = 0;
-    state->ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
+    uip_create_linklocal_allnodes_mcast(&ep.ipaddr);
+    ep.secure = 0;
+    ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
 
     // This is a non-confirmable message
-    coap_init_message(&state->msg, COAP_TYPE_NON, COAP_POST, 0);
+    coap_init_message(&msg, COAP_TYPE_NON, COAP_POST, 0);
 
-    ret = coap_set_header_uri_path(&state->msg, TRUST_COAP_URI);
+    int ret = coap_set_header_uri_path(&msg, TRUST_COAP_URI);
     if (ret <= 0)
     {
         LOG_ERR("coap_set_header_uri_path failed %d\n", ret);
-        PT_EXIT(&state->pt);
+        return false;
     }
 
-    state->payload_len = serialise_trust(NULL, state->coap_payload_buf, sizeof(state->coap_payload_buf));
-    if (state->payload_len <= 0 || state->payload_len > sizeof(state->coap_payload_buf))
+    int payload_len = serialise_trust(NULL, coap_payload_buf, sizeof(coap_payload_buf));
+    if (payload_len <= 0 || payload_len > sizeof(coap_payload_buf))
     {
-        LOG_DBG("serialise_trust failed %d\n", state->payload_len);
-        PT_EXIT(&state->pt);
+        LOG_ERR("serialise_trust failed %d\n", payload_len);
+        return false;
     }
 
-    LOG_DBG("Spawning PT to sign message of length %u...\n", state->payload_len);
-
-    state->sign_state.process = &trust_model;
-    PT_SPAWN(&state->pt, &state->sign_state.pt,
-        ecc_sign(&state->sign_state, state->coap_payload_buf, sizeof(state->coap_payload_buf), state->payload_len));
-
-    if (state->sign_state.ecc_sign_state.result != PKA_STATUS_SUCCESS)
+    if (!queue_message_to_sign(&trust_model, NULL, coap_payload_buf, sizeof(coap_payload_buf), payload_len))
     {
-        LOG_ERR("Sign of trust information failed %d\n", state->sign_state.ecc_sign_state.result);
-        PT_EXIT(&state->pt);
+        LOG_ERR("trust periodic_action: Unable to sign message\n");
+        return false;
     }
 
-    state->payload_len += state->sign_state.sig_len;
+    return true;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void periodic_action_continue(void* data)
+{
+    messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
 
-    LOG_DBG("Messaged signed new length = %u\n", state->payload_len);
-
-    int payload_len = coap_set_payload(&state->msg, state->coap_payload_buf, state->payload_len);
-
-    if (payload_len < state->payload_len)
+    if (entry->result == PKA_STATUS_SUCCESS)
     {
-        LOG_WARN("Messaged length truncated to = %d\n", payload_len);
-        // TODO: how to handle block-wise transfer?
-    }
+        int payload_len = entry->message_len + DTLS_EC_KEY_SIZE*2;
+        int coap_payload_len = coap_set_payload(&msg, coap_payload_buf, payload_len);
+        if (coap_payload_len < payload_len)
+        {
+            LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
+            // TODO: how to handle block-wise transfer?
+        }
 
-    // No callback is set, as no confirmation of the message being received will be sent to us
-    ret = coap_send_request(&state->coap_callback, &state->ep, &state->msg, NULL);
-    if (ret)
-    {
-        LOG_DBG("coap_send_request trust done\n");
+        // No callback is set, as no confirmation of the message being received will be sent to us
+        int ret = coap_send_request(&coap_callback, &ep, &msg, NULL);
+        if (ret)
+        {
+            LOG_DBG("coap_send_request trust done\n");
+        }
+        else
+        {
+            LOG_ERR("coap_send_request trust failed %d\n", ret);
+        }
     }
     else
     {
-        LOG_ERR("coap_send_request trust failed %d\n", ret);
+        LOG_ERR("Sign of trust information failed %d\n", entry->result);
     }
 
-    PT_END(&state->pt);
+    queue_message_to_sign_done(entry);
+
+    in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool
-init(void)
+static bool init(void)
 {
     trust_common_init();
     edge_info_init();
@@ -211,8 +210,7 @@ init(void)
 
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
 
-    pka_init();
-    pka_disable();
+    in_use = false;
 
     return true;
 }
@@ -229,11 +227,16 @@ PROCESS_THREAD(trust_model, ev, data)
 
     while (1)
     {
-        PROCESS_YIELD();
+        PROCESS_WAIT_EVENT();
 
-        if (ev == PROCESS_EVENT_TIMER && data == &periodic_timer) {
-            static periodic_action_state_t state;
-            PT_SPAWN(&trust_model.pt, &state.pt, periodic_action(&state));
+        if (ev == PROCESS_EVENT_TIMER && data == &periodic_timer)
+        {
+            periodic_action();
+        }
+
+        if (ev == pe_message_signed)
+        {
+            periodic_action_continue(data);
         }
     }
 

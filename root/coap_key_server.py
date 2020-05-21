@@ -92,6 +92,15 @@ class COAPKeyServer(resource.Resource):
                     request_address = ipaddress.IPv6Address(request.payload)
                 except ValueError:
                     raise InvalidAddressRequest()
+
+            # Try parsing as bytes with a signatures
+            # TODO: verify this signature
+            elif len(request.payload) == 16 + 32*2:
+                try:
+                    request_address = ipaddress.IPv6Address(request.payload[0:16])
+                except ValueError:
+                    raise InvalidAddressRequest()
+
             else:
                 raise InvalidAddressRequest()
 

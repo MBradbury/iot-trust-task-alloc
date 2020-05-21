@@ -157,8 +157,80 @@ static uint8_t req_resp[sizeof(uip_ip6addr_t) + DTLS_EC_KEY_SIZE*2 + DTLS_EC_KEY
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
-static uip_ip6addr_t local_addr;
+static uint8_t key_req_payload[sizeof(uip_ip6addr_t) + DTLS_EC_KEY_SIZE*2];
 static bool in_use;
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void request_public_key_callback(coap_callback_request_state_t* callback_state);
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool request_public_key(const uip_ip6addr_t* addr)
+{
+    if (in_use)
+    {
+        LOG_WARN("Already requesting a public key, cannot request another.\n");
+        return false;
+    }
+
+    in_use = true;
+
+    int ret;
+
+    LOG_DBG("Generating public key request\n");
+
+    coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
+
+    ret = coap_set_header_uri_path(&msg, "key");
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+        return false;
+    }
+
+    memcpy(key_req_payload, addr, sizeof(*addr));
+
+    if (!queue_message_to_sign(&keystore, NULL, key_req_payload, sizeof(key_req_payload), sizeof(*addr)))
+    {
+        LOG_ERR("request_public_key: Unable to sign message\n");
+        return false;
+    }
+
+    return true;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void request_public_key_continued(void* data)
+{
+    messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
+
+    // If the message was signed successfully, then we need to inform coap
+    // of the extra data that needsa to be sent.
+    if (entry->result == PKA_STATUS_SUCCESS)
+    {
+        int payload_len = entry->message_len + DTLS_EC_KEY_SIZE*2;
+        int coap_payload_len = coap_set_payload(&msg, key_req_payload, payload_len);
+        if (coap_payload_len < payload_len)
+        {
+            LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
+            // TODO: how to handle block-wise transfer?
+        }
+
+        int ret = coap_send_request(&coap_callback, &server_ep, &msg, &request_public_key_callback);
+        if (ret)
+        {
+            LOG_DBG("coap_send_request req pk done\n");
+        }
+        else
+        {
+            LOG_ERR("coap_send_request req pk failed %d\n", ret);
+            in_use = false;
+        }
+    }
+    else
+    {
+        LOG_ERR("Sign of pk req failed %d\n", entry->result);
+        in_use = false;
+    }
+
+    queue_message_to_sign_done(entry);
+}
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 request_public_key_callback(coap_callback_request_state_t* callback_state)
@@ -181,14 +253,22 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         const uint8_t* payload = NULL;
         const int req_resp_len = coap_get_payload(response, &payload);
 
-        if (req_resp_len == sizeof(req_resp))
+        if (response->code != CONTENT_2_05)
         {
-            memcpy(req_resp, payload, req_resp_len);
+            LOG_ERR("Failed to request public key from key server %.*s\n", req_resp_len, (const char*)payload);
+            in_use = false;
         }
         else
         {
-            LOG_ERR("req_resp is too small for %d\n", req_resp_len);
-            in_use = false;
+            if (req_resp_len == sizeof(req_resp))
+            {
+                memcpy(req_resp, payload, req_resp_len);
+            }
+            else
+            {
+                LOG_ERR("req_resp is not the expected length %d != %d\n", req_resp_len, sizeof(req_resp));
+                in_use = false;
+            }
         }
     } break;
 
@@ -226,45 +306,44 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool request_public_key(const uip_ip6addr_t* addr)
+static void request_public_key_callback_continued(void* data)
 {
-    if (in_use)
+    messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
+
+    // Parse contents of req_resp:
+    // First 16 bytes are the IP Address
+    // Next 64 bytes are the raw public key (x, y)
+    // Next 64 bytes are the raw digital signature of the root server (r, s)
+    const uip_ip6addr_t* addr = (const uip_ip6addr_t*)entry->message;
+    const ecdsa_secp256r1_pubkey_t* pubkey = 
+        (const ecdsa_secp256r1_pubkey_t*)(entry->message + sizeof(uip_ip6addr_t));
+
+    if (entry->result == PKA_STATUS_SUCCESS)
     {
-        LOG_WARN("Already requesting a public key, cannot request another.\n");
-        return false;
-    }
-
-    in_use = true;
-
-    int ret;
-
-    LOG_DBG("Generating public key request\n");
-
-    coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
-
-    ret = coap_set_header_uri_path(&msg, "key");
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-        return false;
-    }
-
-    uip_ipaddr_copy(&local_addr, addr);
-
-    coap_set_payload(&msg, &local_addr.u8, sizeof(local_addr));
-
-    ret = coap_send_request(&coap_callback, &server_ep, &msg, &request_public_key_callback);
-    if (ret)
-    {
-        LOG_DBG("coap_send_request req pk done\n");
+        public_key_item_t* item = keystore_add(addr, pubkey, EVICT_OLDEST);
+        if (item)
+        {
+            LOG_DBG("Sucessfully added public key for ");
+            uiplib_ipaddr_print(addr);
+            LOG_DBG_("\n");
+        }
+        else
+        {
+            LOG_ERR("Failed to add public key for ");
+            uiplib_ipaddr_print(addr);
+            LOG_ERR_(" (out of memory)\n");
+        }
     }
     else
     {
-        LOG_ERR("coap_send_request req pk failed %d\n", ret);
-        in_use = false;
+        LOG_ERR("Failed to add public key for ");
+        uiplib_ipaddr_print(addr);
+        LOG_ERR_(" (sig verification failed)\n");
     }
 
-    return true;
+    queue_message_to_verify_done(entry);
+
+    in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -282,50 +361,20 @@ PROCESS_THREAD(keystore, ev, data)
 
     keystore_init();
 
-    LOG_DBG("Keystore process started, waiting for keys to verify and add...\n");
-
     while (1)
     {
         PROCESS_WAIT_EVENT();
 
+        // Sign key request
+        if (ev == pe_message_signed)
+        {
+            request_public_key_continued(data);
+        }
+
+        // Verify key response
         if (ev == pe_message_verified)
         {
-            messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
-
-            // Parse contents of req_resp:
-            // First 16 bytes are the IP Address
-            // Next 64 bytes are the raw public key (x, y)
-            // Next 64 bytes are the raw digital signature of the root server (r, s)
-            const uip_ip6addr_t* addr = (const uip_ip6addr_t*)entry->message;
-            const ecdsa_secp256r1_pubkey_t* pubkey = 
-                (const ecdsa_secp256r1_pubkey_t*)(entry->message + sizeof(uip_ip6addr_t));
-
-            if (entry->result == PKA_STATUS_SUCCESS)
-            {
-                public_key_item_t* item = keystore_add(addr, pubkey, EVICT_OLDEST);
-                if (item)
-                {
-                    LOG_DBG("Sucessfully added public key for ");
-                    uiplib_ipaddr_print(addr);
-                    LOG_DBG_("\n");
-                }
-                else
-                {
-                    LOG_ERR("Failed to add public key for ");
-                    uiplib_ipaddr_print(addr);
-                    LOG_ERR_(" (out of memory)\n");
-                }
-            }
-            else
-            {
-                LOG_ERR("Failed to add public key for ");
-                uiplib_ipaddr_print(addr);
-                LOG_ERR_(" (sig verification failed)\n");
-            }
-
-            queue_message_to_verify_done(entry);
-
-            in_use = false;
+            request_public_key_callback_continued(data);
         }
     }
 
