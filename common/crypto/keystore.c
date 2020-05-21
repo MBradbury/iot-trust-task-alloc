@@ -25,6 +25,8 @@ static process_event_t pe_verify_signature;
 MEMB(public_keys_memb, public_key_item_t, PUBLIC_KEYSTORE_SIZE);
 LIST(public_keys);
 /*-------------------------------------------------------------------------------------------------------------------*/
+extern coap_endpoint_t server_ep;
+/*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 keystore_evict(keystore_eviction_policy_t evict)
 {
@@ -64,12 +66,33 @@ keystore_evict(keystore_eviction_policy_t evict)
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static void
+uip_ip6addr_normalise(const uip_ip6addr_t* in, uip_ip6addr_t* out)
+{
+    uip_ipaddr_copy(out, in);
+
+    // Check addr is a link-local (fe80::) address
+    // and if so, normalise it to the global address (fd00::)
+    if (uip_is_addr_linklocal(out))
+    {
+        out->u8[0] = 0xFD;
+        out->u8[1] = 0x00;
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t*
 keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, keystore_eviction_policy_t evict)
 {
-    // TODO: check addr is a global (fd00::) address
+    uip_ip6addr_t norm_addr;
+    uip_ip6addr_normalise(addr, &norm_addr);
 
-    public_key_item_t* item = memb_alloc(&public_keys_memb);
+    public_key_item_t* item = keystore_find(&norm_addr);
+    if (item)
+    {
+        return item;
+    }
+
+    item = memb_alloc(&public_keys_memb);
     if (!item)
     {
         if (keystore_evict(evict))
@@ -86,7 +109,7 @@ keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, 
         }
     }
 
-    uip_ipaddr_copy(&item->addr, addr);
+    uip_ipaddr_copy(&item->addr, &norm_addr);
     memcpy(&item->pubkey, pubkey, sizeof(ecdsa_secp256r1_pubkey_t));
     item->age = clock_time();
 
@@ -96,11 +119,12 @@ keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, 
 public_key_item_t*
 keystore_find(const uip_ip6addr_t* addr)
 {
-    // TODO: detect if using link-local (fe80::) addresses and convert to being global (fd00::) addresses
+    uip_ip6addr_t norm_addr;
+    uip_ip6addr_normalise(addr, &norm_addr);
 
     for (public_key_item_t* iter = list_head(public_keys); iter != NULL; iter = list_item_next(iter))
     {
-        if (uip_ip6addr_cmp(&iter->addr, addr))
+        if (uip_ip6addr_cmp(&iter->addr, &norm_addr))
         {
             return iter;
         }
@@ -111,22 +135,15 @@ keystore_find(const uip_ip6addr_t* addr)
 /*-------------------------------------------------------------------------------------------------------------------*/
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
 {
-    // TODO: detect if using link-local (fe80::) addresses and convert to being global (fd00::) addresses
+    uip_ip6addr_t norm_addr;
+    uip_ip6addr_normalise(addr, &norm_addr);
 
-    uip_ip6addr_t root;
-    if (uiplib_ipaddrconv(MQTT_CLIENT_CONF_BROKER_IP_ADDR, &root))
+    if (uip_ip6addr_cmp(&norm_addr, &server_ep.ipaddr))
     {
-        if (uip_ip6addr_cmp(addr, &root))
-        {
-            return &root_key;
-        }
-    }
-    else
-    {
-        LOG_WARN("Failed to parse root IP address '" MQTT_CLIENT_CONF_BROKER_IP_ADDR "'\n");
+        return &root_key;
     }
 
-    public_key_item_t* item = keystore_find(addr);
+    public_key_item_t* item = keystore_find(&norm_addr);
     if (!item)
     {
         return NULL;
@@ -135,66 +152,82 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
     return &item->pubkey;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-extern coap_endpoint_t server_ep;
-
-static uint8_t req_resp[16 + 64 + 64]; // 16 bytes for ipv6 address, 2*32 for the public key, 2*32 for the signature
-static int req_resp_len;
-
+// 16 bytes for ipv6 address
+// 2*32 for the public key
+// 2*32 for the signature
+static uint8_t req_resp[sizeof(uip_ip6addr_t) + DTLS_EC_KEY_SIZE*2 + DTLS_EC_KEY_SIZE*2];
+/*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
 static uip_ip6addr_t local_addr;
 static bool in_use;
-
+/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 request_public_key_callback(coap_callback_request_state_t* callback_state)
 {
-    LOG_DBG("request_public_key_callback %d\n", in_use);
-
-    if (!in_use)
+    //LOG_DBG("request_public_key_callback %d\n", in_use);
+    /*if (!in_use)
     {
         return;
-    }
+    }*/
 
-    coap_message_t* response = callback_state->state.response;
-
-    if (callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE)
+    switch (callback_state->state.status)
     {
+    case COAP_REQUEST_STATUS_RESPONSE:
+    {
+        coap_message_t* response = callback_state->state.response;
+
         LOG_DBG("Message req pk complete with code (%d) (len=%d)\n",
             response->code, response->payload_len);
 
         const uint8_t* payload = NULL;
-        req_resp_len = coap_get_payload(response, &payload);
+        const int req_resp_len = coap_get_payload(response, &payload);
 
-        if (req_resp_len <= sizeof(req_resp))
+        if (req_resp_len == sizeof(req_resp))
         {
             memcpy(req_resp, payload, req_resp_len);
-
-            process_post(&keystore, pe_verify_signature, req_resp);
         }
         else
         {
             LOG_ERR("req_resp is too small for %d\n", req_resp_len);
+            in_use = false;
         }
-    }
-    else if (callback_state->state.status == COAP_REQUEST_STATUS_FINISHED)
-    {
-        // Not finished yet here, need to wait for signature verification
-    }
-    else
-    {
-        if (callback_state->state.status == COAP_REQUEST_STATUS_TIMEOUT)
-        {
-            LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
-        }
-        else
-        {
-            LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
-        }
+    } break;
 
+    case COAP_REQUEST_STATUS_MORE:
+    {
+        LOG_ERR("Unhandled COAP_REQUEST_STATUS_MORE\n");
+    } break;
+
+    case COAP_REQUEST_STATUS_FINISHED:
+    {
+        // Not truely finished yet here, need to wait for signature verification
+        if (in_use)
+        {
+            process_post(&keystore, pe_verify_signature, req_resp);
+        }
+    } break;
+
+    case COAP_REQUEST_STATUS_TIMEOUT:
+    {
+        LOG_ERR("Failed to send message due to timeout\n");
         in_use = false;
+    } break;
+
+    case COAP_REQUEST_STATUS_BLOCK_ERROR:
+    {
+        LOG_ERR("Failed to send message due to block error\n");
+        in_use = false;
+    } break;
+
+    default:
+    {
+        LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
+        in_use = false;
+    } break;
     }
 }
-
+/*-------------------------------------------------------------------------------------------------------------------*/
 bool request_public_key(const uip_ip6addr_t* addr)
 {
     if (in_use)
@@ -271,14 +304,14 @@ PROCESS_THREAD(keystore, ev, data)
 
             static verify_state_t state;
             state.process = &keystore;
-            PT_SPAWN(&keystore.pt, &state.pt, ecc_verify(&state, &root_key, req_resp, req_resp_len));
+            PT_SPAWN(&keystore.pt, &state.pt, ecc_verify(&state, &root_key, req_resp, sizeof(req_resp)));
 
             if (state.ecc_verify_state.result == PKA_STATUS_SUCCESS)
             {
-                public_key_item_t* item = keystore_add(
-                    (const uip_ip6addr_t*)req_resp,
-                    (const ecdsa_secp256r1_pubkey_t*)(req_resp+16),
-                    EVICT_OLDEST);
+                const uip_ip6addr_t* addr = (const uip_ip6addr_t*)req_resp;
+                const ecdsa_secp256r1_pubkey_t* pubkey = (const ecdsa_secp256r1_pubkey_t*)(req_resp + sizeof(uip_ip6addr_t));
+
+                public_key_item_t* item = keystore_add(addr, pubkey, EVICT_OLDEST);
                 if (item)
                 {
                     LOG_DBG("Sucessfully added public key for ");
@@ -289,7 +322,7 @@ PROCESS_THREAD(keystore, ev, data)
                 {
                     LOG_ERR("Failed to add public key for ");
                     uiplib_ipaddr_print((const uip_ip6addr_t*)req_resp);
-                    LOG_ERR("\n");
+                    LOG_ERR_("\n");
                 }
             }
 
