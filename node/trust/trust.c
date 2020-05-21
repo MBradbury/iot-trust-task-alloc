@@ -91,12 +91,10 @@ static void
 res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
     // Received trust information from another node, need to update our reputation database
-    LOG_DBG("Received trust info packet via POST\n");
-
     const uint8_t* payload;
     int payload_len = coap_get_payload(request, &payload);
 
-    LOG_DBG("Received trust info from ");
+    LOG_DBG("Received trust info via POST from ");
     coap_endpoint_log(request->src_ep);
     LOG_DBG_(" Data=%.*s of length %u\n", payload_len, (const char*)payload, payload_len);
 
