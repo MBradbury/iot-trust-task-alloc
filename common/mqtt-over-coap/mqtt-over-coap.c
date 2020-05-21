@@ -45,36 +45,6 @@ PROCESS_NAME(mqtt_client_process);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static process_event_t pe_state_machine;
 /*-------------------------------------------------------------------------------------------------------------------*/
-/*
- * MQTT Org ID.
- *
- * If it equals "quickstart", the client will connect without authentication.
- * In all other cases, the client will connect with authentication mode.
- *
- * In Watson mode, the username will be "use-token-auth". In non-Watson mode
- * the username will be MQTT_CLIENT_USERNAME.
- *
- * In all cases, the password will be MQTT_CLIENT_AUTH_TOKEN.
- */
-#ifdef MQTT_CLIENT_CONF_ORG_ID
-#define MQTT_CLIENT_ORG_ID MQTT_CLIENT_CONF_ORG_ID
-#else
-#error "Need to define MQTT_CLIENT_CONF_ORG_ID"
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
-/* MQTT token */
-#ifdef MQTT_CLIENT_CONF_AUTH_TOKEN
-#define MQTT_CLIENT_AUTH_TOKEN MQTT_CLIENT_CONF_AUTH_TOKEN
-#else
-#define MQTT_CLIENT_AUTH_TOKEN "AUTHTOKEN"
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
-#ifdef MQTT_CLIENT_CONF_USERNAME
-#define MQTT_CLIENT_USERNAME MQTT_CLIENT_CONF_USERNAME
-#else
-#define MQTT_CLIENT_USERNAME "use-token-auth"
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
 #define COAP_CLIENT_CONF_BROKER_IP_ADDR "coap://[" MQTT_CLIENT_CONF_BROKER_IP_ADDR "]"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define MQTT_URI_PATH "mqtt"
@@ -102,7 +72,7 @@ static process_event_t pe_state_machine;
  * iot-2/evt/status/fmt/json is 25 bytes
  * We also need space for the null termination
  */
-static char client_id[sizeof(MQTT_CLIENT_ORG_ID) + 1 + 12];
+static char client_id[12 + 1];
 /*-------------------------------------------------------------------------------------------------------------------*/
 coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -154,8 +124,7 @@ topic_init(void)
 static bool
 construct_client_id(void)
 {
-    int len = snprintf(client_id, sizeof(client_id), "%s:%02x%02x%02x%02x%02x%02x",
-                                         MQTT_CLIENT_ORG_ID,
+    int len = snprintf(client_id, sizeof(client_id), "%02x%02x%02x%02x%02x%02x",
                                          linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                                          linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
                                          linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
@@ -238,15 +207,26 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
+subscribe_callback_end(void)
+{
+    coap_callback_in_use = false;
+
+    // Poll the process to trigger subsequent subscribes
+    process_post(&mqtt_client_process, pe_state_machine, NULL);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
 subscribe_callback(coap_callback_request_state_t *callback_state)
 {
     LOG_DBG("Received subscribe callback\n");
 
     assert(callback_state != NULL);
 
-    uint16_t i = coap_callback_i;
+    const uint16_t i = coap_callback_i;
 
-    if (callback_state->state.status == COAP_REQUEST_STATUS_RESPONSE)
+    switch (callback_state->state.status)
+    {
+    case COAP_REQUEST_STATUS_RESPONSE:
     {
         coap_message_t* response = callback_state->state.response;
 
@@ -264,35 +244,41 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
 
             topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
         }
-    }
-    else if (callback_state->state.status == COAP_REQUEST_STATUS_MORE)
-    {
-        LOG_ERR("COAP_REQUEST_STATUS_MORE not implemented\n");
-    }
-    else if (callback_state->state.status == COAP_REQUEST_STATUS_FINISHED)
-    {
-        coap_callback_in_use = false;
+    } break;
 
-        // Poll the process to trigger subsequent subscribes
-        process_post(&mqtt_client_process, pe_state_machine, NULL);
-    }
-    else
+    case COAP_REQUEST_STATUS_MORE:
     {
-        if (callback_state->state.status == COAP_REQUEST_STATUS_TIMEOUT)
-        {
-            LOG_ERR("Failed to subscribe to topic %s with status %d (timeout)\n", topics_to_suscribe[i], callback_state->state.status);
-        }
-        else
-        {
-            LOG_ERR("Failed to subscribe to topic %s with status %d\n", topics_to_suscribe[i], callback_state->state.status);
-        }
+        LOG_ERR("Unhandled COAP_REQUEST_STATUS_MORE\n");
+    } break;
+
+    case COAP_REQUEST_STATUS_FINISHED:
+    {
+        subscribe_callback_end();
+    } break;
+
+    case COAP_REQUEST_STATUS_TIMEOUT:
+    {
+        LOG_ERR("Failed to subscribe to topic %s due to timeout\n", topics_to_suscribe[i]);
+        
+        topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+        subscribe_callback_end();
+    } break;
+
+    case COAP_REQUEST_STATUS_BLOCK_ERROR:
+    {
+        LOG_ERR("Failed to subscribe to topic %s due to block error\n", topics_to_suscribe[i]);
 
         topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+        subscribe_callback_end();
+    } break;
 
-        coap_callback_in_use = false;
+    default:
+    {
+        LOG_ERR("Failed to subscribe to topic %s with status %d\n", topics_to_suscribe[i], callback_state->state.status);
 
-        // Poll the process to trigger subsequent subscribes
-        process_post(&mqtt_client_process, pe_state_machine, NULL);
+        topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
+        subscribe_callback_end();
+    } break;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -409,6 +395,8 @@ res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, ui
     int payload_len = coap_get_payload(request, &payload);
 
     LOG_DBG("Received publish topic=%.*s, payload len=%d\n", topic_len, topic, payload_len);
+
+    // TODO: verify message signature
 
     // Forward the publish back up to the clients
     mqtt_publish_handler(topic, topic + topic_len, payload, payload_len);

@@ -14,33 +14,6 @@
 // This is the address of the observer node connected to the border router
 #define MQTT_CLIENT_CONF_BROKER_IP_ADDR "fd00::1"
 
-/*
- * The Organisation ID.
- *
- * When in Watson mode, the example will default to Org ID "quickstart" and
- * will connect using non-authenticated mode. If you want to use registered
- * devices, set your Org ID here and then make sure you set the correct token
- * through MQTT_CLIENT_CONF_AUTH_TOKEN.
- */
-#ifndef MQTT_CLIENT_CONF_ORG_ID
-#define MQTT_CLIENT_CONF_ORG_ID "quickstart"
-#endif
-
-/*
- * The MQTT username.
- *
- * Ignored in Watson mode: In this mode the username is always "use-token-auth"
- */
-#define MQTT_CLIENT_CONF_USERNAME "mqtt-client-username"
-
-/*
- * The MQTT auth token (password) used when connecting to the MQTT broker.
- *
- * Used with as well as without Watson.
- *
- * Transported in cleartext!
- */
-#define MQTT_CLIENT_CONF_AUTH_TOKEN "AUTHTOKEN"
 
 #define COAP_DTLS_PSK_DEFAULT_IDENTITY "username"
 #define COAP_DTLS_PSK_DEFAULT_KEY "password"
