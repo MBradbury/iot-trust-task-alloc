@@ -76,7 +76,7 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
     if (payload_len <= 0 || payload_len > sizeof(coap_payload_buf))
     {
         LOG_DBG("serialise_trust failed %d\n", payload_len);
-        //TODO: Set error code
+        coap_set_status_code(response, INTERNAL_SERVER_ERROR_5_00);
         return;
     }
 

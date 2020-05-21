@@ -20,8 +20,6 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(keystore, "keystore");
 /*-------------------------------------------------------------------------------------------------------------------*/
-static process_event_t pe_verify_signature;
-/*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(public_keys_memb, public_key_item_t, PUBLIC_KEYSTORE_SIZE);
 LIST(public_keys);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -204,7 +202,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         // Not truely finished yet here, need to wait for signature verification
         if (in_use)
         {
-            process_post(&keystore, pe_verify_signature, req_resp);
+            queue_message_to_verify(&keystore, NULL, req_resp, sizeof(req_resp), &root_key);
         }
     } break;
 
@@ -275,8 +273,6 @@ keystore_init(void)
     memb_init(&public_keys_memb);
     list_init(public_keys);
 
-    pe_verify_signature = process_alloc_event();
-
     in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -292,39 +288,42 @@ PROCESS_THREAD(keystore, ev, data)
     {
         PROCESS_WAIT_EVENT();
 
-        if (ev == pe_verify_signature)
+        if (ev == pe_message_verified)
         {
+            messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
+
             // Parse contents of req_resp:
             // First 16 bytes are the IP Address
             // Next 64 bytes are the raw public key (x, y)
             // Next 64 bytes are the raw digital signature of the root server (r, s)
-            LOG_DBG("Received public key for ");
-            uiplib_ipaddr_print((const uip_ip6addr_t*)req_resp);
-            LOG_DBG_(", verifying message...\n");
+            const uip_ip6addr_t* addr = (const uip_ip6addr_t*)entry->message;
+            const ecdsa_secp256r1_pubkey_t* pubkey = 
+                (const ecdsa_secp256r1_pubkey_t*)(entry->message + sizeof(uip_ip6addr_t));
 
-            static verify_state_t state;
-            state.process = &keystore;
-            PT_SPAWN(&keystore.pt, &state.pt, ecc_verify(&state, &root_key, req_resp, sizeof(req_resp)));
-
-            if (state.ecc_verify_state.result == PKA_STATUS_SUCCESS)
+            if (entry->result == PKA_STATUS_SUCCESS)
             {
-                const uip_ip6addr_t* addr = (const uip_ip6addr_t*)req_resp;
-                const ecdsa_secp256r1_pubkey_t* pubkey = (const ecdsa_secp256r1_pubkey_t*)(req_resp + sizeof(uip_ip6addr_t));
-
                 public_key_item_t* item = keystore_add(addr, pubkey, EVICT_OLDEST);
                 if (item)
                 {
                     LOG_DBG("Sucessfully added public key for ");
-                    uiplib_ipaddr_print((const uip_ip6addr_t*)req_resp);
+                    uiplib_ipaddr_print(addr);
                     LOG_DBG_("\n");
                 }
                 else
                 {
                     LOG_ERR("Failed to add public key for ");
-                    uiplib_ipaddr_print((const uip_ip6addr_t*)req_resp);
-                    LOG_ERR_("\n");
+                    uiplib_ipaddr_print(addr);
+                    LOG_ERR_(" (out of memory)\n");
                 }
             }
+            else
+            {
+                LOG_ERR("Failed to add public key for ");
+                uiplib_ipaddr_print(addr);
+                LOG_ERR_(" (sig verification failed)\n");
+            }
+
+            queue_message_to_verify_done(entry);
 
             in_use = false;
         }

@@ -3,6 +3,8 @@
 #include "pt.h"
 #include "pt-sem.h"
 #include "os/sys/log.h"
+#include "os/lib/queue.h"
+#include "os/lib/memb.h"
 
 #include "dev/sha256.h"
 
@@ -17,12 +19,24 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct pt_sem crypto_processor_mutex;
 /*-------------------------------------------------------------------------------------------------------------------*/
+process_event_t pe_message_signed;
+process_event_t pe_message_verified;
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS(signer, "signer");
+PROCESS(verifier, "verifier");
+/*-------------------------------------------------------------------------------------------------------------------*/
 void
 crypto_support_init(void)
 {
     crypto_init();
     crypto_disable();
     PT_SEM_INIT(&crypto_processor_mutex, 1);
+
+    pe_message_signed = process_alloc_event();
+    pe_message_verified = process_alloc_event();
+
+    process_start(&signer, NULL);
+    process_start(&verifier, NULL);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
@@ -273,5 +287,118 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
     }
 
     PT_END(&state->pt);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+QUEUE(messages_to_sign);
+MEMB(messages_to_sign_memb, messages_to_sign_entry_t, MESSAGES_TO_SIGN_SIZE);
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool queue_message_to_sign(struct process* process, void* data,
+                           uint8_t* message, uint16_t message_buffer_len, uint16_t message_len)
+{
+    messages_to_sign_entry_t* item = memb_alloc(&messages_to_sign_memb);
+    if (!item)
+    {
+        return false;
+    }
+
+    item->process = process;
+    item->data = data;
+    item->message = message;
+    item->message_buffer_len = message_buffer_len;
+    item->message_len = message_len;
+
+    queue_enqueue(messages_to_sign, item);
+
+    process_poll(&signer);
+
+    return true;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void queue_message_to_sign_done(messages_to_sign_entry_t* item)
+{
+    memb_free(&messages_to_sign_memb, item);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS_THREAD(signer, ev, data)
+{
+    PROCESS_BEGIN();
+
+    queue_init(messages_to_sign);
+    memb_init(&messages_to_sign_memb);
+
+    while (1)
+    {
+        PROCESS_YIELD_UNTIL(!queue_is_empty(messages_to_sign));
+
+        static messages_to_sign_entry_t* item;
+        item = (messages_to_sign_entry_t*)queue_dequeue(messages_to_sign);
+
+        static sign_state_t state;
+        state.process = &signer;
+        PT_SPAWN(&signer.pt, &state.pt, ecc_sign(&state, item->message, item->message_buffer_len, item->message_len));
+
+        item->result = state.ecc_sign_state.result;
+
+        process_post(item->process, pe_message_signed, item);
+    }
+
+    PROCESS_END();
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+QUEUE(messages_to_verify);
+MEMB(messages_to_verify_memb, messages_to_verify_entry_t, MESSAGES_TO_VERIFY_SIZE);
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool queue_message_to_verify(struct process* process, void* data,
+                             uint8_t* message, uint16_t message_len,
+                             const ecdsa_secp256r1_pubkey_t* pubkey)
+{
+    messages_to_verify_entry_t* item = memb_alloc(&messages_to_verify_memb);
+    if (!item)
+    {
+        return false;
+    }
+
+    item->process = process;
+    item->data = data;
+    item->message = message;
+    item->message_len = message_len;
+    item->pubkey = pubkey;
+
+    queue_enqueue(messages_to_verify, item);
+
+    process_poll(&verifier);
+
+    return true;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void queue_message_to_verify_done(messages_to_verify_entry_t* item)
+{
+    memb_free(&messages_to_verify_memb, item);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS_THREAD(verifier, ev, data)
+{
+    PROCESS_BEGIN();
+
+    queue_init(messages_to_verify);
+    memb_init(&messages_to_verify_memb);
+
+    while (1)
+    {
+        PROCESS_YIELD_UNTIL(!queue_is_empty(messages_to_verify));
+
+        static messages_to_verify_entry_t* item;
+        item = (messages_to_verify_entry_t*)queue_dequeue(messages_to_verify);
+
+        static verify_state_t state;
+        state.process = &verifier;
+        PT_SPAWN(&verifier.pt, &state.pt, ecc_verify(&state, item->pubkey, item->message, item->message_len));
+
+        item->result = state.ecc_verify_state.result;
+
+        process_post(item->process, pe_message_verified, item);
+    }
+
+    PROCESS_END();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
