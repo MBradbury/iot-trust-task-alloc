@@ -114,12 +114,15 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
         coap_endpoint_t ep;
         edge_info_get_server_endpoint(edge_resource, &ep, false);
 
-        LOG_DBG("Connecting to CoAP endpoint ");
-        coap_endpoint_log(&ep);
-        LOG_DBG_("\n");
+        if (!coap_endpoint_is_connected(&ep))
+        {
+            LOG_DBG("Connecting to CoAP endpoint ");
+            coap_endpoint_log(&ep);
+            LOG_DBG_("\n");
 
-        // TODO: delays this by a random amount to space out connects
-        coap_endpoint_connect(&ep);
+            // TODO: delay this by a random amount to space out connects
+            coap_endpoint_connect(&ep);
+        }
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
