@@ -111,6 +111,8 @@ keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, 
     memcpy(&item->pubkey, pubkey, sizeof(ecdsa_secp256r1_pubkey_t));
     item->age = clock_time();
 
+    list_push(public_keys, item);
+
     return item;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
