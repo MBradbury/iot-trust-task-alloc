@@ -332,18 +332,21 @@ PROCESS_THREAD(signer, ev, data)
 
     while (1)
     {
-        PROCESS_YIELD_UNTIL(!queue_is_empty(messages_to_sign));
+        PROCESS_YIELD();
 
-        static messages_to_sign_entry_t* item;
-        item = (messages_to_sign_entry_t*)queue_dequeue(messages_to_sign);
+        while (!queue_is_empty(messages_to_sign))
+        {
+            static messages_to_sign_entry_t* item;
+            item = (messages_to_sign_entry_t*)queue_dequeue(messages_to_sign);
 
-        static sign_state_t state;
-        state.process = &signer;
-        PT_SPAWN(&signer.pt, &state.pt, ecc_sign(&state, item->message, item->message_buffer_len, item->message_len));
+            static sign_state_t state;
+            state.process = &signer;
+            PT_SPAWN(&signer.pt, &state.pt, ecc_sign(&state, item->message, item->message_buffer_len, item->message_len));
 
-        item->result = state.ecc_sign_state.result;
+            item->result = state.ecc_sign_state.result;
 
-        process_post(item->process, pe_message_signed, item);
+            process_post(item->process, pe_message_signed, item);
+        }
     }
 
     PROCESS_END();
@@ -389,18 +392,21 @@ PROCESS_THREAD(verifier, ev, data)
 
     while (1)
     {
-        PROCESS_YIELD_UNTIL(!queue_is_empty(messages_to_verify));
+        PROCESS_YIELD();
 
-        static messages_to_verify_entry_t* item;
-        item = (messages_to_verify_entry_t*)queue_dequeue(messages_to_verify);
+        while (!queue_is_empty(messages_to_verify))
+        {
+            static messages_to_verify_entry_t* item;
+            item = (messages_to_verify_entry_t*)queue_dequeue(messages_to_verify);
 
-        static verify_state_t state;
-        state.process = &verifier;
-        PT_SPAWN(&verifier.pt, &state.pt, ecc_verify(&state, item->pubkey, item->message, item->message_len));
+            static verify_state_t state;
+            state.process = &verifier;
+            PT_SPAWN(&verifier.pt, &state.pt, ecc_verify(&state, item->pubkey, item->message, item->message_len));
 
-        item->result = state.ecc_verify_state.result;
+            item->result = state.ecc_verify_state.result;
 
-        process_post(item->process, pe_message_verified, item);
+            process_post(item->process, pe_message_verified, item);
+        }
     }
 
     PROCESS_END();
