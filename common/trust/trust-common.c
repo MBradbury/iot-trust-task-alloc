@@ -315,7 +315,12 @@ int serialise_trust(void* trust_info, const uip_ipaddr_t* addr, uint8_t* buffer,
 /*-------------------------------------------------------------------------------------------------------------------*/
 int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len)
 {
-    return false;
+    return 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int process_received_trust(void* trust_info, const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len)
+{
+    return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
