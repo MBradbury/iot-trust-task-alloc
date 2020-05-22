@@ -81,13 +81,13 @@ typedef struct messages_to_verify_entry
     const uint8_t* message;
     uint16_t message_len;
 
+    // The result of signing
+    uint8_t result;
+
     const ecdsa_secp256r1_pubkey_t* pubkey;
 
     // User supplied data
     void* data;
-
-    // The result of signing
-    uint8_t result;
 
 } messages_to_verify_entry_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
