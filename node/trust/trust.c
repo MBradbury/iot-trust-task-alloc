@@ -71,9 +71,8 @@ MEMB(trust_tx_memb, trust_tx_item_t, TRUST_TX_SIZE);
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct trust_rx_item
 {
-    coap_endpoint_t ep;
+    public_key_item_t* key;
     uint8_t payload_buf[MAX_TRUST_PAYLOAD];
-    uint16_t payload_len;
 } trust_rx_item_t;
 
 MEMB(trust_rx_memb, trust_rx_item_t, TRUST_RX_SIZE);
@@ -160,7 +159,14 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
 
     LOG_DBG("Received trust info via POST from ");
     coap_endpoint_log(request->src_ep);
-    LOG_DBG_(" of length %u\n", payload_len);
+    LOG_DBG_(" of length %d\n", payload_len);
+
+    if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
+    {
+        LOG_WARN("Received payload either too short or too long for buffer %d (max %d)\n", payload_len, MAX_TRUST_PAYLOAD);
+        coap_set_status_code(response, BAD_REQUEST_4_00);
+        return;
+    }
 
     public_key_item_t* key = keystore_find(&request->src_ep->ipaddr);
     if (key == NULL)
@@ -180,13 +186,12 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
             return;
         }
 
-        memcpy(&item->ep, &request->src_ep, sizeof(item->ep));
+        item->key = key;
         memcpy(item->payload_buf, payload, payload_len);
-        item->payload_len = payload_len;
 
         keystore_pin(key);
 
-        if (!queue_message_to_verify(&trust_model, item, item->payload_buf, item->payload_len, &key->pubkey))
+        if (!queue_message_to_verify(&trust_model, item, item->payload_buf, payload_len, &key->pubkey))
         {
             memb_free(&trust_rx_memb, item);
             keystore_unpin(key);
@@ -197,33 +202,23 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
 static void trust_rx_continue(void* data)
 {
     messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
-    trust_rx_item_t* item = entry->data;
+    trust_rx_item_t* item = (trust_rx_item_t*)entry->data;
 
     if (entry->result == PKA_STATUS_SUCCESS)
     {
-        int payload_len = item->payload_len - DTLS_EC_KEY_SIZE*2;
+        int payload_len = entry->message_len - DTLS_EC_KEY_SIZE*2;
 
         LOG_DBG("Trust payload verified (%.*s), need to merge with our db\n", payload_len, item->payload_buf);
-        process_received_trust(NULL, &item->ep.ipaddr, item->payload_buf, payload_len);
+        process_received_trust(NULL, &item->key->addr, item->payload_buf, payload_len);
     }
     else
     {
         LOG_ERR("Verification of trust information failed %d, discarding it\n", entry->result);
     }
 
-    queue_message_to_verify_done(entry);
+    keystore_unpin(item->key);
 
-    public_key_item_t* key = keystore_find(&item->ep.ipaddr);
-    if (key)
-    {
-        keystore_unpin(key);
-    }
-    else
-    {
-        LOG_WARN("Cannot find key for ");
-        uiplib_ipaddr_print(&item->ep.ipaddr);
-        LOG_WARN_(" to unpin\n");
-    }
+    queue_message_to_verify_done(entry);
 
     memb_free(&trust_rx_memb, item);
 }

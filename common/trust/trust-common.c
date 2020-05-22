@@ -15,7 +15,7 @@
 #include "crypto-support.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-common"
+#define LOG_MODULE "trust-comm"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
