@@ -161,6 +161,10 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
 void keystore_pin(public_key_item_t* item)
 {
     item->pin_count += 1;
+
+    LOG_DBG("Key ");
+    uiplib_ipaddr_print(&item->addr);
+    LOG_DBG_(" pin count=%u (+)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void keystore_unpin(public_key_item_t* item)
@@ -168,6 +172,10 @@ void keystore_unpin(public_key_item_t* item)
     assert(item->pin_count > 0);
 
     item->pin_count -= 1;
+
+    LOG_DBG("Key ");
+    uiplib_ipaddr_print(&item->addr);
+    LOG_DBG_(" pin count=%u (-)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool keystore_is_pinned(const public_key_item_t* item)
