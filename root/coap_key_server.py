@@ -33,6 +33,14 @@ class InvalidSignatureRequest(error.ConstructionRenderableError):
     code = codes.BAD_REQUEST
     message = "Error: Invalid signature requested"
 
+# This is the curve used by the sensor nodes to sign and verify messages
+curve = ec.SECP256R1
+
+# key_size is in bits. Convert to bytes and round up
+curve_byte_len = (curve.key_size + 7) // 8
+
+ipv6_byte_len = 16
+
 class COAPKeyServer(resource.Resource):
     def __init__(self, key_dir):
         super().__init__()
@@ -68,12 +76,12 @@ class COAPKeyServer(resource.Resource):
 
     def _key_to_message(self, addr, key):
         # 16 bytes for the IP address who the key belongs to
-        addr_bytes = int(addr).to_bytes(16, byteorder='big')
+        addr_bytes = int(addr).to_bytes(ipv6_byte_len, byteorder='big')
 
         # Raw Public Key (64 bytes)
         public_numbers = key.public_numbers()
-        x = public_numbers.x.to_bytes(32, byteorder=self.sig_endianness)
-        y = public_numbers.y.to_bytes(32, byteorder=self.sig_endianness)
+        x = public_numbers.x.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
+        y = public_numbers.y.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
 
         payload = addr_bytes + x + y
 
@@ -82,8 +90,8 @@ class COAPKeyServer(resource.Resource):
 
         (r, s) = utils.decode_dss_signature(sig)
 
-        r = r.to_bytes(32, byteorder=self.sig_endianness)
-        s = s.to_bytes(32, byteorder=self.sig_endianness)
+        r = r.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
+        s = s.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
 
         payload += (r + s)
 
@@ -95,25 +103,28 @@ class COAPKeyServer(resource.Resource):
         	request_address = ipaddress.IPv6Address(request.payload.decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
             # Try parsing as bytes
-            if len(request.payload) == 16:
+            if len(request.payload) == ipv6_byte_len:
                 try:
                     request_address = ipaddress.IPv6Address(request.payload)
                 except ValueError:
                     raise InvalidAddressRequest()
 
             # Try parsing as bytes with a signature
-            elif len(request.payload) == 16 + 32*2:
+            elif len(request.payload) == ipv6_byte_len + curve_byte_len*2:
                 remote_addr = ipaddress.IPv6Address(request.remote.sockaddr[0])
                 pubkey = self._load_pubkey_cached(remote_addr)
-                payload = request.payload[0:16]
+                payload = request.payload[0:ipv6_byte_len]
 
                 try:
                     request_address = ipaddress.IPv6Address(payload)
                 except ValueError:
                     raise InvalidAddressRequest()
 
-                r = int.from_bytes(request.payload[len(payload)   :len(payload)+32], byteorder=self.sig_endianness)
-                s = int.from_bytes(request.payload[len(payload)+32:len(payload)+32+32], byteorder=self.sig_endianness)
+                r = request.payload[ipv6_byte_len               :ipv6_byte_len+curve_byte_len  ]
+                s = request.payload[ipv6_byte_len+curve_byte_len:ipv6_byte_len+curve_byte_len*2]
+
+                r = int.from_bytes(r, byteorder=self.sig_endianness)
+                s = int.from_bytes(s, byteorder=self.sig_endianness)
 
                 sig = utils.encode_dss_signature(r, s)
 
