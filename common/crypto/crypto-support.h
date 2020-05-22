@@ -11,11 +11,11 @@
 #include "rtimer.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef MESSAGES_TO_SIGN_SIZE
-#define MESSAGES_TO_SIGN_SIZE 10
+#define MESSAGES_TO_SIGN_SIZE 5
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef MESSAGES_TO_VERIFY_SIZE
-#define MESSAGES_TO_VERIFY_SIZE 10
+#define MESSAGES_TO_VERIFY_SIZE 5
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 void crypto_support_init(void);
