@@ -10,7 +10,7 @@
 
 #include "random.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "crypto-support"
+#define LOG_MODULE "crypto-sup"
 #ifdef CRYPTO_SUPPORT_LOG_LEVEL
 #define LOG_LEVEL CRYPTO_SUPPORT_LOG_LEVEL
 #else
@@ -150,9 +150,9 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
         PT_EXIT(&state->pt);
     }
 
-    LOG_DBG("Waiting for crypto processor to become available...\n");
+    LOG_DBG("Waiting for crypto processor to become available (sign)...\n");
     PT_SEM_WAIT(&state->pt, &crypto_processor_mutex);
-    LOG_DBG("Crypto processor available!\n");
+    LOG_DBG("Crypto processor available (sign)!\n");
 
     state->sig_len = 0;
 
@@ -226,9 +226,9 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
         PT_EXIT(&state->pt);
     }
 
-    LOG_DBG("Waiting for crypto processor to become available...\n");
+    LOG_DBG("Waiting for crypto processor to become available (verify)...\n");
     PT_SEM_WAIT(&state->pt, &crypto_processor_mutex);
-    LOG_DBG("Crypto processor available!\n");
+    LOG_DBG("Crypto processor available (verify)!\n");
 
     const size_t msg_len = buffer_len - DTLS_EC_KEY_SIZE * 2;
 
@@ -302,6 +302,7 @@ bool queue_message_to_sign(struct process* process, void* data,
     messages_to_sign_entry_t* item = memb_alloc(&messages_to_sign_memb);
     if (!item)
     {
+        LOG_WARN("queue_message_to_sign: out of memory\n");
         return false;
     }
 
@@ -350,6 +351,9 @@ PROCESS_THREAD(signer, ev, data)
                 LOG_WARN("Failed to post pe_message_signed to %s\n", item->process->name);
             }
         }
+
+        // Other queue might have some tasks to do
+        process_poll(&verifier);
     }
 
     PROCESS_END();
@@ -365,6 +369,7 @@ bool queue_message_to_verify(struct process* process, void* data,
     messages_to_verify_entry_t* item = memb_alloc(&messages_to_verify_memb);
     if (!item)
     {
+        LOG_WARN("queue_message_to_verify: out of memory\n");
         return false;
     }
 
@@ -413,6 +418,9 @@ PROCESS_THREAD(verifier, ev, data)
                 LOG_WARN("Failed to post pe_message_verified to %s\n", item->process->name);
             }
         }
+
+        // Other queue might have some tasks to do
+        process_poll(&signer);
     }
 
     PROCESS_END();
