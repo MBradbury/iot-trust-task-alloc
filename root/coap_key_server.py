@@ -11,6 +11,7 @@ import aiocoap.numbers.codes as codes
 from aiocoap.numbers import media_types_rev
 import aiocoap.resource as resource
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -27,6 +28,10 @@ class InvalidAddressRequest(error.ConstructionRenderableError):
 class UnknownAddressRequest(error.ConstructionRenderableError):
     code = codes.BAD_REQUEST
     message = "Error: Unknown IP Address requested"
+
+class InvalidSignatureRequest(error.ConstructionRenderableError):
+    code = codes.BAD_REQUEST
+    message = "Error: Invalid signature requested"
 
 class COAPKeyServer(resource.Resource):
     def __init__(self, key_dir):
@@ -47,14 +52,17 @@ class COAPKeyServer(resource.Resource):
         with open(path, 'rb') as f:
             return serialization.load_pem_public_key(f.read(), backend=default_backend())
 
-    def _load_key(self, addr):
-        logger.info(f"Loading key for {addr}")
+    def _load_pubkey_cached(self, request_address):
+        key = self.keystore.get(request_address, None)
+        if key is None:
+            file = str(request_address).replace(":", "_") + "-public.pem"
 
-        file = str(addr).replace(":", "_") + "-public.pem"
+            logger.info(f"Loading key for {request_address} from file {file}")
 
-        key = self._load_pubkey(os.path.join(self.key_dir, file))
+            self.keystore[request_address] = key = self._load_pubkey(os.path.join(self.key_dir, file))
 
-        self.keystore[addr] = key
+        else:
+            logger.info(f"Using cached public key for {request_address} as response")
 
         return key
 
@@ -85,7 +93,7 @@ class COAPKeyServer(resource.Resource):
         """An MQTT Subscribe request"""
         try:
         	request_address = ipaddress.IPv6Address(request.payload.decode("utf-8"))
-        except ValueError:
+        except (ValueError, UnicodeDecodeError):
             # Try parsing as bytes
             if len(request.payload) == 16:
                 try:
@@ -93,13 +101,26 @@ class COAPKeyServer(resource.Resource):
                 except ValueError:
                     raise InvalidAddressRequest()
 
-            # Try parsing as bytes with a signatures
-            # TODO: verify this signature
+            # Try parsing as bytes with a signature
             elif len(request.payload) == 16 + 32*2:
+                remote_addr = ipaddress.IPv6Address(request.remote.sockaddr[0])
+                pubkey = self._load_pubkey_cached(remote_addr)
+                payload = request.payload[0:16]
+
                 try:
-                    request_address = ipaddress.IPv6Address(request.payload[0:16])
+                    request_address = ipaddress.IPv6Address(payload)
                 except ValueError:
                     raise InvalidAddressRequest()
+
+                r = int.from_bytes(request.payload[len(payload)   :len(payload)+32], byteorder=self.sig_endianness)
+                s = int.from_bytes(request.payload[len(payload)+32:len(payload)+32+32], byteorder=self.sig_endianness)
+
+                sig = utils.encode_dss_signature(r, s)
+
+                try:
+                    pubkey.verify(sig, payload, ec.ECDSA(hashes.SHA256()))
+                except InvalidSignature:
+                    raise InvalidSignatureRequest()
 
             else:
                 raise InvalidAddressRequest()
@@ -114,14 +135,10 @@ class COAPKeyServer(resource.Resource):
 
             request_address = global_request_address
 
-        key = self.keystore.get(request_address, None)
-        if key is None:
-            try:
-                key = self._load_key(request_address)
-            except FileNotFoundError:
-                raise UnknownAddressRequest()
-        else:
-            logger.info(f"Using cached public key for {request_address} as response")
+        try:
+            key = self._load_pubkey_cached(request_address)
+        except FileNotFoundError:
+            raise UnknownAddressRequest()
 
         return self._key_to_message(request_address, key)
 
