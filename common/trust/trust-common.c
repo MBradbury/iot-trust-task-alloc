@@ -289,8 +289,10 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-int serialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len)
+int serialise_trust(void* trust_info, const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len)
 {
+    // TODO: could provide addr to request trust on specific nodes
+
     uint32_t time_secs = clock_seconds();
 
     int len = snprintf((char*)buffer, buffer_len,

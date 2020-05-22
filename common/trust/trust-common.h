@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+
+#include "os/net/ipv6/uip.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define MQTT_EDGE_NAMESPACE "edge"
 #define MQTT_EDGE_NAMESPACE_LEN 4
@@ -17,6 +19,6 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 void trust_common_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-int serialise_trust(void* trust_info, uint8_t* buffer, size_t buffer_len);
+int serialise_trust(void* trust_info, const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len);
 int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len);
 /*-------------------------------------------------------------------------------------------------------------------*/
