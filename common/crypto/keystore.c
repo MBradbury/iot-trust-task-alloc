@@ -1,7 +1,8 @@
 #include "keystore.h"
 
-#include "lib/memb.h"
-#include "lib/list.h"
+#include "os/lib/assert.h"
+#include "os/lib/memb.h"
+#include "os/lib/list.h"
 #include "os/sys/log.h"
 #include "os/net/ipv6/uiplib.h"
 
@@ -42,6 +43,10 @@ keystore_evict(keystore_eviction_policy_t evict)
     case EVICT_OLDEST: {
         for (public_key_item_t* iter = list_item_next(found); iter != NULL; iter = list_item_next(iter))
         {
+            // Do not evict pinned keys as they are in use
+            if (keystore_is_pinned(iter))
+                continue;
+
             if (iter->age > found->age) // TODO: check for clock overflow
             {
                 found = iter;
@@ -110,6 +115,7 @@ keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, 
     uip_ipaddr_copy(&item->addr, &norm_addr);
     memcpy(&item->pubkey, pubkey, sizeof(ecdsa_secp256r1_pubkey_t));
     item->age = clock_time();
+    item->pin_count = 0;
 
     list_push(public_keys, item);
 
@@ -150,6 +156,23 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
     }
 
     return &item->pubkey;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void keystore_pin(public_key_item_t* item)
+{
+    item->pin_count += 1;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void keystore_unpin(public_key_item_t* item)
+{
+    assert(item->pin_count > 0);
+
+    item->pin_count -= 1;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool keystore_is_pinned(const public_key_item_t* item)
+{
+    return item->pin_count > 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 // 16 bytes for ipv6 address
