@@ -345,7 +345,10 @@ PROCESS_THREAD(signer, ev, data)
 
             item->result = state.ecc_sign_state.result;
 
-            process_post(item->process, pe_message_signed, item);
+            if (process_post(item->process, pe_message_signed, item) != PROCESS_ERR_OK)
+            {
+                LOG_WARN("Failed to post pe_message_signed to %s\n", item->process->name);
+            }
         }
     }
 
@@ -405,7 +408,10 @@ PROCESS_THREAD(verifier, ev, data)
 
             item->result = state.ecc_verify_state.result;
 
-            process_post(item->process, pe_message_verified, item);
+            if (process_post(item->process, pe_message_verified, item) != PROCESS_ERR_OK)
+            {
+                LOG_WARN("Failed to post pe_message_verified to %s\n", item->process->name);
+            }
         }
     }
 
