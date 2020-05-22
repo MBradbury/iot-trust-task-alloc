@@ -148,7 +148,6 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
         LOG_ERR("trust res_trust_get_handler: Unable to sign message\n");
         coap_set_status_code(response, INTERNAL_SERVER_ERROR_5_00);
         memb_free(&trust_tx_memb, item);
-        return;
     }
 }
 
@@ -205,6 +204,7 @@ static void trust_rx_continue(void* data)
         int payload_len = item->payload_len - DTLS_EC_KEY_SIZE*2;
 
         LOG_DBG("Trust payload verified (%.*s), need to merge with our db\n", payload_len, item->payload_buf);
+        process_received_trust(NULL, &item->ep.ipaddr, item->payload_buf, payload_len);
     }
     else
     {
@@ -212,6 +212,18 @@ static void trust_rx_continue(void* data)
     }
 
     queue_message_to_verify_done(entry);
+
+    public_key_item_t* key = keystore_find(&item->ep.ipaddr);
+    if (key)
+    {
+        keystore_unpin(key);
+    }
+    else
+    {
+        LOG_WARN("Cannot find key for ");
+        uiplib_ipaddr_print(&item->ep.ipaddr);
+        LOG_WARN_(" to unpin\n");
+    }
 
     memb_free(&trust_rx_memb, item);
 }
@@ -308,6 +320,7 @@ static bool init(void)
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
 
     memb_init(&trust_tx_memb);
+    memb_init(&trust_rx_memb);
 
     return true;
 }
