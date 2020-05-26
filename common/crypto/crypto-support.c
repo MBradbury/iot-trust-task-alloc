@@ -3,6 +3,7 @@
 #include "pt.h"
 #include "pt-sem.h"
 #include "os/sys/log.h"
+#include "os/lib/assert.h"
 #include "os/lib/queue.h"
 #include "os/lib/memb.h"
 
@@ -51,9 +52,14 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
         return false;
     }
 
-    for (int i = 0; i < size_in_bytes; ++i)
+    // random_rand return a uint16_t
+    assert((size_in_bytes % sizeof(uint16_t)) == 0);
+
+    uint16_t* buffer_u16 = (uint16_t*)buffer;
+
+    for (int i = 0; i < size_in_bytes / sizeof(uint16_t); ++i)
     {
-        buffer[i] = random_rand() & 0xff;
+        buffer_u16[i] = random_rand();
     }
 
     return true;
