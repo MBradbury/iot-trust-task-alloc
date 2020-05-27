@@ -19,7 +19,8 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PERIOD (CLOCK_SECOND * 60)
+#define LONG_PUBLISH_PERIOD (CLOCK_SECOND * 60 * 1)
+#define SHORT_PUBLISH_PERIOD (CLOCK_SECOND * 10)
 #define CONNECT_PERIOD (CLOCK_SECOND * 5)
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define TMP_BUF_SZ 64
@@ -140,7 +141,7 @@ periodic_action(void)
         coap_endpoint_connect(&ep);
 
         // Wait for a bit and then try sending again
-        etimer_set(&publish_short_timer, CONNECT_PERIOD);
+        etimer_set(&publish_short_timer, SHORT_PUBLISH_PERIOD);
         return;
     }
 
@@ -185,7 +186,7 @@ edge_capability_add(edge_resource_t* edge)
         LOG_DBG("Starting periodic timer to send information\n");
 
         // Setup a periodic timer that expires after PERIOD seconds.
-        etimer_set(&publish_periodic_timer, PERIOD);
+        etimer_set(&publish_periodic_timer, LONG_PUBLISH_PERIOD);
         started = true;
 
         // TODO: Open connection to edge node?
