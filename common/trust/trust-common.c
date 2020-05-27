@@ -243,6 +243,17 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
             LOG_DBG("Cannot removed capability %s from %s as it does not have that capability\n",
                 capability_name, topic_identity);
         }
+
+        // We have at least one Edge resource to support this application, so we need to inform the process
+        struct process* proc = find_process_with_name(capability_name);
+        if (proc != NULL)
+        {
+            process_post(proc, pe_edge_capability_remove, edge);
+        }
+        else
+        {
+            LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
+        }
     }
     else
     {
