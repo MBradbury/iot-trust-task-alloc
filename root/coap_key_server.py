@@ -85,15 +85,7 @@ class COAPKeyServer(resource.Resource):
 
         payload = addr_bytes + x + y
 
-        # Raw signature (64 bytes)
-        sig = self.privkey.sign(payload, ec.ECDSA(hashes.SHA256()))
-
-        (r, s) = utils.decode_dss_signature(sig)
-
-        r = r.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
-        s = s.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
-
-        payload += (r + s)
+        payload = self.sign_message(payload)
 
         return aiocoap.Message(payload=payload, content_format=media_types_rev['application/octet-stream'])
 
@@ -111,8 +103,6 @@ class COAPKeyServer(resource.Resource):
 
             # Try parsing as bytes with a signature
             elif len(request.payload) == ipv6_byte_len + curve_byte_len*2:
-                remote_addr = ipaddress.IPv6Address(request.remote.sockaddr[0])
-                pubkey = self._load_pubkey_cached(remote_addr)
                 payload = request.payload[0:ipv6_byte_len]
 
                 try:
@@ -120,16 +110,8 @@ class COAPKeyServer(resource.Resource):
                 except ValueError:
                     raise InvalidAddressRequest()
 
-                r = request.payload[ipv6_byte_len               :ipv6_byte_len+curve_byte_len  ]
-                s = request.payload[ipv6_byte_len+curve_byte_len:ipv6_byte_len+curve_byte_len*2]
-
-                r = int.from_bytes(r, byteorder=self.sig_endianness)
-                s = int.from_bytes(s, byteorder=self.sig_endianness)
-
-                sig = utils.encode_dss_signature(r, s)
-
                 try:
-                    pubkey.verify(sig, payload, ec.ECDSA(hashes.SHA256()))
+                    self.verify_request(request)
                 except InvalidSignature:
                     raise InvalidSignatureRequest()
 
@@ -152,6 +134,36 @@ class COAPKeyServer(resource.Resource):
             raise UnknownAddressRequest()
 
         return self._key_to_message(request_address, key)
+
+
+    def verify_request(self, request):
+        remote_addr = ipaddress.IPv6Address(request.remote.sockaddr[0])
+        pubkey = self._load_pubkey_cached(remote_addr)
+
+        payload = request.payload[0:-curve_byte_len*2]
+        payload_len = len(payload)
+
+        r = request.payload[payload_len               :payload_len+curve_byte_len  ]
+        s = request.payload[payload_len+curve_byte_len:payload_len+curve_byte_len*2]
+
+        r = int.from_bytes(r, byteorder=self.sig_endianness)
+        s = int.from_bytes(s, byteorder=self.sig_endianness)
+
+        sig = utils.encode_dss_signature(r, s)
+
+        pubkey.verify(sig, payload, ec.ECDSA(hashes.SHA256()))
+        
+
+    def sign_message(self, payload):
+        # Raw signature (64 bytes)
+        sig = self.privkey.sign(payload, ec.ECDSA(hashes.SHA256()))
+
+        (r, s) = utils.decode_dss_signature(sig)
+
+        r = r.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
+        s = s.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
+
+        return payload + r + s
 
 
 def main(key_dir, coap_target_port):
