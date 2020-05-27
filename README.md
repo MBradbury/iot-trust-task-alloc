@@ -87,7 +87,7 @@ sudo service mosquitto restart
 
 ```bash
 sudo apt-get install libcoap2-bin
-python3 -m pip install asyncio-mqtt
+python3 -m pip install asyncio-mqtt cryptography
 python3 -m pip install --upgrade "git+https://github.com/chrysn/aiocoap#egg=aiocoap[all]"
 ```
 
