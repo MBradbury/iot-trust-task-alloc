@@ -164,6 +164,12 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
         return false;
     }
 
+    if (!coap_endpoint_is_connected(&server_ep))
+    {
+        LOG_ERR("Cannot perform mqtt_over_coap_publish as the coap endpoint is not connected\n");
+        return false;
+    }
+
     coap_callback_in_use = true;
 
     ret = snprintf(uri_query, sizeof(uri_query), MQTT_TOPIC_QUERY_NAME "=%s", topic);
@@ -409,7 +415,7 @@ ping_parent(void)
         const uip_ipaddr_t* defrt = uip_ds6_defrt_choose();
         LOG_DBG("Pinging parent ");
         LOG_DBG_6ADDR(defrt);
-        LOG_DBG_("!\n");
+        LOG_DBG_("\n");
         uip_icmp6_send(defrt, ICMP6_ECHO_REQUEST, 0, ECHO_REQ_PAYLOAD_LEN);
     } else {
         LOG_WARN("ping_parent() is called while we don't have connectivity\n");
