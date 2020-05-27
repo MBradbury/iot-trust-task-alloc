@@ -94,6 +94,12 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
         return;
     }
 
+    // We should add a record of other edge resources, but not ourselves.
+    if (is_our_addr(&ip_addr))
+    {
+        return;
+    }
+
     edge_resource_t* edge_resource = edge_info_add(&ip_addr, topic_identity);
     if (edge_resource != NULL)
     {
@@ -107,27 +113,22 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     // We should connect to the Edge resource that has announced themselves here
     // This means that if we are using DTLS, the handshake has already been performed,
     // so we will be ready to communicate tasks to them and receive responses.
-    // This should only be done if another edge resource has been announced other
-    // then ourselves.
-    if (!is_our_addr(&ip_addr))
+    coap_endpoint_t ep;
+    edge_info_get_server_endpoint(edge_resource, &ep, false);
+
+    if (!coap_endpoint_is_connected(&ep))
     {
-        coap_endpoint_t ep;
-        edge_info_get_server_endpoint(edge_resource, &ep, false);
+        LOG_DBG("Connecting to CoAP endpoint ");
+        coap_endpoint_log(&ep);
+        LOG_DBG_("\n");
 
-        if (!coap_endpoint_is_connected(&ep))
-        {
-            LOG_DBG("Connecting to CoAP endpoint ");
-            coap_endpoint_log(&ep);
-            LOG_DBG_("\n");
-
-            // TODO: delay this by a random amount to space out connects
-            coap_endpoint_connect(&ep);
-        }
-
-        // We are probably going to be interacting with this edge resource,
-        // so ask for its public key. If this fails we will obtain the key later.
-        request_public_key(&ip_addr);
+        // TODO: delay this by a random amount to space out connects
+        coap_endpoint_connect(&ep);
     }
+
+    // We are probably going to be interacting with this edge resource,
+    // so ask for its public key. If this fails we will obtain the key later.
+    request_public_key(&ip_addr);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
