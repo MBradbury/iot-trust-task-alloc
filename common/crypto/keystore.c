@@ -205,7 +205,7 @@ bool request_public_key(const uip_ip6addr_t* addr)
 
     if (keystore_find(addr) != NULL)
     {
-        LOG_DBG("Already have this public key, do not need to request it.\n");
+        //LOG_DBG("Already have this public key, do not need to request it.\n");
         return false;
     }
 
@@ -220,7 +220,7 @@ bool request_public_key(const uip_ip6addr_t* addr)
     ret = coap_set_header_uri_path(&msg, "key");
     if (ret <= 0)
     {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+        LOG_ERR("coap_set_header_uri_path failed %d\n", ret);
         return false;
     }
 
@@ -235,7 +235,7 @@ bool request_public_key(const uip_ip6addr_t* addr)
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void request_public_key_continued(void* data)
+static void request_public_key_continued(void* data)
 {
     messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
 
@@ -286,7 +286,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
     {
         coap_message_t* response = callback_state->state.response;
 
-        LOG_DBG("Message req pk complete with code (%d) (len=%d)\n",
+        LOG_INFO("Message req pk complete with code (%d) (len=%d)\n",
             response->code, response->payload_len);
 
         const uint8_t* payload = NULL;
@@ -365,9 +365,9 @@ request_public_key_callback_continued(void* data)
         item = keystore_add(addr, pubkey, EVICT_OLDEST);
         if (item)
         {
-            LOG_DBG("Sucessfully added public key for ");
+            LOG_INFO("Sucessfully added public key for ");
             uiplib_ipaddr_print(addr);
-            LOG_DBG_("\n");
+            LOG_INFO_("\n");
         }
         else
         {
@@ -401,7 +401,7 @@ keystore_init(void)
     in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void hexdump(const uint8_t* buffer, size_t len)
+static void hexdump(const uint8_t* buffer, size_t len)
 {
     for (size_t i = 0; i != len; ++i)
     {
@@ -451,7 +451,7 @@ PROCESS_THREAD(keystore, ev, data)
                 }
                 else
                 {
-                    LOG_DBG("Failed to generate shared secret with error %d\n",
+                    LOG_ERR("Failed to generate shared secret with error %d\n",
                         state.ecc_multiply_state.result);
                 }
 
