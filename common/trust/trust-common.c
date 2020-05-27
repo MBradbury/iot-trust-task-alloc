@@ -12,7 +12,7 @@
 
 #include "applications.h"
 #include "trust-common.h"
-#include "crypto-support.h"
+#include "keystore.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
@@ -333,7 +333,5 @@ trust_common_init(void)
 {
     pe_edge_capability_add = process_alloc_event();
     pe_edge_capability_remove = process_alloc_event();
-
-    crypto_support_init();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

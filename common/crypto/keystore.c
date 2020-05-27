@@ -203,6 +203,12 @@ bool request_public_key(const uip_ip6addr_t* addr)
         return false;
     }
 
+    if (keystore_find(addr) != NULL)
+    {
+        LOG_DBG("Already have this public key, do not need to request it.\n");
+        return false;
+    }
+
     in_use = true;
 
     int ret;
@@ -339,7 +345,8 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void request_public_key_callback_continued(void* data)
+static public_key_item_t*
+request_public_key_callback_continued(void* data)
 {
     messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
 
@@ -351,9 +358,11 @@ static void request_public_key_callback_continued(void* data)
     const ecdsa_secp256r1_pubkey_t* pubkey = 
         (const ecdsa_secp256r1_pubkey_t*)(entry->message + sizeof(uip_ip6addr_t));
 
+    public_key_item_t* item = NULL;
+
     if (entry->result == PKA_STATUS_SUCCESS)
     {
-        public_key_item_t* item = keystore_add(addr, pubkey, EVICT_OLDEST);
+        item = keystore_add(addr, pubkey, EVICT_OLDEST);
         if (item)
         {
             LOG_DBG("Sucessfully added public key for ");
@@ -377,17 +386,28 @@ static void request_public_key_callback_continued(void* data)
     queue_message_to_verify_done(entry);
 
     in_use = false;
+
+    return item;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 keystore_init(void)
 {
+    crypto_support_init();
+
     memb_init(&public_keys_memb);
     list_init(public_keys);
 
     in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void hexdump(const uint8_t* buffer, size_t len)
+{
+    for (size_t i = 0; i != len; ++i)
+    {
+        LOG_DBG_("%02X", buffer[i]);
+    }
+}
 PROCESS_THREAD(keystore, ev, data)
 {
     PROCESS_BEGIN();
@@ -407,7 +427,36 @@ PROCESS_THREAD(keystore, ev, data)
         // Verify key response
         if (ev == pe_message_verified)
         {
-            request_public_key_callback_continued(data);
+            static public_key_item_t* item;
+            item = request_public_key_callback_continued(data);
+
+            if (item)
+            {
+                keystore_pin(item);
+
+                static ecdh2_state_t state;
+                state.process = &keystore;
+                PT_SPAWN(&keystore.pt, &state.pt, ecdh2(&state, &item->pubkey));
+
+                if (state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
+                {
+                    LOG_DBG("Generated shared secret with ");
+                    uiplib_ipaddr_print(&item->addr);
+                    LOG_DBG_(" value=");
+                    hexdump(state.shared_secret, SHA256_DIGEST_LEN_BYTES);
+                    LOG_DBG_("\n");
+
+                    // Set the shared secret
+                    memcpy(item->shared_secret, state.shared_secret, SHA256_DIGEST_LEN_BYTES);
+                }
+                else
+                {
+                    LOG_DBG("Failed to generate shared secret with error %d\n",
+                        state.ecc_multiply_state.result);
+                }
+
+                keystore_unpin(item);
+            }
         }
     }
 

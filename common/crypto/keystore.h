@@ -12,6 +12,7 @@ typedef struct public_key_item {
 
     uip_ip6addr_t addr;
     ecdsa_secp256r1_pubkey_t pubkey;
+    uint8_t shared_secret[32];
     clock_time_t age;
     uint16_t pin_count;
 } public_key_item_t;

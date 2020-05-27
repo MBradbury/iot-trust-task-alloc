@@ -7,6 +7,7 @@
 #include "keys.h"
 #include "dev/ecc-algorithm.h"
 #include "dev/ecc-curve.h"
+#include "dev/sha256.h"
 
 #include "rtimer.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -98,4 +99,37 @@ void queue_message_to_verify_done(messages_to_verify_entry_t* item);
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern process_event_t pe_message_signed;
 extern process_event_t pe_message_verified;
+/*-------------------------------------------------------------------------------------------------------------------*/
+#if 0
+typedef struct {
+    struct pt      pt;
+    struct process *process;
+
+    uint8_t secret[DTLS_EC_KEY_SIZE];
+
+    ecc_compare_state_t ecc_compare_state;
+    ecc_multiply_state_t ecc_multiply_state;
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
+    rtimer_clock_t time;
+#endif
+} ecdh1_state_t;
+
+PT_THREAD(ecdh1(ecdh1_state_t* state));
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    struct pt      pt;
+    struct process *process;
+
+    ecc_multiply_state_t ecc_multiply_state;
+
+    uint8_t shared_secret[SHA256_DIGEST_LEN_BYTES];
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
+    rtimer_clock_t time;
+#endif
+} ecdh2_state_t;
+
+PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubkey));
 /*-------------------------------------------------------------------------------------------------------------------*/
