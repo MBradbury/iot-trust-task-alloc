@@ -123,6 +123,10 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
             // TODO: delay this by a random amount to space out connects
             coap_endpoint_connect(&ep);
         }
+
+        // We are probably going to be interacting with this edge resource,
+        // so ask for its public key. If this fails we will obtain the key later.
+        request_public_key(&ip_addr);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
