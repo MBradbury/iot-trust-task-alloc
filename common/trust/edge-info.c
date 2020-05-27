@@ -21,13 +21,7 @@ LIST(edge_resources);
 static edge_capability_t*
 edge_capability_new(void)
 {
-    edge_capability_t* capability = memb_alloc(&edge_capabilities_memb);
-    if (capability == NULL)
-    {
-        return NULL;
-    }
-
-    return capability;
+    return memb_alloc(&edge_capabilities_memb);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -167,6 +161,23 @@ edge_info_capability_add(edge_resource_t* edge, const char* name)
     list_push(edge->capabilities, capability);
 
     return capability;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_info_capability_remove(edge_resource_t* edge, const char* name)
+{
+    edge_capability_t* capability;
+
+    capability = edge_info_capability_find(edge, name);
+    if (capability == NULL)
+    {
+        return false;
+    }
+
+    list_remove(edge->capabilities, capability);
+
+    edge_capability_free(capability);
+
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t*

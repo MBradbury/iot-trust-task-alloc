@@ -48,6 +48,23 @@ static bool is_our_addr(const uip_ip6addr_t* addr)
     return false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static bool is_our_ident(const char* ident)
+{
+    char our_ident[8 * 2 + 1];
+    int len = snprintf(our_ident, sizeof(our_ident), "%02x%02x%02x%02x%02x%02x%02x%02x", 
+        linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
+        linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[3],
+        linkaddr_node_addr.u8[4], linkaddr_node_addr.u8[5],
+        linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
+    if (len >= sizeof(our_ident))
+    {
+        LOG_ERR("Failed to create our ident %d >= %d\n", len, sizeof(our_ident));
+        return false;
+    }
+
+    return strncmp(ident, our_ident, len) == 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 mqtt_publish_announce_handler(const char *topic, const char* topic_end,
                               const uint8_t *chunk, uint16_t chunk_len,
@@ -214,10 +231,18 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
             LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
         }
     }
-    else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
+    else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_REMOVE)) == 0)
     {
-        // TODO
-        LOG_ERR("Not implemented (%.*s)\n", topic_end - topic, topic);
+        bool result = edge_info_capability_remove(edge, capability_name);
+        if (result)
+        {
+            LOG_DBG("Removed capability %s from %s\n", capability_name, topic_identity);
+        }
+        else
+        {
+            LOG_DBG("Cannot removed capability %s from %s as it does not have that capability\n",
+                capability_name, topic_identity);
+        }
     }
     else
     {
@@ -265,6 +290,12 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     char topic_identity[MQTT_IDENTITY_LEN + 1];
     strncpy(topic_identity, topic, MQTT_IDENTITY_LEN);
     *(topic_identity + MQTT_IDENTITY_LEN) = '\0';
+
+    // No need to add information on ourselves
+    if (is_our_ident(topic_identity))
+    {
+        return;
+    }
 
     topic += MQTT_IDENTITY_LEN;
 
