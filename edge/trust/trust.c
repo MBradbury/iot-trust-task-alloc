@@ -28,11 +28,15 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLISH_ANNOUNCE_PERIOD    (CLOCK_SECOND * 2 * 60)
-#define PUBLISH_CAPABILITY_PERIOD  (CLOCK_SECOND * 5)
+#define PUBLISH_ANNOUNCE_PERIOD_SHORT (CLOCK_SECOND * 2 * 60)
+#define PUBLISH_ANNOUNCE_PERIOD_LONG  (PUBLISH_ANNOUNCE_PERIOD_SHORT * 15)
+#define PUBLISH_CAPABILITY_PERIOD     (CLOCK_SECOND * 5)
+#define PUBLISH_ANNOUNCE_SHORT_TO_LONG 5
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_announce_timer;
 static struct etimer publish_capability_timer;
+/*-------------------------------------------------------------------------------------------------------------------*/
+static uint8_t announce_short_count;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 get_global_address(char* buf, size_t buf_len)
@@ -159,7 +163,24 @@ periodic_publish_announce(void)
         etimer_set(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD);
     }
 
-    etimer_reset(&publish_announce_timer);
+    if (publish_announce_timer.timer.interval == PUBLISH_ANNOUNCE_PERIOD_SHORT)
+    {
+        announce_short_count += 1;
+
+        if (announce_short_count >= PUBLISH_ANNOUNCE_SHORT_TO_LONG)
+        {
+            LOG_DBG("Moving to less frequent announce intervals\n");
+            etimer_reset_with_new_interval(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD_LONG);
+        }
+        else
+        {
+            etimer_reset(&publish_announce_timer);
+        }
+    }
+    else
+    {
+        etimer_reset(&publish_announce_timer);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -189,6 +210,8 @@ init(void)
 
     trust_common_init();
 
+    announce_short_count = 0;
+
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -205,7 +228,7 @@ PROCESS_THREAD(trust_model, ev, data)
     }
 
     /* Setup a periodic timer that expires after PERIOD seconds. */
-    etimer_set(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD);
+    etimer_set(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD_SHORT);
 
     while (1)
     {
