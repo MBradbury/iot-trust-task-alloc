@@ -83,7 +83,10 @@ edge_info_add(const uip_ipaddr_t* addr, const char* ident)
         return NULL;
     }
 
-    uip_ipaddr_copy(&edge->addr, addr);
+    uip_ipaddr_copy(&edge->ep.ipaddr, addr);
+    edge->ep.secure = 0;
+    edge->ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
+
     strcpy(edge->name, ident);
 
     list_push(edge_resources, edge);
@@ -116,7 +119,7 @@ edge_info_find_addr(const uip_ipaddr_t* addr)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
     {
-        if (uip_ip6addr_cmp(&iter->addr, addr) == 0)
+        if (uip_ip6addr_cmp(&iter->ep.ipaddr, addr) == 0)
         {
             return iter;
         }
@@ -192,16 +195,5 @@ edge_info_capability_find(edge_resource_t* edge, const char* name)
     }
 
     return NULL;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-void edge_info_get_server_endpoint(edge_resource_t* edge, coap_endpoint_t* ep, bool secure)
-{
-    uip_ip6addr_copy(&ep->ipaddr, &edge->addr);
-    ep->secure = secure;
-#ifdef WITH_DTLS
-    ep->port = secure ? UIP_HTONS(COAP_DEFAULT_SECURE_PORT) : UIP_HTONS(COAP_DEFAULT_PORT);
-#else
-    ep->port = UIP_HTONS(COAP_DEFAULT_PORT);
-#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

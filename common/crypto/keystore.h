@@ -3,6 +3,10 @@
 #include "clock.h"
 #include "net/ipv6/uip.h"
 
+#ifdef WITH_OSCORE
+#include "oscore.h"
+#endif
+
 #include "keys.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define PUBLIC_KEYSTORE_SIZE 16
@@ -13,7 +17,13 @@ typedef struct public_key_item {
     uip_ip6addr_t addr;
     ecdsa_secp256r1_pubkey_t pubkey;
     uint8_t shared_secret[32];
+
+#ifdef WITH_OSCORE
+    oscore_ctx_t context;
+#endif
+
     clock_time_t age;
+
     uint16_t pin_count;
 } public_key_item_t;
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -45,7 +45,9 @@ keystore_evict(keystore_eviction_policy_t evict)
         {
             // Do not evict pinned keys as they are in use
             if (keystore_is_pinned(iter))
+            {
                 continue;
+            }
 
             if (iter->age > found->age) // TODO: check for clock overflow
             {
@@ -59,11 +61,24 @@ keystore_evict(keystore_eviction_policy_t evict)
         return false;
     }
 
+    // Do not evict the first item in the list if not other suitable items found
+    if (keystore_is_pinned(found))
+    {
+        return false;
+    }
+
     LOG_DBG("Evicting ");
     uiplib_ipaddr_print(&found->addr);
     LOG_DBG_(" from the keystore.\n");
 
+#ifdef WITH_OSCORE
+    oscore_free_ctx(&found->context);
+#endif
+
     list_remove(public_keys, found);
+
+    memset(found, 0, sizeof(*found));
+
     memb_free(&public_keys_memb, found);
 
     return true;
@@ -408,6 +423,9 @@ static void hexdump(const uint8_t* buffer, size_t len)
         LOG_DBG_("%02X", buffer[i]);
     }
 }
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define OSCORE_ID_LEN 6
+/*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(keystore, ev, data)
 {
     PROCESS_BEGIN();
@@ -448,6 +466,28 @@ PROCESS_THREAD(keystore, ev, data)
 
                     // Set the shared secret
                     memcpy(item->shared_secret, state.shared_secret, SHA256_DIGEST_LEN_BYTES);
+
+#ifdef WITH_OSCORE
+                    // Take the lower OSCORE_ID_LEN bytes as the ids
+                    const uint8_t* sender_id = &linkaddr_node_addr.u8[LINKADDR_SIZE - OSCORE_ID_LEN];
+                    const uint8_t* receiver_id = &item->addr.u8[16 - OSCORE_ID_LEN];
+
+                    oscore_derive_ctx(&item->context,
+                        item->shared_secret, sizeof(item->shared_secret),
+                        NULL, 0, //master_salt, sizeof(master_salt), // optional master salt
+                        COSE_Algorithm_AES_CCM_16_64_128,
+                        sender_id, OSCORE_ID_LEN, // Sender ID
+                        receiver_id, OSCORE_ID_LEN, // Receiver ID
+                        NULL, 0, // optional ID context
+                        OSCORE_DEFAULT_REPLAY_WINDOW);
+
+                    LOG_DBG("Created oscore context with: ");
+                    LOG_DBG_("\n\tSender ID  : ");
+                    hexdump(sender_id, OSCORE_ID_LEN);
+                    LOG_DBG_("\n\tReceiver ID: ");
+                    hexdump(receiver_id, OSCORE_ID_LEN);
+                    LOG_DBG_("\n");
+#endif
                 }
                 else
                 {
@@ -462,4 +502,14 @@ PROCESS_THREAD(keystore, ev, data)
 
     PROCESS_END();
 }
+/*-------------------------------------------------------------------------------------------------------------------*/
+#ifdef WITH_OSCORE
+void oscore_missing_security_context(const coap_endpoint_t *src)
+{
+    // If the OSCORE security context was missing, we
+    // need to request the public key of the sender in order to
+    // process their further messages.
+    request_public_key(&src->ipaddr);
+}
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/

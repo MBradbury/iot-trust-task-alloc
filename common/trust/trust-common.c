@@ -130,17 +130,14 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     // We should connect to the Edge resource that has announced themselves here
     // This means that if we are using DTLS, the handshake has already been performed,
     // so we will be ready to communicate tasks to them and receive responses.
-    coap_endpoint_t ep;
-    edge_info_get_server_endpoint(edge_resource, &ep, false);
-
-    if (!coap_endpoint_is_connected(&ep))
+    if (!coap_endpoint_is_connected(&edge_resource->ep))
     {
         LOG_DBG("Connecting to CoAP endpoint ");
-        coap_endpoint_log(&ep);
+        coap_endpoint_log(&edge_resource->ep);
         LOG_DBG_("\n");
 
         // TODO: delay this by a random amount to space out connects
-        coap_endpoint_connect(&ep);
+        coap_endpoint_connect(&edge_resource->ep);
     }
 
     // We are probably going to be interacting with this edge resource,
@@ -194,7 +191,15 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
 
     if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_ADD, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
     {
-        edge_capability_t* capability = edge_info_capability_add(edge, capability_name);
+        // Do not process capabilities we already know about
+        edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
+        if (capability)
+        {
+            LOG_DBG("Notified of capability (%s) already known of\n", capability_name);
+            return;
+        }
+
+        capability = edge_info_capability_add(edge, capability_name);
         if (capability == NULL)
         {
             LOG_ERR("Failed to create capability (%s) for edge with identity %s\n", capability_name, topic_identity);
@@ -233,17 +238,6 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_REMOVE)) == 0)
     {
-        bool result = edge_info_capability_remove(edge, capability_name);
-        if (result)
-        {
-            LOG_DBG("Removed capability %s from %s\n", capability_name, topic_identity);
-        }
-        else
-        {
-            LOG_DBG("Cannot removed capability %s from %s as it does not have that capability\n",
-                capability_name, topic_identity);
-        }
-
         // We have at least one Edge resource to support this application, so we need to inform the process
         struct process* proc = find_process_with_name(capability_name);
         if (proc != NULL)
@@ -253,6 +247,17 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
         else
         {
             LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
+        }
+
+        bool result = edge_info_capability_remove(edge, capability_name);
+        if (result)
+        {
+            LOG_DBG("Removed capability %s from %s\n", capability_name, topic_identity);
+        }
+        else
+        {
+            LOG_DBG("Cannot removed capability %s from %s as it does not have that capability\n",
+                capability_name, topic_identity);
         }
     }
     else
