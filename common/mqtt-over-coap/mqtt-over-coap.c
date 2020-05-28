@@ -10,6 +10,8 @@
 #include "coap.h"
 #include "coap-callback-api.h"
 
+#include "crypto-support.h"
+
 #include <string.h>
 #include <strings.h>
 #include <stdint.h>
@@ -54,38 +56,28 @@ static process_event_t pe_state_machine;
 #define NET_CONNECT_PERIODIC        (CLOCK_SECOND * 1)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Default configuration values */
-#define DEFAULT_KEEP_ALIVE_TIMER    (CLOCK_SECOND * 60)  // https://github.com/emqx/emqx-coap#coap-client-keep-alive
+//#define DEFAULT_KEEP_ALIVE_TIMER    (CLOCK_SECOND * 60)  // https://github.com/emqx/emqx-coap#coap-client-keep-alive
 #define DEFAULT_PING_INTERVAL       (CLOCK_SECOND * 30)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Payload length of ICMPv6 echo requests used to measure RSSI with def rt */
 #define ECHO_REQ_PAYLOAD_LEN        20
 /*-------------------------------------------------------------------------------------------------------------------*/
-//#define MAX_URI_LEN                 128
 #define MAX_QUERY_LEN               128
-#define MAX_COAP_PAYLOAD            255
+#define MAX_COAP_PAYLOAD            COAP_MAX_CHUNK_SIZE
 /*-------------------------------------------------------------------------------------------------------------------*/
-/*
- * Buffers for Client ID and Topic.
- * Make sure they are large enough to hold the entire respective string
- *
- * d:quickstart:status:EUI64 is 32 bytes long
- * iot-2/evt/status/fmt/json is 25 bytes
- * We also need space for the null termination
- */
 static char client_id[12 + 1];
 /*-------------------------------------------------------------------------------------------------------------------*/
 coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
-//static char uri_path[MAX_URI_LEN];
 static char uri_query[MAX_QUERY_LEN];
-static char coap_payload[MAX_COAP_PAYLOAD];
+static uint8_t coap_payload[MAX_COAP_PAYLOAD];
 static coap_callback_request_state_t coap_callback;
 static bool coap_callback_in_use;
 static uint16_t coap_callback_i;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer;
-static struct etimer ping_mqtt_over_coap_timer;
+//static struct etimer ping_mqtt_over_coap_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Parent RSSI functionality */
 static struct uip_icmp6_echo_reply_notification echo_reply_notification;
@@ -137,15 +129,7 @@ construct_client_id(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-publish_callback(coap_callback_request_state_t *callback_state)
-{
-    if (!coap_callback_in_use)
-    {
-        return;
-    }
-
-    coap_callback_in_use = false;
-}
+publish_callback(coap_callback_request_state_t *callback_state);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
 mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
@@ -158,9 +142,11 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
         return false;
     }
 
-    if (data_len > MAX_COAP_PAYLOAD)
+    // Need space for 2 signatures in future packets
+    if (data_len > MAX_COAP_PAYLOAD - DTLS_EC_KEY_SIZE*2*2)
     {
-        LOG_ERR("data_len > MAX_COAP_PAYLOAD\n");
+        LOG_ERR("data_len (%zu) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_KEY_SIZE*2*2 (%u)\n",
+            data_len, MAX_COAP_PAYLOAD, DTLS_EC_KEY_SIZE*2*2);
         return false;
     }
 
@@ -176,6 +162,7 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
+        coap_callback_in_use = false;
         return false;
     }
     
@@ -185,6 +172,7 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
     if (ret <= 0)
     {
         LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+        coap_callback_in_use = false;
         return false;
     }
 
@@ -192,9 +180,20 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
     if (ret <= 0)
     {
         LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
+        coap_callback_in_use = false;
+        return false;
     }
 
     memcpy(coap_payload, data, data_len);
+
+    /*if (!queue_message_to_sign(&mqtt_client_process, NULL, coap_payload, sizeof(coap_payload), data_len))
+    {
+        LOG_ERR("trust mqtt_over_coap_publish: Unable to sign message\n");
+        coap_callback_in_use = false;
+        return false;
+    }
+
+    return true;*/
 
     coap_set_payload(&msg, coap_payload, data_len);
 
@@ -210,6 +209,170 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
     }
 
     return ret != 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+/*static void
+mqtt_over_coap_publish_continue(void* data)
+{
+    messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
+
+    if (entry->result == PKA_STATUS_SUCCESS)
+    {
+        int payload_len = entry->message_len + DTLS_EC_KEY_SIZE*2;
+        int coap_payload_len = coap_set_payload(&msg, coap_payload, payload_len);
+        if (coap_payload_len < payload_len)
+        {
+            LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
+            // TODO: how to handle block-wise transfer?
+        }
+
+        int ret = coap_send_request(&coap_callback, &server_ep, &msg, publish_callback);
+        if (ret)
+        {
+            LOG_DBG("coap_send_request mqtt done\n");
+        }
+        else
+        {
+            LOG_ERR("coap_send_request mqtt failed %d\n", ret);
+            coap_callback_in_use = false;
+        }
+    }
+    else
+    {
+        LOG_ERR("Sign of mqtt information failed %d\n", entry->result);
+        coap_callback_in_use = false;
+    }
+
+    queue_message_to_sign_done(entry);
+}*/
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+publish_callback(coap_callback_request_state_t *callback_state)
+{
+    switch (callback_state->state.status)
+    {
+    case COAP_REQUEST_STATUS_RESPONSE:
+    {
+        coap_message_t* response = callback_state->state.response;
+
+        LOG_DBG("MQTT publish complete with code (%d) (len=%d)\n",
+            response->code, response->payload_len);
+    } break;
+
+    case COAP_REQUEST_STATUS_MORE:
+    {
+        LOG_ERR("MQTT publish: Unhandled COAP_REQUEST_STATUS_MORE\n");
+    } break;
+
+    case COAP_REQUEST_STATUS_FINISHED:
+    {
+        coap_callback_in_use = false;
+    } break;
+
+    case COAP_REQUEST_STATUS_TIMEOUT:
+    {
+        LOG_ERR("MQTT publish: Failed to send message due to timeout\n");
+        coap_callback_in_use = false;
+    } break;
+
+    case COAP_REQUEST_STATUS_BLOCK_ERROR:
+    {
+        LOG_ERR("MQTT publish: Failed to send message due to block error\n");
+        coap_callback_in_use = false;
+    } break;
+
+    default:
+    {
+        LOG_ERR("MQTT publish: Failed to send message with status %d\n", callback_state->state.status);
+        coap_callback_in_use = false;
+    } break;
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id);
+static void subscribe_callback(coap_callback_request_state_t *callback_state);
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+subscribe(void)
+{
+    int ret;
+
+    for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
+    {
+        if (topic_subscribe_status[i] != TOPIC_STATE_NOT_SUBSCRIBED)
+        {
+            continue;
+        }
+
+        ret = mqtt_over_coap_subscribe(topics_to_suscribe[i], i);
+        if (ret)
+        {
+            LOG_DBG("Subscription request (%u) sent\n", i);
+            topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBING;
+
+            // Once one request is sent, the queue becomes full.
+            // So we need to wait for the topic to be subscribed before sending another request.
+            break;
+        }
+        else
+        {
+            LOG_ERR("Failed to subscribe with %d\n", ret);
+            etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
+        }
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int
+mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
+{
+    int ret;
+
+    if (coap_callback_in_use)
+    {
+        LOG_DBG("Cannot subscribe again, waiting for existing subscribe to finish\n");
+        return -1;
+    }
+
+    coap_callback_in_use = true;
+
+    ret = snprintf(uri_query, sizeof(uri_query), MQTT_TOPIC_QUERY_NAME "=%s", topic);
+    if (ret <= 0 || ret >= sizeof(uri_query))
+    {
+        LOG_ERR("snprintf uri_query failed %d\n", ret);
+        return -1;
+    }
+
+    LOG_DBG("Subscribing to [%u]='%s'! (" MQTT_URI_PATH "?%s)\n", msg_id, topic, uri_query);
+
+    coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
+
+    ret = coap_set_header_uri_path(&msg, MQTT_URI_PATH);
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
+    }
+
+    ret = coap_set_header_uri_query(&msg, uri_query);
+    if (ret <= 0)
+    {
+        LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
+    }
+
+    const char* data = "Request";
+
+    coap_set_payload(&msg, data, strlen(data)+1);
+
+    ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
+    if (ret)
+    {
+        coap_callback_i = msg_id;
+    }
+    else
+    {
+        coap_callback_in_use = false;
+    }
+
+    return ret;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -288,89 +451,6 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
-mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
-{
-    int ret;
-
-    if (coap_callback_in_use)
-    {
-        LOG_DBG("Cannot subscribe again, waiting for existing subscribe to finish\n");
-        return -1;
-    }
-
-    coap_callback_in_use = true;
-
-    ret = snprintf(uri_query, sizeof(uri_query), MQTT_TOPIC_QUERY_NAME "=%s", topic);
-    if (ret <= 0 || ret >= sizeof(uri_query))
-    {
-        LOG_ERR("snprintf uri_query failed %d\n", ret);
-        return -1;
-    }
-
-    LOG_DBG("Subscribing to [%u]='%s'! (" MQTT_URI_PATH "?%s)\n", msg_id, topic, uri_query);
-
-    coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
-
-    ret = coap_set_header_uri_path(&msg, MQTT_URI_PATH);
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-    }
-
-    ret = coap_set_header_uri_query(&msg, uri_query);
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
-    }
-
-    const char* data = "Request";
-
-    coap_set_payload(&msg, data, strlen(data)+1);
-
-    ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
-    if (ret)
-    {
-        coap_callback_i = msg_id;
-    }
-    else
-    {
-        coap_callback_in_use = false;
-    }
-
-    return ret;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static void
-subscribe(void)
-{
-    int ret;
-
-    for (size_t i = 0; i != TOPICS_TO_SUBSCRIBE_LEN; ++i)
-    {
-        if (topic_subscribe_status[i] != TOPIC_STATE_NOT_SUBSCRIBED)
-        {
-            continue;
-        }
-
-        ret = mqtt_over_coap_subscribe(topics_to_suscribe[i], i);
-        if (ret)
-        {
-            LOG_DBG("Subscription request (%u) sent\n", i);
-            topic_subscribe_status[i] = TOPIC_STATE_SUBSCRIBING;
-
-            // Once one request is sent, the queue becomes full.
-            // So we need to wait for the topic to be subscribed before sending another request.
-            break;
-        }
-        else
-        {
-            LOG_ERR("Failed to subscribe with %d\n", ret);
-            etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
-        }
-    }
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 extern void
 mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *chunk, uint16_t chunk_len);
 
@@ -423,13 +503,13 @@ ping_parent(void)
     etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+/*static void
 ping_mqtt_over_coap(void)
 {
     // As per https://github.com/emqx/emqx-coap#coap-client-keep-alive
     // To keep MQTT sessions online, a periodic GET needs to be sent.
     //mqtt_over_coap_subscribe("ping", -1);
-}
+}*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 state_machine(void)
@@ -482,7 +562,7 @@ init(void)
 
     uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);
     etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
-    etimer_set(&ping_mqtt_over_coap_timer, DEFAULT_KEEP_ALIVE_TIMER);
+    //etimer_set(&ping_mqtt_over_coap_timer, DEFAULT_KEEP_ALIVE_TIMER);
 
     coap_activate_resource(&res_coap_mqtt, MQTT_URI_PATH);
 
@@ -511,9 +591,17 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
             ping_parent();
         }
 
-        if (ev == PROCESS_EVENT_TIMER && data == &ping_mqtt_over_coap_timer) {
+        /*if (ev == PROCESS_EVENT_TIMER && data == &ping_mqtt_over_coap_timer) {
             ping_mqtt_over_coap();
+        }*/
+
+        /*if (ev == pe_message_signed) {
+            mqtt_over_coap_publish_continue(data);
         }
+
+        if (ev == pe_message_verified) {
+
+        }*/
     }
 
     PROCESS_END();
