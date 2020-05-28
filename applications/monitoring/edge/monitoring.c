@@ -6,6 +6,12 @@
 #include "coap.h"
 #include "coap-callback-api.h"
 
+#include "keystore.h"
+
+#ifdef WITH_OSCORE
+#include "oscore.h"
+#endif
+
 #include <stdio.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" MONITORING_APPLICATION_NAME
@@ -49,6 +55,10 @@ static void
 init(void)
 {
 	coap_activate_resource(&res_coap_envmon, MONITORING_APPLICATION_URI);
+
+#ifdef WITH_OSCORE
+  oscore_protect_resource(&res_coap_envmon);
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(environment_monitoring, ev, data)
