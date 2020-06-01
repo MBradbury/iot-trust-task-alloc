@@ -512,10 +512,7 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
 
     if (state->ecc_multiply_state.result == PKA_STATUS_SUCCESS)
     {
-        uint8_t unhashed_shared_secret[DTLS_EC_KEY_SIZE];
-        ec_uint32v_to_uint8v(state->ecc_multiply_state.point_out.x, DTLS_EC_KEY_SIZE, unhashed_shared_secret);
-
-        sha256_hash(unhashed_shared_secret, DTLS_EC_KEY_SIZE, state->shared_secret);
+        ec_uint32v_to_uint8v(state->ecc_multiply_state.point_out.x, DTLS_EC_KEY_SIZE, state->shared_secret);
     }
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS

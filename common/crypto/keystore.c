@@ -461,11 +461,11 @@ PROCESS_THREAD(keystore, ev, data)
                     LOG_DBG("Generated shared secret with ");
                     uiplib_ipaddr_print(&item->addr);
                     LOG_DBG_(" value=");
-                    hexdump(state.shared_secret, SHA256_DIGEST_LEN_BYTES);
+                    hexdump(state.shared_secret, DTLS_EC_KEY_SIZE);
                     LOG_DBG_("\n");
 
                     // Set the shared secret
-                    memcpy(item->shared_secret, state.shared_secret, SHA256_DIGEST_LEN_BYTES);
+                    memcpy(item->shared_secret, state.shared_secret, DTLS_EC_KEY_SIZE);
 
 #ifdef WITH_OSCORE
                     // Take the lower OSCORE_ID_LEN bytes as the ids
@@ -482,10 +482,14 @@ PROCESS_THREAD(keystore, ev, data)
                         OSCORE_DEFAULT_REPLAY_WINDOW);
 
                     LOG_DBG("Created oscore context with: ");
-                    LOG_DBG_("\n\tSender ID  : ");
+                    LOG_DBG_("\n\tSender ID   : ");
                     hexdump(sender_id, OSCORE_ID_LEN);
-                    LOG_DBG_("\n\tReceiver ID: ");
+                    LOG_DBG_("\n\tSender Key  : ");
+                    hexdump(item->context.sender_context.sender_key, CONTEXT_KEY_LEN);
+                    LOG_DBG_("\n\tReceiver ID : ");
                     hexdump(receiver_id, OSCORE_ID_LEN);
+                    LOG_DBG_("\n\tReceiver Key: ");
+                    hexdump(item->context.recipient_context.recipient_key, CONTEXT_KEY_LEN);
                     LOG_DBG_("\n");
 #endif
                 }
