@@ -358,7 +358,7 @@ PROCESS_THREAD(signer, ev, data)
 
             static sign_state_t state;
             state.process = &signer;
-            PT_SPAWN(&signer.pt, &state.pt, ecc_sign(&state, item->message, item->message_buffer_len, item->message_len));
+            PROCESS_PT_SPAWN(&state.pt, ecc_sign(&state, item->message, item->message_buffer_len, item->message_len));
 
             item->result = state.ecc_sign_state.result;
 
@@ -366,6 +366,9 @@ PROCESS_THREAD(signer, ev, data)
             {
                 LOG_WARN("Failed to post pe_message_signed to %s\n", item->process->name);
             }
+
+            // Yield to allow others to do work
+            PROCESS_YIELD();
         }
 
         // Other queue might have some tasks to do
@@ -425,7 +428,7 @@ PROCESS_THREAD(verifier, ev, data)
 
             static verify_state_t state;
             state.process = &verifier;
-            PT_SPAWN(&verifier.pt, &state.pt, ecc_verify(&state, item->pubkey, item->message, item->message_len));
+            PROCESS_PT_SPAWN(&state.pt, ecc_verify(&state, item->pubkey, item->message, item->message_len));
 
             item->result = state.ecc_verify_state.result;
 
@@ -433,6 +436,9 @@ PROCESS_THREAD(verifier, ev, data)
             {
                 LOG_WARN("Failed to post pe_message_verified to %s\n", item->process->name);
             }
+
+            // Yield to allow others to do work
+            PROCESS_YIELD();
         }
 
         // Other queue might have some tasks to do
