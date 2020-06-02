@@ -164,7 +164,7 @@ periodic_publish_announce(void)
     bool ret = publish_announce();
     if (!ret)
     {
-        LOG_DBG("Failed to publish announce\n");
+        LOG_ERR("Failed to publish announce\n");
     }
     else
     {

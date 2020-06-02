@@ -171,7 +171,7 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_
     item = memb_alloc(&public_keys_memb);
     if (!item)
     {
-        LOG_WARN("keystore_add_unverified: out of memory\n");
+        LOG_ERR("keystore_add_unverified: out of memory\n");
         return NULL;
     }
 
@@ -189,7 +189,7 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_
 
     if (!queue_message_to_verify(&keystore, item, add_unverified_buffer, sizeof(add_unverified_buffer), &root_key))
     {
-        LOG_WARN("keystore_add_unverified: enqueue failed\n");
+        LOG_ERR("keystore_add_unverified: enqueue failed\n");
         memb_free(&public_keys_memb, item);
         return NULL;
     }
@@ -401,7 +401,11 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
             LOG_DBG("Queuing public key request ");
             LOG_DBG_6ADDR((const uip_ip6addr_t*)req_resp);
             LOG_DBG_(" response to be verified\n");
-            queue_message_to_verify(&keystore, NULL, req_resp, sizeof(req_resp), &root_key);
+            if (!queue_message_to_verify(&keystore, NULL, req_resp, sizeof(req_resp), &root_key))
+            {
+                LOG_ERR("request_public_key_callback: enqueue failed\n");
+                in_use = false;
+            }
         }
     } break;
 
