@@ -64,10 +64,17 @@ send_callback(coap_callback_request_state_t* callback_state)
     {
         coap_message_t* response = callback_state->state.response;
 
-        LOG_DBG("Message send complete with code (%d) '%.*s' (len=%d)\n",
-            response->code, response->payload_len, response->payload, response->payload_len);
+        if (response->code == CONTENT_2_05)
+        {
+            LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
+        }
+        else
+        {
+            LOG_DBG("Message send failed with code (%c) '%.*s' (len=%d)\n",
+                response->code, response->payload_len, response->payload, response->payload_len);
+        }
 
-        // TODO: send data to connected edge node for processing
+        // TODO: record information on Edge response
     } break;
 
     case COAP_REQUEST_STATUS_MORE:
