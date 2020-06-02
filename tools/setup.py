@@ -138,4 +138,4 @@ with fabric.Connection(f'pi@{root_node}', connect_kwargs={"password": password})
 
     patchwork.transfers.rsync(conn, src, dest, rsync_opts="-r")
 
-print("Finished setup deployment (build={build_number})!")
+print(f"Finished setup deployment (build={build_number})!")
