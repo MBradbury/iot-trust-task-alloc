@@ -131,11 +131,20 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
     time = RTIMER_NOW();
 #endif
 
-    crypto_enable();
+    bool enabled = CRYPTO_IS_ENABLED();
+    if (!enabled)
+    {
+        crypto_enable();
+    }
+
     sha256_init(&sha256_state);
     sha256_process(&sha256_state, buffer, len);
     sha256_done(&sha256_state, hash);
-    crypto_disable();
+
+    if (!enabled)
+    {
+        crypto_disable();
+    }
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
