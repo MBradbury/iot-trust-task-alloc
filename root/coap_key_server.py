@@ -14,8 +14,7 @@ import aiocoap.resource as resource
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric import utils
+from cryptography.hazmat.primitives.asymmetric import ec, utils
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("coap-key-server")

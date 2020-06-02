@@ -142,14 +142,16 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
         return false;
     }
 
+#if 0
     // Need space for 2 signatures in future packets
     if (data_len > MAX_COAP_PAYLOAD - DTLS_EC_KEY_SIZE*2*2)
     {
-        LOG_ERR("data_len (%zu) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_KEY_SIZE*2*2 (%u)\n",
+        LOG_ERR("data_len (%u) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_KEY_SIZE*2*2 (%u)\n",
             data_len, MAX_COAP_PAYLOAD, DTLS_EC_KEY_SIZE*2*2);
         return false;
     }
-
+#endif
+    
     if (!coap_endpoint_is_connected(&server_ep))
     {
         LOG_ERR("Cannot perform mqtt_over_coap_publish as the coap endpoint is not connected\n");
@@ -255,7 +257,7 @@ publish_callback(coap_callback_request_state_t *callback_state)
     {
         coap_message_t* response = callback_state->state.response;
 
-        LOG_DBG("MQTT publish complete with code (%d) (len=%d)\n",
+        LOG_DBG("MQTT publish complete with code (0x%x) (len=%d)\n",
             response->code, response->payload_len);
     } break;
 

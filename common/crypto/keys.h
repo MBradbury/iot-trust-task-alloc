@@ -15,6 +15,12 @@ typedef struct ecdsa_secp256r1_key {
     ecdsa_secp256r1_pubkey_t pub_key;
 } ecdsa_secp256r1_key_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct ecdsa_secp256r1_sig {
+    uint8_t r[DTLS_EC_KEY_SIZE];
+    uint8_t s[DTLS_EC_KEY_SIZE];
+} ecdsa_secp256r1_sig_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
 extern const ecdsa_secp256r1_key_t our_key;
+extern const ecdsa_secp256r1_sig_t our_pubkey_sig;
 extern const ecdsa_secp256r1_pubkey_t root_key;
 /*-------------------------------------------------------------------------------------------------------------------*/

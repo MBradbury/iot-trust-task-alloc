@@ -36,6 +36,11 @@ public_key_item_t* keystore_add(const uip_ip6addr_t* addr,
                                 const ecdsa_secp256r1_pubkey_t* pubkey,
                                 keystore_eviction_policy_t evict);
 /*-------------------------------------------------------------------------------------------------------------------*/
+public_key_item_t* keystore_add_unverified(
+                                const uip_ip6addr_t* addr,
+                                const ecdsa_secp256r1_pubkey_t* pubkey,
+                                const ecdsa_secp256r1_sig_t* sig);
+/*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_find(const uip_ip6addr_t* addr);
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr);
 /*-------------------------------------------------------------------------------------------------------------------*/

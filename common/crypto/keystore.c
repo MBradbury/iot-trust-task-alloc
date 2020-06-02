@@ -26,6 +26,14 @@ LIST(public_keys);
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
+static void hexdump(const uint8_t* buffer, size_t len)
+{
+    for (size_t i = 0; i != len; ++i)
+    {
+        LOG_DBG_("%02X", buffer[i]);
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 keystore_evict(keystore_eviction_policy_t evict)
 {
@@ -133,6 +141,58 @@ keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, 
     item->pin_count = 0;
 
     list_push(public_keys, item);
+
+    return item;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+// 2*32 for the public key
+// 2*32 for the signature
+static uint8_t add_unverified_buffer[DTLS_EC_KEY_SIZE*2 + DTLS_EC_KEY_SIZE*2];
+static bool add_unverified_buffer_in_use;
+/*-------------------------------------------------------------------------------------------------------------------*/
+public_key_item_t*
+keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, const ecdsa_secp256r1_sig_t* sig)
+{
+    if (add_unverified_buffer_in_use)
+    {
+        LOG_WARN("keystore_add_unverified: buffer in use\n");
+        return NULL;
+    }
+
+    uip_ip6addr_t norm_addr;
+    uip_ip6addr_normalise(addr, &norm_addr);
+
+    public_key_item_t* item = keystore_find(&norm_addr);
+    if (item)
+    {
+        return item;
+    }
+
+    item = memb_alloc(&public_keys_memb);
+    if (!item)
+    {
+        LOG_WARN("keystore_add_unverified: out of memory\n");
+        return NULL;
+    }
+
+    uip_ipaddr_copy(&item->addr, &norm_addr);
+    memcpy(&item->pubkey, pubkey, sizeof(ecdsa_secp256r1_pubkey_t));
+    item->age = clock_time();
+    item->pin_count = 0;
+
+    memcpy(add_unverified_buffer + DTLS_EC_KEY_SIZE*0, pubkey, DTLS_EC_KEY_SIZE*2);
+    memcpy(add_unverified_buffer + DTLS_EC_KEY_SIZE*2, sig,    DTLS_EC_KEY_SIZE*2);
+
+    if (!queue_message_to_verify(&keystore, item, add_unverified_buffer, sizeof(add_unverified_buffer), &root_key))
+    {
+        LOG_WARN("keystore_add_unverified: enqueue failed\n");
+        memb_free(&public_keys_memb, item);
+        return NULL;
+    }
+
+    keystore_pin(item);
+
+    add_unverified_buffer_in_use = true;
 
     return item;
 }
@@ -361,10 +421,8 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static public_key_item_t*
-request_public_key_callback_continued(void* data)
+request_public_key_callback_continued(messages_to_verify_entry_t* entry)
 {
-    messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
-
     // Parse contents of req_resp:
     // First 16 bytes are the IP Address
     // Next 64 bytes are the raw public key (x, y)
@@ -405,6 +463,39 @@ request_public_key_callback_continued(void* data)
     return item;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static public_key_item_t*
+keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
+{
+    public_key_item_t* item = (public_key_item_t*)entry->data;
+
+    keystore_unpin(item);
+
+    if (entry->result == PKA_STATUS_SUCCESS)
+    {
+        LOG_INFO("Sucessfully verfied public key for ");
+        uiplib_ipaddr_print(&item->addr);
+        LOG_INFO_(" [unver]\n");
+
+        list_push(public_keys, item);
+    }
+    else
+    {
+        LOG_ERR("Failed to verfiy public key for ");
+        uiplib_ipaddr_print(&item->addr);
+        LOG_ERR_(" (sig verification failed) [unver]\n");
+
+        memb_free(&public_keys_memb, item);
+
+        item = NULL;
+    }
+
+    queue_message_to_verify_done(entry);
+
+    add_unverified_buffer_in_use = false;
+
+    return item;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 keystore_init(void)
 {
@@ -414,14 +505,7 @@ keystore_init(void)
     list_init(public_keys);
 
     in_use = false;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static void hexdump(const uint8_t* buffer, size_t len)
-{
-    for (size_t i = 0; i != len; ++i)
-    {
-        LOG_DBG_("%02X", buffer[i]);
-    }
+    add_unverified_buffer_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define OSCORE_ID_LEN 6
@@ -446,7 +530,15 @@ PROCESS_THREAD(keystore, ev, data)
         if (ev == pe_message_verified)
         {
             static public_key_item_t* item;
-            item = request_public_key_callback_continued(data);
+            messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
+            if (entry->data == NULL)
+            {
+                item = request_public_key_callback_continued(entry);
+            }
+            else
+            {
+                item = keystore_add_unverified_continued(entry);
+            }
 
             if (item)
             {

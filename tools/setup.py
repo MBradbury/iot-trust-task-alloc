@@ -47,9 +47,11 @@ def create_static_keys(ip):
         print(f'// Generated at {datetime.now()}', file=static_keys)
         print('#include "keys.h"', file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
-        print(eckeygen.contiking_format_our_key(keys[ip], ip),  file=static_keys)
+        print(eckeygen.contiking_format_our_key(keys[ip], ip), file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
-        print(eckeygen.contiking_format_root_key(keys[root_ip], root_ip),  file=static_keys)
+        print(eckeygen.contiking_format_our_key_cert(keys[ip], keys[root_ip], ip, root_ip), file=static_keys)
+        print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
+        print(eckeygen.contiking_format_root_key(keys[root_ip], root_ip), file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
 
 # Back-up static-keys.c

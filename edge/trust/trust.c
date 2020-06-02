@@ -12,6 +12,7 @@
 #include "applications.h"
 #include "trust-common.h"
 #include "mqtt-over-coap.h"
+#include "keys.h"
 
 #include "monitoring.h"
 
@@ -75,7 +76,7 @@ publish_announce(void)
         return false;
     }
 
-    char publish_buffer[2 + 9 + UIPLIB_IPV6_MAX_STR_LEN + 1];
+    char publish_buffer[2 + 9 + UIPLIB_IPV6_MAX_STR_LEN + 1 + DTLS_EC_KEY_SIZE*4];
     ret = snprintf(publish_buffer, sizeof(publish_buffer),
         "{"
             "\"addr\":\"%s\""
@@ -87,9 +88,17 @@ publish_announce(void)
         return false;
     }
 
+    char* buf_ptr = publish_buffer + ret + 1;
+
+    // Include our public key and certificate here
+    memcpy(buf_ptr + DTLS_EC_KEY_SIZE*0, our_key.pub_key.x, DTLS_EC_KEY_SIZE);
+    memcpy(buf_ptr + DTLS_EC_KEY_SIZE*1, our_key.pub_key.y, DTLS_EC_KEY_SIZE);
+    memcpy(buf_ptr + DTLS_EC_KEY_SIZE*2, our_pubkey_sig.r,  DTLS_EC_KEY_SIZE);
+    memcpy(buf_ptr + DTLS_EC_KEY_SIZE*3, our_pubkey_sig.s,  DTLS_EC_KEY_SIZE);
+
     LOG_DBG("Publishing announce [topic=%s, data=%s]\n", pub_topic, publish_buffer);
 
-    return mqtt_over_coap_publish(pub_topic, publish_buffer, ret+1);
+    return mqtt_over_coap_publish(pub_topic, publish_buffer, ret+1+DTLS_EC_KEY_SIZE*4);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool

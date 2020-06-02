@@ -6,6 +6,7 @@
 #include "os/lib/json/jsonparse.h"
 #include "os/net/ipv6/uip-ds6.h"
 #include "os/net/ipv6/uiplib.h"
+#include "assert.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -111,6 +112,12 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
         return;
     }
 
+    if (chunk[state.pos] != 0)
+    {
+        LOG_ERR("parse 6 (missing NUL)\n");
+        return;
+    }
+
     // We should add a record of other edge resources, but not ourselves.
     if (is_our_addr(&ip_addr))
     {
@@ -142,7 +149,22 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
 
     // We are probably going to be interacting with this edge resource,
     // so ask for its public key. If this fails we will obtain the key later.
-    request_public_key(&ip_addr);
+
+    if (state.pos + 1 + sizeof(ecdsa_secp256r1_pubkey_t) + sizeof(ecdsa_secp256r1_sig_t) != chunk_len)
+    {
+        LOG_ERR("%d + 1 + %u + %u != %u\n",
+            state.pos, sizeof(ecdsa_secp256r1_pubkey_t), sizeof(ecdsa_secp256r1_sig_t), chunk_len);
+        assert(false);
+    }
+
+    // Now we need to extract the public key and signature from the announce message
+    const ecdsa_secp256r1_pubkey_t* pubkey = (const ecdsa_secp256r1_pubkey_t*)(chunk + state.pos + 1);
+    const ecdsa_secp256r1_sig_t* sig = (const ecdsa_secp256r1_sig_t*)(chunk + state.pos + 1 + sizeof(ecdsa_secp256r1_pubkey_t));
+
+    if (keystore_add_unverified(&ip_addr, pubkey, sig) == NULL)
+    {
+        request_public_key(&ip_addr);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
