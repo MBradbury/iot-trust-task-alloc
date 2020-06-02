@@ -445,20 +445,20 @@ request_public_key_callback_continued(messages_to_verify_entry_t* entry)
         {
             LOG_INFO("Sucessfully added public key for ");
             LOG_DBG_6ADDR(addr);
-            LOG_INFO_("\n");
+            LOG_INFO_(" [new]\n");
         }
         else
         {
             LOG_ERR("Failed to add public key for ");
             LOG_ERR_6ADDR(addr);
-            LOG_ERR_(" (out of memory)\n");
+            LOG_ERR_(" (out of memory) [new]\n");
         }
     }
     else
     {
         LOG_ERR("Failed to add public key for ");
         LOG_ERR_6ADDR(addr);
-        LOG_ERR_(" (sig verification failed)\n");
+        LOG_ERR_(" (sig verification failed) [new]\n");
     }
 
     queue_message_to_verify_done(entry);
