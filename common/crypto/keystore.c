@@ -76,7 +76,7 @@ keystore_evict(keystore_eviction_policy_t evict)
     }
 
     LOG_DBG("Evicting ");
-    uiplib_ipaddr_print(&found->addr);
+    LOG_DBG_6ADDR(&found->addr);
     LOG_DBG_(" from the keystore.\n");
 
 #ifdef WITH_OSCORE
@@ -238,7 +238,7 @@ void keystore_pin(public_key_item_t* item)
     item->pin_count += 1;
 
     LOG_DBG("Key ");
-    uiplib_ipaddr_print(&item->addr);
+    LOG_DBG_6ADDR(&item->addr);
     LOG_DBG_(" pin count=%u (+)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -249,7 +249,7 @@ void keystore_unpin(public_key_item_t* item)
     item->pin_count -= 1;
 
     LOG_DBG("Key ");
-    uiplib_ipaddr_print(&item->addr);
+    LOG_DBG_6ADDR(&item->addr);
     LOG_DBG_(" pin count=%u (-)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -284,11 +284,11 @@ bool request_public_key(const uip_ip6addr_t* addr)
         return false;
     }
 
-    in_use = true;
-
     int ret;
 
-    LOG_DBG("Generating public key request\n");
+    LOG_DBG("Generating public key request for ");
+    LOG_DBG_6ADDR(addr);
+    LOG_DBG_("\n");
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
 
@@ -306,6 +306,8 @@ bool request_public_key(const uip_ip6addr_t* addr)
         LOG_ERR("request_public_key: Unable to sign message\n");
         return false;
     }
+
+    in_use = true;
 
     return true;
 }
@@ -349,12 +351,6 @@ static void request_public_key_continued(void* data)
 static void
 request_public_key_callback(coap_callback_request_state_t* callback_state)
 {
-    //LOG_DBG("request_public_key_callback %d\n", in_use);
-    /*if (!in_use)
-    {
-        return;
-    }*/
-
     switch (callback_state->state.status)
     {
     case COAP_REQUEST_STATUS_RESPONSE:
@@ -396,6 +392,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         // Not truely finished yet here, need to wait for signature verification
         if (in_use)
         {
+            LOG_DBG("Queuing public key request response to be verified\n");
             queue_message_to_verify(&keystore, NULL, req_resp, sizeof(req_resp), &root_key);
         }
     } break;
@@ -439,20 +436,20 @@ request_public_key_callback_continued(messages_to_verify_entry_t* entry)
         if (item)
         {
             LOG_INFO("Sucessfully added public key for ");
-            uiplib_ipaddr_print(addr);
+            LOG_DBG_6ADDR(addr);
             LOG_INFO_("\n");
         }
         else
         {
             LOG_ERR("Failed to add public key for ");
-            uiplib_ipaddr_print(addr);
+            LOG_ERR_6ADDR(addr);
             LOG_ERR_(" (out of memory)\n");
         }
     }
     else
     {
         LOG_ERR("Failed to add public key for ");
-        uiplib_ipaddr_print(addr);
+        LOG_ERR_6ADDR(addr);
         LOG_ERR_(" (sig verification failed)\n");
     }
 
@@ -473,7 +470,7 @@ keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
     if (entry->result == PKA_STATUS_SUCCESS)
     {
         LOG_INFO("Sucessfully verfied public key for ");
-        uiplib_ipaddr_print(&item->addr);
+        LOG_INFO_6ADDR(&item->addr);
         LOG_INFO_(" [unver]\n");
 
         list_push(public_keys, item);
@@ -481,7 +478,7 @@ keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
     else
     {
         LOG_ERR("Failed to verfiy public key for ");
-        uiplib_ipaddr_print(&item->addr);
+        LOG_ERR_6ADDR(&item->addr);
         LOG_ERR_(" (sig verification failed) [unver]\n");
 
         memb_free(&public_keys_memb, item);
@@ -551,7 +548,7 @@ PROCESS_THREAD(keystore, ev, data)
                 if (state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
                     LOG_DBG("Generated shared secret with ");
-                    uiplib_ipaddr_print(&item->addr);
+                    LOG_DBG_6ADDR(&item->addr);
                     LOG_DBG_(" value=");
                     hexdump(state.shared_secret, DTLS_EC_KEY_SIZE);
                     LOG_DBG_("\n");
@@ -602,6 +599,7 @@ PROCESS_THREAD(keystore, ev, data)
 #ifdef WITH_OSCORE
 void oscore_missing_security_context(const coap_endpoint_t *src)
 {
+    LOG_DBG("Missing OSCORE security context, requesting public key...\n");
     // If the OSCORE security context was missing, we
     // need to request the public key of the sender in order to
     // process their further messages.
