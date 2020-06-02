@@ -30,20 +30,28 @@ struct process* find_process_with_name(const char* name)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_add_common(edge_resource_t* edge, const char* uri)
 {
-    LOG_DBG("Creating context and pinning %s's keys\n", edge->name);
-
     // pin keys for this edge node
     public_key_item_t* key = keystore_find(&edge->ep.ipaddr);
 
-    // TODO: set this up properly so the key cannot be NULL here
-    // TODO: send public key in announce or attach at root server
-    assert(key != NULL);
+    if (key)
+    {
+        LOG_DBG("Creating context and pinning %s's keys\n", edge->name);
 
-    keystore_pin(key);
+        keystore_pin(key);
 
 #ifdef WITH_OSCORE
-    oscore_ep_ctx_set_association(&edge->ep, uri, &key->context);
+        oscore_ep_ctx_set_association(&edge->ep, uri, &key->context);
 #endif
+    }
+    else
+    {
+        LOG_WARN("Cannot create context and pin %s's keys. Requesting public key...\n", edge->name);
+        // Ideally this point has been reached after:
+        // 1. The client has received an announce from the edge that contained its certificate
+        // 2. The client received an announce and requested a public key from the PKI
+        // If we have got here and still don't have a public key, then we need to try requesting it now:
+        request_public_key(&edge->ep.ipaddr);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_remove_common(edge_resource_t* edge, const char* uri)
