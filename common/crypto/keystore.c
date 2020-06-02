@@ -175,6 +175,10 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_
         return NULL;
     }
 
+    LOG_DBG("Queuing unverified key for ");
+    LOG_DBG_6ADDR(addr);
+    LOG_DBG_(" to be verified\n");
+
     uip_ipaddr_copy(&item->addr, &norm_addr);
     memcpy(&item->pubkey, pubkey, sizeof(ecdsa_secp256r1_pubkey_t));
     item->age = clock_time();
@@ -189,8 +193,6 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_
         memb_free(&public_keys_memb, item);
         return NULL;
     }
-
-    keystore_pin(item);
 
     add_unverified_buffer_in_use = true;
 
@@ -396,7 +398,9 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         // Not truely finished yet here, need to wait for signature verification
         if (in_use)
         {
-            LOG_DBG("Queuing public key request response to be verified\n");
+            LOG_DBG("Queuing public key request ");
+            LOG_DBG_6ADDR((const uip_ip6addr_t*)req_resp);
+            LOG_DBG_(" response to be verified\n");
             queue_message_to_verify(&keystore, NULL, req_resp, sizeof(req_resp), &root_key);
         }
     } break;
@@ -468,8 +472,6 @@ static public_key_item_t*
 keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
 {
     public_key_item_t* item = (public_key_item_t*)entry->data;
-
-    keystore_unpin(item);
 
     if (entry->result == PKA_STATUS_SUCCESS)
     {
