@@ -151,7 +151,7 @@ mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
         return false;
     }
 #endif
-    
+
     if (!coap_endpoint_is_connected(&server_ep))
     {
         LOG_ERR("Cannot perform mqtt_over_coap_publish as the coap endpoint is not connected\n");
@@ -257,7 +257,7 @@ publish_callback(coap_callback_request_state_t *callback_state)
     {
         coap_message_t* response = callback_state->state.response;
 
-        LOG_DBG("MQTT publish complete with code (0x%x) (len=%d)\n",
+        LOG_DBG("MQTT publish complete with code (%d) (len=%d)\n",
             response->code, response->payload_len);
     } break;
 

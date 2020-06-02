@@ -48,6 +48,8 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
   coap_endpoint_log(request->src_ep);
   LOG_DBG_("\n");
 
+  // TODO: send data to connected edge node for processing
+
   // TODO: set response?
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

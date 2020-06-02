@@ -274,7 +274,11 @@ bool request_public_key(const uip_ip6addr_t* addr)
 {
     if (in_use)
     {
-        LOG_WARN("Already requesting a public key, cannot request another.\n");
+        LOG_WARN("Already requesting a public key for ");
+        LOG_WARN_6ADDR((const uip_ip6addr_t*)key_req_payload);
+        LOG_WARN_(" cannot request another for ");
+        LOG_WARN_6ADDR(addr);
+        LOG_WARN_("\n");
         return false;
     }
 
