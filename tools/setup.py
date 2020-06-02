@@ -25,8 +25,19 @@ root_node = "wsn1"
 root_ip = "fd00::1"
 
 if os.path.exists("setup"):
+    with open("setup/build_number", "r") as build_number_file:
+        build_number = int(build_number_file.read()) + 1
+
     print("Removing setup directory")
     shutil.rmtree("setup")
+else:
+    build_number = 1
+
+print(f"Using build number {build_number}")
+pathlib.Path(f"setup").mkdir(parents=True, exist_ok=False)
+with open("setup/build_number", "w") as build_number_file:
+    print(f"{build_number}", file=build_number_file)
+
 
 print("Cleaning directories")
 for binary in binaries:
@@ -74,7 +85,7 @@ for (target, ip) in ips.items():
 
     for binary in binaries:
         print(f"Building {binary}")
-        subprocess.run(f"make -C {binary}", shell=True, check=True)
+        subprocess.run(f"make -C {binary} BUILD_NUMBER={build_number}", shell=True, check=True)
         shutil.move(f"{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
 
     shutil.move("common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
@@ -127,4 +138,4 @@ with fabric.Connection(f'pi@{root_node}', connect_kwargs={"password": password})
 
     patchwork.transfers.rsync(conn, src, dest, rsync_opts="-r")
 
-print("Finished setup deployment!")
+print("Finished setup deployment (build={build_number})!")

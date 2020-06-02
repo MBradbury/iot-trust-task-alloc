@@ -10,6 +10,10 @@ endif
 # Include Contiki-NG Make variables
 include $(CONTIKI)/Makefile.dir-variables
 
+ifdef BUILD_NUMBER
+	CFLAGS += -DBUILD_NUMBER=$(BUILD_NUMBER)
+endif
+
 # Add additional CFLAGS
 CFLAGS += -DMQTT_CLIENT_CONF_LOG_LEVEL=LOG_LEVEL_DBG
 CFLAGS += -DTRUST_MODEL_LOG_LEVEL=LOG_LEVEL_DBG

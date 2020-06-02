@@ -511,6 +511,10 @@ PROCESS_THREAD(keystore, ev, data)
 {
     PROCESS_BEGIN();
 
+#ifdef BUILD_NUMBER
+    LOG_INFO("BUILD NUMBER = %u\n", BUILD_NUMBER);
+#endif
+
     keystore_init();
 
     while (1)
