@@ -309,6 +309,9 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
 QUEUE(messages_to_sign);
 MEMB(messages_to_sign_memb, messages_to_sign_entry_t, MESSAGES_TO_SIGN_SIZE);
 /*-------------------------------------------------------------------------------------------------------------------*/
+QUEUE(messages_to_verify);
+MEMB(messages_to_verify_memb, messages_to_verify_entry_t, MESSAGES_TO_VERIFY_SIZE);
+/*-------------------------------------------------------------------------------------------------------------------*/
 bool queue_message_to_sign(struct process* process, void* data,
                            uint8_t* message, uint16_t message_buffer_len, uint16_t message_len)
 {
@@ -346,7 +349,7 @@ PROCESS_THREAD(signer, ev, data)
 
     while (1)
     {
-        PROCESS_YIELD();
+        PROCESS_YIELD_UNTIL(!queue_is_empty(messages_to_sign));
 
         while (!queue_is_empty(messages_to_sign))
         {
@@ -366,14 +369,14 @@ PROCESS_THREAD(signer, ev, data)
         }
 
         // Other queue might have some tasks to do
-        process_poll(&verifier);
+        if (!queue_is_empty(messages_to_verify))
+        {
+            process_poll(&verifier);
+        }
     }
 
     PROCESS_END();
 }
-/*-------------------------------------------------------------------------------------------------------------------*/
-QUEUE(messages_to_verify);
-MEMB(messages_to_verify_memb, messages_to_verify_entry_t, MESSAGES_TO_VERIFY_SIZE);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool queue_message_to_verify(struct process* process, void* data,
                              uint8_t* message, uint16_t message_len,
@@ -413,7 +416,7 @@ PROCESS_THREAD(verifier, ev, data)
 
     while (1)
     {
-        PROCESS_YIELD();
+        PROCESS_YIELD_UNTIL(!queue_is_empty(messages_to_verify));
 
         while (!queue_is_empty(messages_to_verify))
         {
@@ -433,7 +436,10 @@ PROCESS_THREAD(verifier, ev, data)
         }
 
         // Other queue might have some tasks to do
-        process_poll(&signer);
+        if (!queue_is_empty(messages_to_sign))
+        {
+            process_poll(&signer);
+        }
     }
 
     PROCESS_END();
