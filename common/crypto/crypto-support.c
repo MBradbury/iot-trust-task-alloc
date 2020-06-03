@@ -20,6 +20,7 @@ static struct pt_sem crypto_processor_mutex;
 /*-------------------------------------------------------------------------------------------------------------------*/
 process_event_t pe_message_signed;
 process_event_t pe_message_verified;
+process_event_t pe_crypto_lock_released;
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(signer, "signer");
 PROCESS(verifier, "verifier");
@@ -37,10 +38,43 @@ crypto_support_init(void)
 
     pe_message_signed = process_alloc_event();
     pe_message_verified = process_alloc_event();
+    pe_crypto_lock_released = process_alloc_event();
+
+    LOG_DBG("pe_message_signed = %u\n", pe_message_signed);
+    LOG_DBG("pe_message_verified = %u\n", pe_message_verified);
+    LOG_DBG("pe_crypto_lock_released = %u\n", pe_crypto_lock_released);
 
     process_start(&signer, NULL);
     process_start(&verifier, NULL);
 }
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    struct pt      pt;
+    struct process *process;
+
+    ecc_dsa_sign_state_t ecc_sign_state;
+
+    uint16_t sig_len;
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
+    rtimer_clock_t time;
+#endif
+} sign_state_t;
+
+PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    struct pt      pt;
+    struct process *process;
+
+    ecc_dsa_verify_state_t ecc_verify_state;
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
+    rtimer_clock_t time;
+#endif
+} verify_state_t;
+
+PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
@@ -364,18 +398,12 @@ PROCESS_THREAD(signer, ev, data)
 
             if (process_post(item->process, pe_message_signed, item) != PROCESS_ERR_OK)
             {
-                LOG_WARN("Failed to post pe_message_signed to %s\n", item->process->name);
+                LOG_ERR("Failed to post pe_message_signed to %s\n", item->process->name);
             }
-
-            // Yield to allow others to do work
-            PROCESS_YIELD();
         }
 
-        // Other queue might have some tasks to do
-        if (!queue_is_empty(messages_to_verify))
-        {
-            process_poll(&verifier);
-        }
+        // Other processes waiting on semaphore might have some tasks to do
+        process_post(PROCESS_BROADCAST, pe_crypto_lock_released, NULL);
     }
 
     PROCESS_END();
@@ -434,18 +462,12 @@ PROCESS_THREAD(verifier, ev, data)
 
             if (process_post(item->process, pe_message_verified, item) != PROCESS_ERR_OK)
             {
-                LOG_WARN("Failed to post pe_message_verified to %s\n", item->process->name);
+                LOG_ERR("Failed to post pe_message_verified to %s\n", item->process->name);
             }
-
-            // Yield to allow others to do work
-            PROCESS_YIELD();
         }
 
-        // Other queue might have some tasks to do
-        if (!queue_is_empty(messages_to_sign))
-        {
-            process_poll(&signer);
-        }
+        // Other processes waiting on semaphore might have some tasks to do
+        process_post(PROCESS_BROADCAST, pe_crypto_lock_released, NULL);
     }
 
     PROCESS_END();
@@ -542,6 +564,17 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+
+    if (state->ecc_multiply_state.result != PKA_STATUS_SUCCESS)
+    {
+        LOG_ERR("ecdh2 failed with %d\n", state->ecc_multiply_state.result);
+    }
+    else
+    {
+        LOG_DBG("echd2 success!\n");
+    }
+
+    process_post(PROCESS_BROADCAST, pe_crypto_lock_released, NULL);
 
     PT_END(&state->pt);
 }

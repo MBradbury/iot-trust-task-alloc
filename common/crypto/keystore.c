@@ -19,7 +19,8 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(keystore, "keystore");
+PROCESS(keystore_req, "keystore_req");
+PROCESS(keystore_unver, "keystore_unver");
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(public_keys_memb, public_key_item_t, PUBLIC_KEYSTORE_SIZE);
 LIST(public_keys);
@@ -153,12 +154,6 @@ static bool add_unverified_buffer_in_use;
 public_key_item_t*
 keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, const ecdsa_secp256r1_sig_t* sig)
 {
-    if (add_unverified_buffer_in_use)
-    {
-        LOG_WARN("keystore_add_unverified: buffer in use\n");
-        return NULL;
-    }
-
     uip_ip6addr_t norm_addr;
     uip_ip6addr_normalise(addr, &norm_addr);
 
@@ -166,6 +161,12 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_
     if (item)
     {
         return item;
+    }
+
+    if (add_unverified_buffer_in_use)
+    {
+        LOG_WARN("keystore_add_unverified: buffer in use\n");
+        return NULL;
     }
 
     item = memb_alloc(&public_keys_memb);
@@ -187,7 +188,7 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_
     memcpy(add_unverified_buffer + DTLS_EC_KEY_SIZE*0, pubkey, DTLS_EC_KEY_SIZE*2);
     memcpy(add_unverified_buffer + DTLS_EC_KEY_SIZE*2, sig,    DTLS_EC_KEY_SIZE*2);
 
-    if (!queue_message_to_verify(&keystore, item, add_unverified_buffer, sizeof(add_unverified_buffer), &root_key))
+    if (!queue_message_to_verify(&keystore_unver, item, add_unverified_buffer, sizeof(add_unverified_buffer), &root_key))
     {
         LOG_ERR("keystore_add_unverified: enqueue failed\n");
         memb_free(&public_keys_memb, item);
@@ -274,6 +275,12 @@ static void request_public_key_callback(coap_callback_request_state_t* callback_
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool request_public_key(const uip_ip6addr_t* addr)
 {
+    if (keystore_find(addr) != NULL)
+    {
+        //LOG_DBG("Already have this public key, do not need to request it.\n");
+        return false;
+    }
+
     if (in_use)
     {
         LOG_WARN("Already requesting a public key for ");
@@ -281,12 +288,6 @@ bool request_public_key(const uip_ip6addr_t* addr)
         LOG_WARN_(" cannot request another for ");
         LOG_WARN_6ADDR(addr);
         LOG_WARN_("\n");
-        return false;
-    }
-
-    if (keystore_find(addr) != NULL)
-    {
-        //LOG_DBG("Already have this public key, do not need to request it.\n");
         return false;
     }
 
@@ -307,7 +308,7 @@ bool request_public_key(const uip_ip6addr_t* addr)
 
     memcpy(key_req_payload, addr, sizeof(*addr));
 
-    if (!queue_message_to_sign(&keystore, NULL, key_req_payload, sizeof(key_req_payload), sizeof(*addr)))
+    if (!queue_message_to_sign(&keystore_req, NULL, key_req_payload, sizeof(key_req_payload), sizeof(*addr)))
     {
         LOG_ERR("request_public_key: Unable to sign message\n");
         return false;
@@ -401,7 +402,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
             LOG_DBG("Queuing public key request ");
             LOG_DBG_6ADDR((const uip_ip6addr_t*)req_resp);
             LOG_DBG_(" response to be verified\n");
-            if (!queue_message_to_verify(&keystore, NULL, req_resp, sizeof(req_resp), &root_key))
+            if (!queue_message_to_verify(&keystore_req, NULL, req_resp, sizeof(req_resp), &root_key))
             {
                 LOG_ERR("request_public_key_callback: enqueue failed\n");
                 in_use = false;
@@ -503,6 +504,47 @@ keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
     return item;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define OSCORE_ID_LEN 6
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
+{
+    LOG_DBG("Generated shared secret with ");
+    LOG_DBG_6ADDR(&item->addr);
+    LOG_DBG_(" value=");
+    hexdump(shared_secret, DTLS_EC_KEY_SIZE);
+    LOG_DBG_("\n");
+
+    // Set the shared secret
+    memcpy(item->shared_secret, shared_secret, DTLS_EC_KEY_SIZE);
+
+#ifdef WITH_OSCORE
+    // Take the lower OSCORE_ID_LEN bytes as the ids
+    const uint8_t* sender_id = &linkaddr_node_addr.u8[LINKADDR_SIZE - OSCORE_ID_LEN];
+    const uint8_t* receiver_id = &item->addr.u8[16 - OSCORE_ID_LEN];
+
+    oscore_derive_ctx(&item->context,
+        item->shared_secret, sizeof(item->shared_secret),
+        NULL, 0, //master_salt, sizeof(master_salt), // optional master salt
+        COSE_Algorithm_AES_CCM_16_64_128,
+        sender_id, OSCORE_ID_LEN, // Sender ID
+        receiver_id, OSCORE_ID_LEN, // Receiver ID
+        NULL, 0, // optional ID context
+        OSCORE_DEFAULT_REPLAY_WINDOW);
+
+    LOG_DBG("Created oscore context with: ");
+    LOG_DBG_("\n\tSender ID   : ");
+    hexdump(sender_id, OSCORE_ID_LEN);
+    LOG_DBG_("\n\tSender Key  : ");
+    hexdump(item->context.sender_context.sender_key, CONTEXT_KEY_LEN);
+    LOG_DBG_("\n\tReceiver ID : ");
+    hexdump(receiver_id, OSCORE_ID_LEN);
+    LOG_DBG_("\n\tReceiver Key: ");
+    hexdump(item->context.recipient_context.recipient_key, CONTEXT_KEY_LEN);
+    LOG_DBG_("\n");
+#endif
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 keystore_init(void)
 {
@@ -515,10 +557,10 @@ keystore_init(void)
     add_unverified_buffer_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define OSCORE_ID_LEN 6
-/*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS_THREAD(keystore, ev, data)
+PROCESS_THREAD(keystore_req, ev, data)
 {
+    // This process processes events for keys that were requested
+
     PROCESS_BEGIN();
 
 #ifdef BUILD_NUMBER
@@ -542,59 +584,65 @@ PROCESS_THREAD(keystore, ev, data)
         {
             static public_key_item_t* item;
             messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
-            if (entry->data == NULL)
-            {
-                item = request_public_key_callback_continued(entry);
-            }
-            else
-            {
-                item = keystore_add_unverified_continued(entry);
-            }
+            assert(entry->data == NULL);
+            //LOG_INFO("Processing pe_message_verified for request_public_key_callback_continued\n");
+            item = request_public_key_callback_continued(entry);
 
             if (item)
             {
                 keystore_pin(item);
 
                 static ecdh2_state_t state;
-                state.process = &keystore;
-                PT_SPAWN(&keystore.pt, &state.pt, ecdh2(&state, &item->pubkey));
+                state.process = &keystore_req;
+                PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &item->pubkey));
 
                 if (state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
-                    LOG_DBG("Generated shared secret with ");
-                    LOG_DBG_6ADDR(&item->addr);
-                    LOG_DBG_(" value=");
-                    hexdump(state.shared_secret, DTLS_EC_KEY_SIZE);
-                    LOG_DBG_("\n");
+                    generate_shared_secret(item, state.shared_secret);
+                }
+                else
+                {
+                    LOG_ERR("Failed to generate shared secret with error %d\n",
+                        state.ecc_multiply_state.result);
+                }
 
-                    // Set the shared secret
-                    memcpy(item->shared_secret, state.shared_secret, DTLS_EC_KEY_SIZE);
+                keystore_unpin(item);
+            }
+        }
+    }
 
-#ifdef WITH_OSCORE
-                    // Take the lower OSCORE_ID_LEN bytes as the ids
-                    const uint8_t* sender_id = &linkaddr_node_addr.u8[LINKADDR_SIZE - OSCORE_ID_LEN];
-                    const uint8_t* receiver_id = &item->addr.u8[16 - OSCORE_ID_LEN];
+    PROCESS_END();
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS_THREAD(keystore_unver, ev, data)
+{
+    // This process processes events for keys that were unsolicitied
+    PROCESS_BEGIN();
 
-                    oscore_derive_ctx(&item->context,
-                        item->shared_secret, sizeof(item->shared_secret),
-                        NULL, 0, //master_salt, sizeof(master_salt), // optional master salt
-                        COSE_Algorithm_AES_CCM_16_64_128,
-                        sender_id, OSCORE_ID_LEN, // Sender ID
-                        receiver_id, OSCORE_ID_LEN, // Receiver ID
-                        NULL, 0, // optional ID context
-                        OSCORE_DEFAULT_REPLAY_WINDOW);
+    while (1)
+    {
+        PROCESS_WAIT_EVENT();
 
-                    LOG_DBG("Created oscore context with: ");
-                    LOG_DBG_("\n\tSender ID   : ");
-                    hexdump(sender_id, OSCORE_ID_LEN);
-                    LOG_DBG_("\n\tSender Key  : ");
-                    hexdump(item->context.sender_context.sender_key, CONTEXT_KEY_LEN);
-                    LOG_DBG_("\n\tReceiver ID : ");
-                    hexdump(receiver_id, OSCORE_ID_LEN);
-                    LOG_DBG_("\n\tReceiver Key: ");
-                    hexdump(item->context.recipient_context.recipient_key, CONTEXT_KEY_LEN);
-                    LOG_DBG_("\n");
-#endif
+        // Verify key response
+        if (ev == pe_message_verified)
+        {
+            static public_key_item_t* item;
+            messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
+            assert(entry->data != NULL);
+            //LOG_INFO("Processing pe_message_verified for keystore_add_unverified_continued\n");
+            item = keystore_add_unverified_continued(entry);
+
+            if (item)
+            {
+                keystore_pin(item);
+
+                static ecdh2_state_t state;
+                state.process = &keystore_unver;
+                PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &item->pubkey));
+
+                if (state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
+                {
+                    generate_shared_secret(item, state.shared_secret);
                 }
                 else
                 {
