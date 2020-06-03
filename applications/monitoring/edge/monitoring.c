@@ -38,28 +38,28 @@ RESOURCE(res_coap_envmon,
 static void
 res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
-  const char* uri_path;
-  int uri_len = coap_get_header_uri_path(request, &uri_path);
+    const char* uri_path;
+    int uri_len = coap_get_header_uri_path(request, &uri_path);
 
-  const uint8_t* payload;
-  int payload_len = coap_get_payload(request, &payload);
+    const uint8_t* payload;
+    int payload_len = coap_get_payload(request, &payload);
 
-  LOG_DBG("Received envmon data uri=%.*s, payload=%.*s from ", uri_len, uri_path, payload_len, (const char*)payload);
-  coap_endpoint_log(request->src_ep);
-  LOG_DBG_("\n");
+    LOG_DBG("Received envmon data uri=%.*s, payload=%.*s from ", uri_len, uri_path, payload_len, (const char*)payload);
+    coap_endpoint_log(request->src_ep);
+    LOG_DBG_("\n");
 
-  // TODO: send data to connected edge node for processing
+    // TODO: send data to connected edge node for processing
 
-  // TODO: set response?
+    // TODO: set response?
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 init(void)
 {
-	coap_activate_resource(&res_coap_envmon, MONITORING_APPLICATION_URI);
+    coap_activate_resource(&res_coap_envmon, MONITORING_APPLICATION_URI);
 
 #ifdef WITH_OSCORE
-  oscore_protect_resource(&res_coap_envmon);
+    oscore_protect_resource(&res_coap_envmon);
 #endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
