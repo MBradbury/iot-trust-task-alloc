@@ -97,16 +97,6 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-/*void hexdump(const char* name, const uint8_t* buffer, size_t len)
-{
-    LOG_DBG("%s: ", name);
-    for (size_t i = 0; i != len; ++i)
-    {
-        LOG_DBG_("%02X", buffer[i]);
-    }
-    LOG_DBG_("\n");
-}*/
-/*-------------------------------------------------------------------------------------------------------------------*/
 static inline
 uint32_t dtls_uint8x4_to_uint32_left(const uint8_t* field)
 {
@@ -153,7 +143,7 @@ ec_uint32v_to_uint8v(const uint32_t* data, size_t size_in_bytes, uint8_t* result
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static uint8_t
 sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
 {
     sha256_state_t sha256_state;
@@ -171,10 +161,30 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
         crypto_enable();
     }
 
-    sha256_init(&sha256_state);
-    sha256_process(&sha256_state, buffer, len);
-    sha256_done(&sha256_state, hash);
+    uint8_t ret;
 
+    ret = sha256_init(&sha256_state);
+    if (ret != CRYPTO_SUCCESS)
+    {
+        LOG_ERR("sha256_init failed with %u\n", ret);
+        goto end;
+    }
+
+    ret = sha256_process(&sha256_state, buffer, len);
+    if (ret != CRYPTO_SUCCESS)
+    {
+        LOG_ERR("sha256_process failed with %u\n", ret);
+        goto end;
+    }
+
+    ret = sha256_done(&sha256_state, hash);
+    if (ret != CRYPTO_SUCCESS)
+    {
+        LOG_ERR("sha256_done failed with %u\n", ret);
+        goto end;
+    }
+
+end:
     if (!enabled)
     {
         crypto_disable();
@@ -184,6 +194,8 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
     time = RTIMER_NOW() - time;
     LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)time * 1000000 / RTIMER_SECOND));
 #endif
+
+    return ret;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
@@ -204,19 +216,22 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     state->sig_len = 0;
 
     uint8_t digest[SHA256_DIGEST_LEN_BYTES];
-    sha256_hash(buffer, msg_len, digest);
-    ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_sign_state.hash);
+    uint8_t sha256_ret = sha256_hash(buffer, msg_len, digest);
+    if (sha256_ret != CRYPTO_SUCCESS)
+    {
+        LOG_ERR("sha256_hash failed with %u\n", sha256_ret);
+        state->ecc_sign_state.result = sha256_ret;
+        PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+        PT_EXIT(&state->pt);
+    }
 
-    //hexdump("m", buffer, msg_len);
-    //hexdump("h", (uint8_t*)state->ecc_sign_state.hash, SHA256_DIGEST_LEN_BYTES);
+    ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_sign_state.hash);
 
     state->ecc_sign_state.process = state->process;
     state->ecc_sign_state.curve_info = &nist_p_256;
 
     // Set secret key from our private key
     ec_uint8v_to_uint32v(our_key.priv_key, DTLS_EC_KEY_SIZE, state->ecc_sign_state.secret);
-
-    //hexdump("p", our_key.priv_key, DTLS_EC_KEY_SIZE);
 
     crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
 
@@ -243,8 +258,6 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     }
 
     LOG_DBG("Message sign success!\n");
-    //hexdump("r", (const uint8_t*)state->ecc_sign_state.point_r.x,   DTLS_EC_KEY_SIZE);
-    //hexdump("s", (const uint8_t*)state->ecc_sign_state.signature_s, DTLS_EC_KEY_SIZE);
 
     // Add signature into the message
     ec_uint32v_to_uint8v(state->ecc_sign_state.point_r.x,   DTLS_EC_KEY_SIZE, buffer + msg_len                   );
@@ -270,6 +283,7 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
     if (buffer_len < DTLS_EC_KEY_SIZE * 2)
     {
         LOG_ERR("No signature\n");
+        state->ecc_verify_state.result = PKA_STATUS_INVALID_PARAM;
         PT_EXIT(&state->pt);
     }
 
@@ -282,28 +296,27 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
     const uint8_t* sig_r = buffer + msg_len;
     const uint8_t* sig_s = buffer + msg_len + DTLS_EC_KEY_SIZE;
 
-    //hexdump("r", sig_r, DTLS_EC_KEY_SIZE);
-    //hexdump("s", sig_s, DTLS_EC_KEY_SIZE);
-
     // Extract signature from buffer
     ec_uint8v_to_uint32v(sig_r, DTLS_EC_KEY_SIZE, state->ecc_verify_state.signature_r);
     ec_uint8v_to_uint32v(sig_s, DTLS_EC_KEY_SIZE, state->ecc_verify_state.signature_s);
 
     uint8_t digest[SHA256_DIGEST_LEN_BYTES];
-    sha256_hash(buffer, msg_len, digest);
-    ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_verify_state.hash);
+    uint8_t sha256_ret = sha256_hash(buffer, msg_len, digest);
+    if (sha256_ret != CRYPTO_SUCCESS)
+    {
+        LOG_ERR("sha256_hash failed with %u\n", sha256_ret);
+        state->ecc_verify_state.result = sha256_ret;
+        PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+        PT_EXIT(&state->pt);
+    }
 
-    //hexdump("m", buffer, msg_len);
-    //hexdump("h", (uint8_t*)state->ecc_verify_state.hash, SHA256_DIGEST_LEN_BYTES);
+    ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_verify_state.hash);
 
     state->ecc_verify_state.process = state->process;
     state->ecc_verify_state.curve_info = &nist_p_256;
 
     ec_uint8v_to_uint32v(pubkey->x, DTLS_EC_KEY_SIZE, state->ecc_verify_state.public.x);
     ec_uint8v_to_uint32v(pubkey->y, DTLS_EC_KEY_SIZE, state->ecc_verify_state.public.y);
-
-    //hexdump("x", pubkey->x, DTLS_EC_KEY_SIZE);
-    //hexdump("y", pubkey->y, DTLS_EC_KEY_SIZE);
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_verify()...\n");
@@ -538,19 +551,19 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
     state->time = RTIMER_NOW();
 #endif
 
-    pka_enable();
-
     // Prepare Points
     state->ecc_multiply_state.process = state->process;
     state->ecc_multiply_state.curve_info = &nist_p_256;
 
+    // Set point to be the input public key
     ec_uint8v_to_uint32v(other_pubkey->x, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.point_in.x);
     ec_uint8v_to_uint32v(other_pubkey->y, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.point_in.y);
 
+    // Use our privacy key as the secret
     ec_uint8v_to_uint32v(our_key.priv_key, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.secret);
 
+    pka_enable();
     PT_SPAWN(&state->pt, &(state->ecc_multiply_state.pt), ecc_multiply(&state->ecc_multiply_state));
-    
     pka_disable();
 
     if (state->ecc_multiply_state.result == PKA_STATUS_SUCCESS)
