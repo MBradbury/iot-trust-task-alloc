@@ -18,7 +18,7 @@
 1. Install dependancies
 
 ```bash
-sudo apt-get install git
+sudo apt-get install git gcc-arm-none-eabi srecord
 ```
 
 2. Download Contiki-NG
@@ -102,3 +102,5 @@ python3 -m pip install --upgrade "git+https://github.com/chrysn/aiocoap#egg=aioc
     - https://arxiv.org/pdf/2001.08023.pdf
 
  - https://github.com/contiki-ng/contiki-ng/issues/863
+
+ - https://github.com/contiki-ng/contiki-ng/wiki/Tutorial:-RPL-border-router#native-border-router
