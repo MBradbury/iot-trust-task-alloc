@@ -27,14 +27,6 @@ LIST(public_keys);
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void hexdump(const uint8_t* buffer, size_t len)
-{
-    for (size_t i = 0; i != len; ++i)
-    {
-        LOG_DBG_("%02X", buffer[i]);
-    }
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 keystore_evict(keystore_eviction_policy_t evict)
 {
@@ -509,11 +501,11 @@ keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
 static void
 generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
 {
-    LOG_DBG("Generated shared secret with ");
-    LOG_DBG_6ADDR(&item->addr);
-    LOG_DBG_(" value=");
-    hexdump(shared_secret, DTLS_EC_KEY_SIZE);
-    LOG_DBG_("\n");
+    LOG_INFO("Generated shared secret with ");
+    LOG_INFO_6ADDR(&item->addr);
+    LOG_INFO_(" value=");
+    LOG_INFO_BYTES(shared_secret, DTLS_EC_KEY_SIZE);
+    LOG_INFO_("\n");
 
     // Set the shared secret
     memcpy(item->shared_secret, shared_secret, DTLS_EC_KEY_SIZE);
@@ -524,7 +516,7 @@ generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
     const uint8_t* receiver_id = &item->addr.u8[16 - OSCORE_ID_LEN];
 
     oscore_derive_ctx(&item->context,
-        item->shared_secret, sizeof(item->shared_secret),
+        shared_secret, DTLS_EC_KEY_SIZE,
         NULL, 0, //master_salt, sizeof(master_salt), // optional master salt
         COSE_Algorithm_AES_CCM_16_64_128,
         sender_id, OSCORE_ID_LEN, // Sender ID
@@ -534,13 +526,13 @@ generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
 
     LOG_DBG("Created oscore context with: ");
     LOG_DBG_("\n\tSender ID   : ");
-    hexdump(sender_id, OSCORE_ID_LEN);
+    LOG_DBG_BYTES(sender_id, OSCORE_ID_LEN);
     LOG_DBG_("\n\tSender Key  : ");
-    hexdump(item->context.sender_context.sender_key, CONTEXT_KEY_LEN);
+    LOG_DBG_BYTES(item->context.sender_context.sender_key, CONTEXT_KEY_LEN);
     LOG_DBG_("\n\tReceiver ID : ");
-    hexdump(receiver_id, OSCORE_ID_LEN);
+    LOG_DBG_BYTES(receiver_id, OSCORE_ID_LEN);
     LOG_DBG_("\n\tReceiver Key: ");
-    hexdump(item->context.recipient_context.recipient_key, CONTEXT_KEY_LEN);
+    LOG_DBG_BYTES(item->context.recipient_context.recipient_key, CONTEXT_KEY_LEN);
     LOG_DBG_("\n");
 #endif
 }

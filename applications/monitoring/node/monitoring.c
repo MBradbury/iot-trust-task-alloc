@@ -70,7 +70,7 @@ send_callback(coap_callback_request_state_t* callback_state)
         }
         else
         {
-            LOG_DBG("Message send failed with code (%c) '%.*s' (len=%d)\n",
+            LOG_WARN("Message send failed with code (%u) '%.*s' (len=%d)\n",
                 response->code, response->payload_len, response->payload, response->payload_len);
         }
 
@@ -184,13 +184,13 @@ periodic_action(void)
 static void
 edge_capability_add(edge_resource_t* edge)
 {
-    LOG_DBG("Notified of edge %s capability\n", edge->name);
+    LOG_INFO("Notified of edge %s capability\n", edge->name);
 
     capability_count += 1;
 
     if (capability_count == 1)
     {
-        LOG_DBG("Starting periodic timer to send information\n");
+        LOG_INFO("Starting periodic timer to send information\n");
 
         // Setup a periodic timer that expires after PERIOD seconds.
         etimer_set(&publish_periodic_timer, LONG_PUBLISH_PERIOD);
@@ -202,13 +202,13 @@ edge_capability_add(edge_resource_t* edge)
 static void
 edge_capability_remove(edge_resource_t* edge)
 {
-    LOG_DBG("Notified edge %s no longer has capability\n", edge->name);
+    LOG_INFO("Notified edge %s no longer has capability\n", edge->name);
 
     capability_count -= 1;
 
     if (capability_count == 0)
     {
-        LOG_DBG("Stop sending information, no edges to process it\n");
+        LOG_INFO("Stop sending information, no edges to process it\n");
 
         etimer_stop(&publish_periodic_timer);
     }

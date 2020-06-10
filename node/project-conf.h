@@ -15,8 +15,4 @@
 // This is the address of the observer node connected to the border router
 #define MQTT_CLIENT_CONF_BROKER_IP_ADDR "fd00::1"
 
-
-#define COAP_DTLS_PSK_DEFAULT_IDENTITY "username"
-#define COAP_DTLS_PSK_DEFAULT_KEY "password"
-
 #define COAP_MAX_CHUNK_SIZE 256

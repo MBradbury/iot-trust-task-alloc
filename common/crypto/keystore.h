@@ -16,7 +16,7 @@ typedef struct public_key_item {
 
     uip_ip6addr_t addr;
     ecdsa_secp256r1_pubkey_t pubkey;
-    uint8_t shared_secret[32];
+    uint8_t shared_secret[DTLS_EC_KEY_SIZE];
 
 #ifdef WITH_OSCORE
     oscore_ctx_t context;
