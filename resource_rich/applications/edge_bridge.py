@@ -30,7 +30,7 @@ class NodeSerialBridge:
 
         # Start processing serial output from edge sensor node
         self.proc = await asyncio.create_subprocess_shell(
-            "./tools/pyterm -b 115200 -p /dev/ttyUSB0",
+            "~/pi-client/tools/pyterm -b 115200 -p /dev/ttyUSB0",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
@@ -44,16 +44,16 @@ class NodeSerialBridge:
             self.server.close()
             await self.server.wait_closed()
 
-    async def _process_serial_output(line):
+    async def _process_serial_output(self, line):
         logger.debug(f"process_edge_output: {line}")
         application_name, length, payload = line.split(":", 2)
 
         try:
             # Find application to send to
-            writer = self.server.applications[application_name]
+            writer = self.applications[application_name]
 
             # Send the payload
-            writer.write(f"{payload}\n")
+            writer.write(f"{payload}\n".encode('utf-8'))
             await writer.drain()
 
         except KeyError:
@@ -64,7 +64,7 @@ class NodeSerialBridge:
             line = output.decode('utf-8').rstrip()
 
             if line.startswith(edge_marker):
-                await _process_serial_output(line[len(edge_marker):])
+                await self._process_serial_output(line[len(edge_marker):])
             else:
                 # A log message so print it out
                 print(line)
@@ -79,26 +79,27 @@ class NodeSerialBridge:
 
         await asyncio.gather(t1, t2)
 
-    async def _handle_application_conn(reader, writer):
+    async def _handle_application_conn(self, reader, writer):
         try:
             addr = writer.get_extra_info('peername')
             logger.info(f"Connected to {addr}")
 
-            application_name = (await reader.readline()).rstrip()
+            application_name = (await reader.readline()).decode("utf-8").rstrip()
             logger.info(f"Application {application_name} is running on {addr}")
             self.applications[application_name] = writer
 
-            async for line in self.reader.stdout:
+            while not reader.at_eof():
+                line = await reader.readline()
                 line = line.decode("utf-8").strip()
 
-                self.proc.stdin.write(f"{line}\n")
+                self.proc.stdin.write(f"{line}\n".encode("utf-8"))
                 await self.proc.stdin.drain()
 
         finally:
             del self.applications[application_name]
 
 
-async def do_run(service)
+async def do_run(service):
     await service.start()
     await service.run()
 
@@ -107,7 +108,7 @@ async def shutdown(signal, loop, services):
     logger.info(f"Received exit signal {signal.name}...")
 
     logger.info(f"Stopping services tasks...")
-    await asyncio.gather([service.stop() for service in services], return_exceptions=True)
+    await asyncio.gather(*[service.stop() for service in services], return_exceptions=True)
 
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
     for task in tasks:

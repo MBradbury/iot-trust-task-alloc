@@ -23,21 +23,22 @@ class Client:
         self.reader, self.writer = await asyncio.open_connection('localhost', edge_server_port)
 
         # Need to inform bridge of what application we represent
-        self.writer.write(f"{self.name}\n")
+        self.writer.write(f"{self.name}\n".encode("utf-8"))
         await self.writer.drain()
 
         # Once started, we need to inform the edge of this application's availability
-        self._inform_application_started()
+        await self._inform_application_started()
 
     async def run(self):
-        async for line in self.reader.stdout:
+        while not self.reader.at_eof():
+            line = await self.reader.readline()
             line = line.decode("utf-8").strip()
 
             await self.receive(line)
 
     async def stop(self):
         # When stopping, we need to inform the edge that this application is no longer available
-        self._inform_application_stopped()
+        await self._inform_application_stopped()
 
         self.writer.close()
         await self.writer.wait_closed()
@@ -46,15 +47,15 @@ class Client:
         self.writer = None
 
     async def _inform_application_started(self):
-        self.writer.write(f"{application_serial_prefix}{self.name}:start\n")
+        self.writer.write(f"{application_serial_prefix}{self.name}:start\n".encode("utf-8"))
         await self.writer.drain()
 
     async def _inform_application_stopped(self):
-        self.writer.write(f"{application_serial_prefix}{self.name}:stop\n")
+        self.writer.write(f"{application_serial_prefix}{self.name}:stop\n".encode("utf-8"))
         await self.writer.drain()
 
 
-async def do_run(service)
+async def do_run(service):
     await service.start()
     await service.run()
 
@@ -63,7 +64,7 @@ async def shutdown(signal, loop, services):
     logger.info(f"Received exit signal {signal.name}...")
 
     logger.info(f"Stopping services tasks...")
-    await asyncio.gather([service.stop() for service in services], return_exceptions=True)
+    await asyncio.gather(*[service.stop() for service in services], return_exceptions=True)
 
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
     for task in tasks:
