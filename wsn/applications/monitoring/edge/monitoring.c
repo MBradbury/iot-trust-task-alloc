@@ -1,5 +1,6 @@
 #include "monitoring.h"
 #include "application-serial.h"
+#include "trust/trust.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -54,13 +55,19 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
     printf(APPLICATION_SERIAL_PREFIX MONITORING_APPLICATION_NAME ":%u:%.*s\n", payload_len, payload_len, (const char*)payload);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define START_MESSAGE "start"
+#define STOP_MESSAGE "stop"
+/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 process_serial_message(const char* data)
 {
     const char* const data_end = data + strlen(data);
 
+    LOG_DBG("Received serial message %s of length %u\n", data, data_end - data);
+
     // Check that the input is from the edge
-    if (strncmp(APPLICATION_SERIAL_PREFIX, data, strlen(APPLICATION_SERIAL_PREFIX)) != 0)
+    if (data_end - data < strlen(APPLICATION_SERIAL_PREFIX) ||
+        strncmp(APPLICATION_SERIAL_PREFIX, data, strlen(APPLICATION_SERIAL_PREFIX)) != 0)
     {
         LOG_DBG("Serial input is not from edge\n");
         return;
@@ -69,7 +76,8 @@ process_serial_message(const char* data)
     data += strlen(APPLICATION_SERIAL_PREFIX);
 
     // Check that the input is for this application
-    if (strncmp(MONITORING_APPLICATION_NAME, data, strlen(MONITORING_APPLICATION_NAME)) != 0)
+    if (data_end - data < strlen(MONITORING_APPLICATION_NAME) ||
+        strncmp(MONITORING_APPLICATION_NAME, data, strlen(MONITORING_APPLICATION_NAME)) != 0)
     {
         LOG_DBG("Serial input is not for the " MONITORING_APPLICATION_NAME " application\n");
         return;
@@ -77,9 +85,31 @@ process_serial_message(const char* data)
 
     data += strlen(MONITORING_APPLICATION_NAME);
 
-    size_t data_len = data_end - data;
+    if (data_end - data < 1 ||
+        *data != ':')
+    {
+        LOG_DBG("Missing separator\n");
+        return;
+    }
 
-    LOG_INFO("Received serial message %s of length %u\n", data, data_len);
+    data += 1;
+
+    if (data_end - data >= strlen(START_MESSAGE) &&
+        strncmp(START_MESSAGE, data, strlen(START_MESSAGE)) == 0)
+    {
+        LOG_INFO("publishing add capability\n");
+        publish_add_capability(MONITORING_APPLICATION_NAME);
+    }
+    else if (data_end - data >= strlen(STOP_MESSAGE) &&
+             strncmp(STOP_MESSAGE, data, strlen(STOP_MESSAGE)) == 0)
+    {
+        LOG_INFO("publishing remove capability\n");
+        publish_remove_capability(MONITORING_APPLICATION_NAME);
+    }
+    else
+    {
+        LOG_ERR("Unsure what to do with %.*s\n", data_end - data, data);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
