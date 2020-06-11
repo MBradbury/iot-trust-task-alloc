@@ -2,6 +2,7 @@
 
 #include "contiki.h"
 #include "os/sys/log.h"
+#include "serial-line.h"
 
 #include "coap.h"
 #include "coap-callback-api.h"
@@ -48,9 +49,36 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
     coap_endpoint_log(request->src_ep);
     LOG_DBG_("\n");
 
-    // TODO: send data to connected edge node for processing
+    // Send data to connected edge node for processing
+    printf(APPLICATION_SERIAL_PREFIX MONITORING_APPLICATION_NAME ":%u:%.*s\n", payload_len, payload_len, (const char*)payload);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+process_serial_message(const char* data)
+{
+    const char* const data_end = data + strlen(data);
 
-    // TODO: set response?
+    // Check that the input is from the edge
+    if (strncmp(APPLICATION_SERIAL_PREFIX, data, strlen(APPLICATION_SERIAL_PREFIX)) != 0)
+    {
+        LOG_DBG("Serial input is not from edge\n");
+        return;
+    }
+
+    data += strlen(APPLICATION_SERIAL_PREFIX);
+
+    // Check that the input is for this application
+    if (strncmp(MONITORING_APPLICATION_NAME, data, strlen(MONITORING_APPLICATION_NAME)) != 0)
+    {
+        LOG_DBG("Serial input is not for the " MONITORING_APPLICATION_NAME " application\n");
+        return;
+    }
+
+    data += strlen(MONITORING_APPLICATION_NAME);
+
+    size_t data_len = data_end - data;
+
+    LOG_INFO("Received serial message %s of length %u\n", data, data_len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -72,6 +100,11 @@ PROCESS_THREAD(environment_monitoring, ev, data)
     while (1)
     {
         PROCESS_YIELD();
+
+        if (ev == serial_line_event_message)
+        {
+            process_serial_message(data);
+        }
     }
 
     PROCESS_END();
