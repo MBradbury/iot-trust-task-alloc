@@ -41,7 +41,7 @@ with open("setup/build_number", "w") as build_number_file:
 
 print("Cleaning directories")
 for binary in binaries:
-    subprocess.run(f"make distclean -C {binary}", shell=True, check=True, capture_output=True)
+    subprocess.run(f"make distclean -C wsn/{binary}", shell=True, check=True, capture_output=True)
 
 print("Building keystore")
 keys = {
@@ -66,8 +66,8 @@ def create_static_keys(ip):
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
 
 # Back-up static-keys.c
-if os.path.exists("common/crypto/static-keys.c"):
-    shutil.move("common/crypto/static-keys.c", "common/crypto/static-keys.c.orig")
+if os.path.exists("wsn/common/crypto/static-keys.c"):
+    shutil.move("wsn/common/crypto/static-keys.c", "wsn/common/crypto/static-keys.c.orig")
 
 for (target, ip) in ips.items():
     # Skip building for root ip
@@ -81,18 +81,18 @@ for (target, ip) in ips.items():
 
     print(f"Creating static-keys.c for {ip}")
     create_static_keys(ip)
-    shutil.move("setup/static-keys.c", "common/crypto/static-keys.c")
+    shutil.move("setup/static-keys.c", "wsn/common/crypto/static-keys.c")
 
     for binary in binaries:
         print(f"Building {binary}")
-        subprocess.run(f"make -C {binary} BUILD_NUMBER={build_number}", shell=True, check=True)
-        shutil.move(f"{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
+        subprocess.run(f"make -C wsn/{binary} BUILD_NUMBER={build_number}", shell=True, check=True)
+        shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
 
-    shutil.move("common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
+    shutil.move("wsn/common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
 
 # Move backed-up static-keys.c back
-if os.path.exists("common/crypto/static-keys.c.orig"):
-    shutil.move("common/crypto/static-keys.c.orig", "common/crypto/static-keys.c")
+if os.path.exists("wsn/common/crypto/static-keys.c.orig"):
+    shutil.move("wsn/common/crypto/static-keys.c.orig", "wsn/common/crypto/static-keys.c")
 
 print("Deploying build binaries to targets")
 
