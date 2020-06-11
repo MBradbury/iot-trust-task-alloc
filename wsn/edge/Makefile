@@ -4,14 +4,14 @@ all: $(CONTIKI_PROJECT)
 CONTIKI = $(CONTIKING_OSCORE_DIR)
 
 ifeq ($(CONTIKI),)
-	$(error "Contiki directory not set")
+    $(error "Contiki directory not set")
 endif
 
 # Include Contiki-NG Make variables
 include $(CONTIKI)/Makefile.dir-variables
 
 ifdef BUILD_NUMBER
-	CFLAGS += -DBUILD_NUMBER=$(BUILD_NUMBER)
+    CFLAGS += -DBUILD_NUMBER=$(BUILD_NUMBER)
 endif
 
 # Add additional CFLAGS
