@@ -1,4 +1,5 @@
 #include "monitoring.h"
+#include "application-serial.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"

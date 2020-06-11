@@ -1,11 +1,11 @@
 *.zoul
-*/build
+wsn/*/build
 Makefile.target
 *.sublime-project
 *.sublime-workspace
-root/mqtt_coap_bridge.pickle
+resource_rich/root/mqtt_coap_bridge.pickle
 *.pem
-common/crypto/static-keys.c
+wsn/common/crypto/static-keys.c
 */keystore
 setup
 __pycache__
