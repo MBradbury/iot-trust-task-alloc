@@ -123,6 +123,8 @@ process_edge_serial_message(const char* data, const char* data_end)
 
         // No applications are available now
         memset(applications_available, 0, sizeof(applications_available));
+
+        // TODO: consider triggering a faster notification of application removal
     }
     else
     {

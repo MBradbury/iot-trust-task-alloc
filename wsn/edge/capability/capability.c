@@ -170,6 +170,7 @@ periodic_publish_announce(void)
     }
     else
     {
+        // Don't send capabilities until we have announced ourselves
         LOG_DBG("Announce sent! Starting capability publish timer...\n");
         etimer_set(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD_SHORT);
     }
