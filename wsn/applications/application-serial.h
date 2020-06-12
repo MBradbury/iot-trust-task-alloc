@@ -1,7 +1,13 @@
 #pragma once
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define APPLICATION_SERIAL_PREFIX "!"
+#define SERIAL_SEP "|"
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define EDGE_SERIAL_PREFIX "!"
+#define EDGE_SERIAL_START "start"
+#define EDGE_SERIAL_STOP "stop"
+/*------------------------------------------------------------------------------------------------------------------*/
+#define APPLICATION_SERIAL_PREFIX "@"
 #define APPLICATION_SERIAL_START "start"
 #define APPLICATION_SERIAL_STOP "stop"
 #define APPLICATION_SERIAL_APP "app"

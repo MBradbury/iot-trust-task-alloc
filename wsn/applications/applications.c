@@ -51,6 +51,9 @@ void edge_capability_add_common(edge_resource_t* edge, const char* uri)
         // 2. The client received an announce and requested a public key from the PKI
         // If we have got here and still don't have a public key, then we need to try requesting it now:
         request_public_key(&edge->ep.ipaddr);
+
+        // TODO: When receiving this public key, we need to pin it and possibly do OSCORE things
+        // to it, based on the code in the other branch
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

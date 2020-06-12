@@ -1,4 +1,5 @@
 #include "trust.h"
+#include "edge.h"
 
 #include "contiki.h"
 #include "os/net/linkaddr.h"
@@ -29,9 +30,10 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLISH_ANNOUNCE_PERIOD_SHORT (CLOCK_SECOND * 2 * 60)
-#define PUBLISH_ANNOUNCE_PERIOD_LONG  (PUBLISH_ANNOUNCE_PERIOD_SHORT * 15)
-#define PUBLISH_CAPABILITY_PERIOD     (CLOCK_SECOND * 5)
+#define PUBLISH_ANNOUNCE_PERIOD_SHORT   (CLOCK_SECOND * 2 * 60)
+#define PUBLISH_ANNOUNCE_PERIOD_LONG    (PUBLISH_ANNOUNCE_PERIOD_SHORT * 15)
+#define PUBLISH_CAPABILITY_PERIOD_SHORT (CLOCK_SECOND * 5)
+#define PUBLISH_CAPABILITY_PERIOD_LONG  (PUBLISH_CAPABILITY_PERIOD_SHORT * (APPLICATION_NUM + 10))
 #define PUBLISH_ANNOUNCE_SHORT_TO_LONG 5
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_announce_timer;
@@ -169,12 +171,17 @@ periodic_publish_announce(void)
     else
     {
         LOG_DBG("Announce sent! Starting capability publish timer...\n");
-        etimer_set(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD);
+        etimer_set(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD_SHORT);
     }
 
+    // If on the short interval, might need to transition to the long interval
     if (publish_announce_timer.timer.interval == PUBLISH_ANNOUNCE_PERIOD_SHORT)
     {
-        announce_short_count += 1;
+        // Only increment short count, if we managed to successfully publish the announce
+        if (ret)
+        {
+            announce_short_count += 1;
+        }
 
         if (announce_short_count >= PUBLISH_ANNOUNCE_SHORT_TO_LONG)
         {
@@ -192,13 +199,47 @@ periodic_publish_announce(void)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static uint8_t application_capability_publish_idx;
+/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 periodic_publish_capability(void)
 {
-    LOG_DBG("Attempting to publish capabilities...\n");
-    // TODO: This needs to be based off services running on the Edge observer node this sensor node is connected to.
+    // The current application we need to publish information about
+    const char* application_name = application_names[application_capability_publish_idx];
 
-    publish_add_capability(MONITORING_APPLICATION_NAME);
+    LOG_DBG("Attempting to publish capability for %s at %" PRIu8 "\n", application_name, application_capability_publish_idx);
+
+    bool ret;
+
+    // Check if it is available
+    if (applications_available[application_capability_publish_idx])
+    {
+        ret = publish_add_capability(application_name);
+    }
+    else
+    {
+        ret = publish_remove_capability(application_name);
+    }
+
+    // Move onto next capability if we succeeded in publishing this one
+    if (ret)
+    {
+        application_capability_publish_idx += 1;
+    }
+    else
+    {
+        LOG_ERR("Capability publish failed\n");
+    }
+
+    if (application_capability_publish_idx == APPLICATION_NUM)
+    {
+        etimer_reset_with_new_interval(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD_LONG);
+        application_capability_publish_idx = 0;
+    }
+    else
+    {
+        etimer_reset_with_new_interval(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD_SHORT);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
@@ -220,6 +261,8 @@ init(void)
     trust_common_init();
 
     announce_short_count = 0;
+
+    application_capability_publish_idx = 0;
 
     return true;
 }

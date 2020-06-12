@@ -3,6 +3,7 @@
 
 #include "contiki.h"
 #include "os/sys/log.h"
+#include "os/net/ipv6/uiplib.h"
 
 #include "coap.h"
 #include "coap-callback-api.h"
@@ -31,7 +32,7 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
 // TODO: See RFC6690 Section 3.1 for what to set rt to
 // https://tools.ietf.org/html/rfc6690#section-3.1
 RESOURCE(res_coap_envmon,
-         "title=\"Environment Monitoring\";rt=\"envmon\"",
+         "title=\"Environment Monitoring\";rt=\"" MONITORING_APPLICATION_NAME "\"",
          NULL,                         /*GET*/
          res_coap_envmon_post_handler, /*POST*/
          NULL,                         /*PUT*/
@@ -51,7 +52,9 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
     LOG_DBG_("\n");
 
     // Send data to connected edge node for processing
-    printf(APPLICATION_SERIAL_PREFIX MONITORING_APPLICATION_NAME ":%u:%.*s\n", payload_len, payload_len, (const char*)payload);
+    printf(APPLICATION_SERIAL_PREFIX MONITORING_APPLICATION_NAME SERIAL_SEP);
+    uiplib_ipaddr_print(&request->src_ep->ipaddr);
+    printf(SERIAL_SEP"%u" SERIAL_SEP "%.*s\n", payload_len, payload_len, (const char*)payload);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void

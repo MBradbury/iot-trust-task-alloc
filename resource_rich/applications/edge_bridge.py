@@ -9,6 +9,8 @@ logger = logging.getLogger("edge-bridge")
 logger.setLevel(logging.DEBUG)
 
 edge_marker = "!"
+application_edge_marker = "@"
+serial_sep = "|"
 edge_server_port = 10_000
 
 class NodeSerialBridge:
@@ -35,18 +37,25 @@ class NodeSerialBridge:
             stdout=asyncio.subprocess.PIPE)
 
     async def stop(self):
+        # Stop the server, so applications cannot communicate with us
+        if self.server is not None:
+            self.server.close()
+            await self.server.wait_closed()
+
+        # If we are being stopped, then inform the sensor node application
+        line = f"{edge_marker}stop\n".encode("utf-8")
+        self.proc.stdin.write(line)
+        await self.proc.stdin.drain()
+
+        # Stop the serial line
         if self.proc is not None:
             self.proc.terminate()
             await self.proc.wait()
             self.proc = None
 
-        if self.server is not None:
-            self.server.close()
-            await self.server.wait_closed()
-
     async def _process_serial_output(self, line: str):
         logger.debug(f"process_edge_output: {line}")
-        application_name, length, payload = line.split(":", 2)
+        application_name, payload = line.split(serial_sep, 1)
 
         try:
             # Find application to send to
@@ -63,10 +72,16 @@ class NodeSerialBridge:
         async for output in self.proc.stdout:
             line = output.decode('utf-8').rstrip()
 
-            if line.startswith(edge_marker):
-                await self._process_serial_output(line[len(edge_marker):])
+            # Application message
+            if line.startswith(application_edge_marker):
+                await self._process_serial_output(line[len(application_edge_marker):])
+
+            # Edge message
+            elif line.startswith(edge_marker):
+                logger.warn(f"Don't know what to do with {line}")
+
+            # Regular log
             else:
-                # A log message so print it out
                 print(line)
 
     async def _run_applications(self):

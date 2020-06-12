@@ -6,7 +6,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-client")
 logger.setLevel(logging.DEBUG)
 
-edge_marker = "!"
+application_edge_marker = "@"
+serial_sep = "|"
 edge_server_port = 10_000
 
 class Client:
@@ -49,10 +50,10 @@ class Client:
         await self.writer.drain()
 
     async def _inform_application_started(self):
-        await self.write(f"{edge_marker}{self.name}:start\n")
+        await self.write(f"{application_edge_marker}{self.name}{serial_sep}start\n")
 
     async def _inform_application_stopped(self):
-        await self.write(f"{edge_marker}{self.name}:stop\n")
+        await self.write(f"{application_edge_marker}{self.name}{serial_sep}stop\n")
 
 
 async def do_run(service):
