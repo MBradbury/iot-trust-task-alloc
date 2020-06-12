@@ -3,6 +3,7 @@
 import logging
 import asyncio
 import signal
+import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("edge-bridge")
@@ -53,7 +54,7 @@ class NodeSerialBridge:
             await self.proc.wait()
             self.proc = None
 
-    async def _process_serial_output(self, line: str):
+    async def _process_serial_output(self, now, line: str):
         logger.debug(f"process_edge_output: {line}")
         application_name, payload = line.split(serial_sep, 1)
 
@@ -61,8 +62,8 @@ class NodeSerialBridge:
             # Find application to send to
             writer = self.applications[application_name]
 
-            # Send the payload
-            writer.write(f"{payload}\n".encode('utf-8'))
+            # Send the payload and the created timestamp
+            writer.write(f"{now.isoformat()}{serial_sep}{payload}\n".encode('utf-8'))
             await writer.drain()
 
         except KeyError:
@@ -70,11 +71,14 @@ class NodeSerialBridge:
 
     async def _run_serial(self):
         async for output in self.proc.stdout:
+            # Timestamp this line
+            now = datetime.datetime.now(datetime.timezone.utc)
+
             line = output.decode('utf-8').rstrip()
 
             # Application message
             if line.startswith(application_edge_marker):
-                await self._process_serial_output(line[len(application_edge_marker):])
+                await self._process_serial_output(now, line[len(application_edge_marker):])
 
             # Edge message
             elif line.startswith(edge_marker):

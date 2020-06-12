@@ -31,7 +31,7 @@ class Client:
     async def run(self):
         while not self.reader.at_eof():
             line = await self.reader.readline()
-            line = line.decode("utf-8").strip()
+            line = line.decode("utf-8").rstrip()
 
             await self.receive(line)
 
