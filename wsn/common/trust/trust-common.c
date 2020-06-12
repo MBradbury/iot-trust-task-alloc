@@ -260,6 +260,14 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_REMOVE)) == 0)
     {
+        // Check that this edge has this capability
+        if (edge_info_capability_find(edge, capability_name) == NULL)
+        {
+            LOG_DBG("Notified of removal of capability %s from %s, but had not recorded this previously.\n",
+                capability_name, topic_identity);
+            return;
+        }
+
         // We have at least one Edge resource to support this application, so we need to inform the process
         struct process* proc = find_process_with_name(capability_name);
         if (proc != NULL)
@@ -278,13 +286,14 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
         }
         else
         {
-            LOG_DBG("Cannot removed capability %s from %s as it does not have that capability\n",
+            // Should never get here
+            LOG_ERR("Cannot removed capability %s from %s as it does not have that capability\n",
                 capability_name, topic_identity);
         }
     }
     else
     {
-        LOG_ERR("Unknown cap action (%.*s)\n", topic_end - topic, topic);
+        LOG_WARN("Unknown cap action (%.*s)\n", topic_end - topic, topic);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
