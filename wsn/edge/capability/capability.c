@@ -271,9 +271,9 @@ init(void)
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(trust_model, "Trust Model process");
+PROCESS(capability, "Announce and Capability process");
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS_THREAD(trust_model, ev, data)
+PROCESS_THREAD(capability, ev, data)
 {
     PROCESS_BEGIN();
 

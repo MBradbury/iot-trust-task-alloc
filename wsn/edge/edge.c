@@ -13,7 +13,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
 PROCESS_NAME(environment_monitoring);
-PROCESS_NAME(trust_model);
+PROCESS_NAME(capability);
 PROCESS_NAME(keystore_req);
 PROCESS_NAME(keystore_unver);
 PROCESS(edge, MONITORING_APPLICATION_NAME);
@@ -21,7 +21,7 @@ PROCESS(edge, MONITORING_APPLICATION_NAME);
 const char* const application_names[APPLICATION_NUM] = APPLICATION_NAMES;
 bool applications_available[APPLICATION_NUM];
 /*-------------------------------------------------------------------------------------------------------------------*/
-AUTOSTART_PROCESSES(&edge, &trust_model, &environment_monitoring, &mqtt_client_process, &keystore_req, &keystore_unver);
+AUTOSTART_PROCESSES(&edge, &capability, &environment_monitoring, &mqtt_client_process, &keystore_req, &keystore_unver);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int8_t
 index_of_application(const char* name)
@@ -120,6 +120,9 @@ process_edge_serial_message(const char* data, const char* data_end)
     else if (match_action(data, data_end, EDGE_SERIAL_STOP))
     {
         LOG_INFO("Resource rich serial bridge has stopped\n");
+
+        // No applications are available now
+        memset(applications_available, 0, sizeof(applications_available));
     }
     else
     {
