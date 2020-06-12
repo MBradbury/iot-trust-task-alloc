@@ -245,6 +245,7 @@ periodic_publish_capability(void)
 static bool
 init(void)
 {
+    // Create an id for this edge node
     int len = snprintf(pub_topic, BASE_PUBLISH_TOPIC_LEN+1, MQTT_EDGE_NAMESPACE "/%02x%02x%02x%02x%02x%02x%02x%02x/",
                        linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                        linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[3],
@@ -264,6 +265,9 @@ init(void)
 
     application_capability_publish_idx = 0;
 
+    // Start timer for periodic announce
+    etimer_set(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD_SHORT);
+
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -278,9 +282,6 @@ PROCESS_THREAD(trust_model, ev, data)
     {
         PROCESS_EXIT();
     }
-
-    /* Setup a periodic timer that expires after PERIOD seconds. */
-    etimer_set(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD_SHORT);
 
     while (1)
     {
