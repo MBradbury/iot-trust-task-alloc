@@ -1,4 +1,4 @@
-#include "trust.h"
+#include "capability.h"
 #include "edge.h"
 
 #include "contiki.h"

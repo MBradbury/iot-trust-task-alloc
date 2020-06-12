@@ -27,7 +27,7 @@ MODULES += os/lib/json
 
 # Include application modules
 MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust crypto}
-MODULES_REL += ./trust
+MODULES_REL += ./capability
 
 # MQTT configuration
 CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=3

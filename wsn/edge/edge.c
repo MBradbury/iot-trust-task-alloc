@@ -5,7 +5,7 @@
 #include "edge.h"
 #include "applications.h"
 #include "application-serial.h"
-#include "trust/trust.h"
+#include "capability/capability.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "edge"
