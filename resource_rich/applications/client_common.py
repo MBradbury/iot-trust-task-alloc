@@ -6,9 +6,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-client")
 logger.setLevel(logging.DEBUG)
 
+edge_marker = "!"
 edge_server_port = 10_000
-
-application_serial_prefix = "!e"
 
 class Client:
     def __init__(self, name):
@@ -16,15 +15,14 @@ class Client:
         self.reader = None
         self.writer = None
 
-    async def receive(self, message):
+    async def receive(self, message: str):
         raise NotImplementedError()
 
     async def start(self):
         self.reader, self.writer = await asyncio.open_connection('localhost', edge_server_port)
 
         # Need to inform bridge of what application we represent
-        self.writer.write(f"{self.name}\n".encode("utf-8"))
-        await self.writer.drain()
+        await self.write(f"{self.name}\n")
 
         # Once started, we need to inform the edge of this application's availability
         await self._inform_application_started()
@@ -46,13 +44,15 @@ class Client:
         self.reader = None
         self.writer = None
 
-    async def _inform_application_started(self):
-        self.writer.write(f"{application_serial_prefix}{self.name}:start\n".encode("utf-8"))
+    async def write(self, s: str):
+        self.writer.write(s.encode("utf-8"))
         await self.writer.drain()
 
+    async def _inform_application_started(self):
+        await self.write(f"{edge_marker}{self.name}:start\n")
+
     async def _inform_application_stopped(self):
-        self.writer.write(f"{application_serial_prefix}{self.name}:stop\n".encode("utf-8"))
-        await self.writer.drain()
+        await self.write(f"{edge_marker}{self.name}:stop\n")
 
 
 async def do_run(service):

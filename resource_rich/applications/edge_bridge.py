@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("edge-bridge")
 logger.setLevel(logging.DEBUG)
 
-edge_marker = "!e"
+edge_marker = "!"
 edge_server_port = 10_000
 
 class NodeSerialBridge:
@@ -44,7 +44,7 @@ class NodeSerialBridge:
             self.server.close()
             await self.server.wait_closed()
 
-    async def _process_serial_output(self, line):
+    async def _process_serial_output(self, line: str):
         logger.debug(f"process_edge_output: {line}")
         application_name, length, payload = line.split(":", 2)
 
@@ -88,11 +88,10 @@ class NodeSerialBridge:
             logger.info(f"Application {application_name} is running on {addr}")
             self.applications[application_name] = writer
 
+            # Read lines from the application and forward onto the serial line
             while not reader.at_eof():
                 line = await reader.readline()
-                line = line.decode("utf-8").strip()
-
-                self.proc.stdin.write(f"{line}\n".encode("utf-8"))
+                self.proc.stdin.write(line)
                 await self.proc.stdin.drain()
 
         finally:
