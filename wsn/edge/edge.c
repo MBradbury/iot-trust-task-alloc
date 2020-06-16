@@ -20,6 +20,7 @@ PROCESS(edge, MONITORING_APPLICATION_NAME);
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char* const application_names[APPLICATION_NUM] = APPLICATION_NAMES;
 bool applications_available[APPLICATION_NUM];
+bool resource_rich_edge_started;
 /*-------------------------------------------------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&edge, &capability, &environment_monitoring, &mqtt_client_process, &keystore_req, &keystore_unver);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -116,6 +117,14 @@ process_edge_serial_message(const char* data, const char* data_end)
     if (match_action(data, data_end, EDGE_SERIAL_START))
     {
         LOG_INFO("Resource rich serial bridge has started\n");
+
+        if (!resource_rich_edge_started)
+        {
+            resource_rich_edge_started = true;
+
+            // Trigger a faster notification of announce
+            trigger_faster_publish();
+        }
     }
     else if (match_action(data, data_end, EDGE_SERIAL_STOP))
     {
@@ -124,7 +133,13 @@ process_edge_serial_message(const char* data, const char* data_end)
         // No applications are available now
         memset(applications_available, 0, sizeof(applications_available));
 
-        // TODO: consider triggering a faster notification of application removal
+        if (resource_rich_edge_started)
+        {
+            resource_rich_edge_started = false;
+
+            // Trigger a faster notification of unannounce
+            trigger_faster_publish();
+        }
     }
     else
     {
@@ -165,6 +180,8 @@ PROCESS_THREAD(edge, ev, data)
     memset(applications_available, 0, sizeof(applications_available));
 
     pe_data_from_resource_rich_node = process_alloc_event();
+
+    resource_rich_edge_started = false;
 
     while (1)
     {

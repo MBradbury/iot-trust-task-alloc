@@ -25,6 +25,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN] = {
     MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_ANNOUNCE,
+    MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_UNANNOUNCE,
     MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_ADD,
     MQTT_EDGE_NAMESPACE "/+/" MQTT_EDGE_ACTION_CAPABILITY "/+/" MQTT_EDGE_ACTION_CAPABILITY_REMOVE,
 };
@@ -128,6 +129,8 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     if (edge_resource != NULL)
     {
         LOG_DBG("Received announce for %s with address %s\n", topic_identity, ip_addr_buf);
+
+        edge_resource->active = true;
     }
     else
     {
@@ -164,6 +167,79 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     if (keystore_add_unverified(&ip_addr, pubkey, sig) == NULL)
     {
         request_public_key(&ip_addr);
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
+                                const uint8_t *chunk, uint16_t chunk_len,
+                                const char* topic_identity)
+{
+    struct jsonparse_state state;
+    jsonparse_setup(&state, (const char*)chunk, chunk_len);
+
+    int next;
+
+    if ((next = jsonparse_next(&state)) != '{')
+    {
+        LOG_ERR("jsonparse_next 1 (next=%d)\n", next);
+        return;
+    }
+
+    if ((next = jsonparse_next(&state)) != JSON_TYPE_PAIR_NAME)
+    {
+        LOG_ERR("jsonparse_next 2 (next=%d)\n", next);
+        return;
+    }
+
+    if (jsonparse_strcmp_value(&state, "addr") != 0)
+    {
+        LOG_ERR("jsonparse_next 3\n");
+        return;
+    }
+
+    if ((next = jsonparse_next(&state)) != '"')
+    {
+        LOG_ERR("jsonparse_next 4 (next=%d)\n", next);
+        return;
+    }
+
+    char ip_addr_buf[UIPLIB_IPV6_MAX_STR_LEN];
+    jsonparse_copy_value(&state, ip_addr_buf, sizeof(ip_addr_buf));
+
+    uip_ipaddr_t ip_addr;
+    uiplib_ip6addrconv(ip_addr_buf, &ip_addr);
+
+    if (jsonparse_next(&state) != '}')
+    {
+        LOG_ERR("jsonparse_next 5\n");
+        return;
+    }
+
+    if (chunk[state.pos] != 0)
+    {
+        LOG_ERR("parse 6 (missing NUL)\n");
+        return;
+    }
+
+    // We should add a record of other edge resources, but not ourselves.
+    if (is_our_addr(&ip_addr))
+    {
+        return;
+    }
+
+    edge_resource_t* edge_resource = edge_info_find_ident(topic_identity);
+    if (edge_resource != NULL)
+    {
+        LOG_DBG("Received unannounce for %s with address %s\n", topic_identity, ip_addr_buf);
+
+        edge_resource->active = false;
+
+        edge_info_capability_clear(edge_resource);
+    }
+    else
+    {
+        LOG_ERR("Failed to find edge resource %s with address %s\n", topic_identity, ip_addr_buf);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -360,6 +436,12 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
         topic += strlen(MQTT_EDGE_ACTION_ANNOUNCE);
 
         mqtt_publish_announce_handler(topic, topic_end, chunk, chunk_len, topic_identity);
+    }
+    else if (strncmp(MQTT_EDGE_ACTION_UNANNOUNCE, topic, strlen(MQTT_EDGE_ACTION_UNANNOUNCE)) == 0)
+    {
+        topic += strlen(MQTT_EDGE_ACTION_UNANNOUNCE);
+
+        mqtt_publish_unannounce_handler(topic, topic_end, chunk, chunk_len, topic_identity);
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY)) == 0)
     {

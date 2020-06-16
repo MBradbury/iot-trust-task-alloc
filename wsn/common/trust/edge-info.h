@@ -13,20 +13,22 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_capability
 {
-	struct edge_capability *next;
+    struct edge_capability *next;
 
-	char name[EDGE_CAPABILITY_NAME_LEN + 1];
+    char name[EDGE_CAPABILITY_NAME_LEN + 1];
 } edge_capability_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_resource
 {
-	struct edge_resource *next;
+    struct edge_resource *next;
 
-	coap_endpoint_t ep;
+    coap_endpoint_t ep;
 
-	char name[MQTT_IDENTITY_LEN + 1];
+    char name[MQTT_IDENTITY_LEN + 1];
 
-	LIST_STRUCT(capabilities);
+    bool active;
+
+    LIST_STRUCT(capabilities);
 } edge_resource_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_info_init(void);
@@ -44,6 +46,7 @@ edge_resource_t* edge_info_next(edge_resource_t* iter);
 edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* name);
 bool edge_info_capability_remove_by_name(edge_resource_t* edge, const char* name);
 bool edge_info_capability_remove(edge_resource_t* edge, edge_capability_t* capability);
+void edge_info_capability_clear(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_find(edge_resource_t* edge, const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/

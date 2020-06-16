@@ -45,8 +45,8 @@ class Client:
         self.reader = None
         self.writer = None
 
-    async def write(self, s: str):
-        self.writer.write(s.encode("utf-8"))
+    async def write(self, message: str):
+        self.writer.write(message.encode("utf-8"))
         await self.writer.drain()
 
     async def _inform_application_started(self):

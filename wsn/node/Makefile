@@ -30,7 +30,7 @@ MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust crypto}
 MODULES_REL += ./trust
 
 # MQTT configuration
-CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=3
+CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=4
 
 # CoAP configuration
 MAKE_WITH_OSCORE = 1

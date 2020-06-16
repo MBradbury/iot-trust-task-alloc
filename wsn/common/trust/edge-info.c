@@ -91,6 +91,8 @@ edge_info_add(const uip_ipaddr_t* addr, const char* ident)
 
     list_push(edge_resources, edge);
 
+    edge->active = false;
+
     return edge;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -189,6 +191,20 @@ bool edge_info_capability_remove_by_name(edge_resource_t* edge, const char* name
     }
 
     return edge_info_capability_remove(edge, capability);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void edge_info_capability_clear(edge_resource_t* edge)
+{
+    edge_capability_t* iter = list_head(edge->capabilities);
+    while (iter != NULL)
+    {
+        edge_capability_t* capability = iter;
+
+        // Find next item before removing to prevent use-after-free
+        iter = list_item_next(iter);
+
+        edge_info_capability_remove(edge, capability);
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t*
