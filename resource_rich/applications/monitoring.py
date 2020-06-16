@@ -30,4 +30,4 @@ class MonitoringClient(client_common.Client):
 if __name__ == "__main__":
     client = MonitoringClient()
 
-    client_common.main("monitoring", [client])
+    client_common.main("monitoring", client)

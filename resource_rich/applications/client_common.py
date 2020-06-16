@@ -31,6 +31,12 @@ class Client:
     async def run(self):
         while not self.reader.at_eof():
             line = await self.reader.readline()
+
+            # Check if the endpoint closed on us
+            if not line:
+                logger.info("Connection closed")
+                break
+
             line = line.decode("utf-8").rstrip()
 
             await self.receive(line)
@@ -77,7 +83,10 @@ async def shutdown(signal, loop, services):
 
     loop.stop()
 
-def main(name, services):
+def main(name, main_service, services=None):
+    if services is None:
+        services = []
+
     logger.info(f"Starting {name} application")
 
     loop = asyncio.get_event_loop()
@@ -85,12 +94,12 @@ def main(name, services):
     # May want to catch other signals too
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
     for sig in signals:
-        loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, services)))
+        loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, [main_service] + services)))
 
     try:
         for service in services:
             loop.create_task(do_run(service))
-        loop.run_forever()
+        loop.run_until_complete(do_run(main_service))
     finally:
         loop.close()
         logger.info(f"Successfully shutdown the {name} application.")
