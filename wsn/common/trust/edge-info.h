@@ -42,7 +42,8 @@ edge_resource_t* edge_info_next(edge_resource_t* iter);
 /*-------------------------------------------------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* name);
-bool edge_info_capability_remove(edge_resource_t* edge, const char* name);
+bool edge_info_capability_remove_by_name(edge_resource_t* edge, const char* name);
+bool edge_info_capability_remove(edge_resource_t* edge, edge_capability_t* capability);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_find(edge_resource_t* edge, const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/

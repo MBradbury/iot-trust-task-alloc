@@ -261,7 +261,8 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_REMOVE)) == 0)
     {
         // Check that this edge has this capability
-        if (edge_info_capability_find(edge, capability_name) == NULL)
+        edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
+        if (capability == NULL)
         {
             LOG_DBG("Notified of removal of capability %s from %s, but had not recorded this previously.\n",
                 capability_name, topic_identity);
@@ -279,7 +280,7 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
             LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
         }
 
-        bool result = edge_info_capability_remove(edge, capability_name);
+        bool result = edge_info_capability_remove(edge, capability);
         if (result)
         {
             LOG_DBG("Removed capability %s from %s\n", capability_name, topic_identity);

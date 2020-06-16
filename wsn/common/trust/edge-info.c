@@ -166,7 +166,19 @@ edge_info_capability_add(edge_resource_t* edge, const char* name)
     return capability;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool edge_info_capability_remove(edge_resource_t* edge, const char* name)
+bool edge_info_capability_remove(edge_resource_t* edge, edge_capability_t* capability)
+{
+    bool removed = list_remove(edge->capabilities, capability);
+
+    if (removed)
+    {
+        edge_capability_free(capability);
+    }
+
+    return removed;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_info_capability_remove_by_name(edge_resource_t* edge, const char* name)
 {
     edge_capability_t* capability;
 
@@ -176,11 +188,7 @@ bool edge_info_capability_remove(edge_resource_t* edge, const char* name)
         return false;
     }
 
-    list_remove(edge->capabilities, capability);
-
-    edge_capability_free(capability);
-
-    return true;
+    return edge_info_capability_remove(edge, capability);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t*
