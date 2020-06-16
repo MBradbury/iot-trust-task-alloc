@@ -22,15 +22,6 @@ class NodeSerialBridge:
         self.applications = {}
 
     async def start(self):
-        # Start a server that applications can connect to
-        self.server = await asyncio.start_server(
-            self._handle_application_conn,
-            'localhost',
-            edge_server_port)
-
-        addr = self.server.sockets[0].getsockname()
-        logger.info(f'Serving on {addr}')
-
         # Start processing serial output from edge sensor node
         self.proc = await asyncio.create_subprocess_shell(
             "~/pi-client/tools/pyterm -b 115200 -p /dev/ttyUSB0",
@@ -40,6 +31,15 @@ class NodeSerialBridge:
         line = f"{edge_marker}start\n".encode("utf-8")
         self.proc.stdin.write(line)
         await self.proc.stdin.drain()
+
+        # Start a server that applications can connect to
+        self.server = await asyncio.start_server(
+            self._handle_application_conn,
+            'localhost',
+            edge_server_port)
+
+        addr = self.server.sockets[0].getsockname()
+        logger.info(f'Serving on {addr}')
 
     async def stop(self):
         # Stop the server, so applications cannot communicate with us
