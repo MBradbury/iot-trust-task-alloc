@@ -37,6 +37,10 @@ class NodeSerialBridge:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
+        line = f"{edge_marker}start\n".encode("utf-8")
+        self.proc.stdin.write(line)
+        await self.proc.stdin.drain()
+
     async def stop(self):
         # Stop the server, so applications cannot communicate with us
         if self.server is not None:
