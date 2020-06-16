@@ -1,7 +1,5 @@
 #pragma once
 
-#include "os/net/ipv6/tcpip.h"
-
 #include <stddef.h>
 #include <stdbool.h>
 

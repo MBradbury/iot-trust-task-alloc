@@ -3,10 +3,10 @@
 
 #include "contiki.h"
 #include "os/net/linkaddr.h"
-#include "os/sys/log.h"
-#include "uip.h"
+#include "os/net/ipv6/uip.h"
 #include "os/net/ipv6/uip-ds6.h"
 #include "os/net/ipv6/uiplib.h"
+#include "os/sys/log.h"
 
 #include <stdio.h>
 
