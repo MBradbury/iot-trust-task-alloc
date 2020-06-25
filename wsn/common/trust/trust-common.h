@@ -20,8 +20,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 void trust_common_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-int serialise_trust(void* trust_info, const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len);
-int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len);
+int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len);
 /*-------------------------------------------------------------------------------------------------------------------*/
-int process_received_trust(void* trust_info, const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len);
+int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len);
 /*-------------------------------------------------------------------------------------------------------------------*/

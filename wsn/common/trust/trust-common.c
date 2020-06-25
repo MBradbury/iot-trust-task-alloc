@@ -1,5 +1,6 @@
 #include "trust-common.h"
 #include "edge-info.h"
+#include "peer-info.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -465,7 +466,7 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-int serialise_trust(void* trust_info, const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len)
+int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len)
 {
     // TODO: could provide addr to request trust on specific nodes
 
@@ -484,8 +485,20 @@ int serialise_trust(void* trust_info, const uip_ipaddr_t* addr, uint8_t* buffer,
     return nanocbor_encoded_len(&enc);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len)
+int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len)
 {
+    // Add or find peer
+    peer_t* peer = peer_info_add(src);
+    if (!peer)
+    {
+        LOG_ERR("Failed to create peer data storage for ");
+        LOG_ERR_6ADDR(src);
+        LOG_ERR_("\n");
+        return -1;
+    }
+
+    //const uint32_t previous_last_seen = peer->last_seen;
+
     int read;
 
     nanocbor_value_t dec;
@@ -499,8 +512,7 @@ int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len
         return -1;
     }
 
-    uint32_t time_secs;
-    read = nanocbor_get_uint32(&arr, &time_secs);
+    read = nanocbor_get_uint32(&arr, &peer->last_seen);
     if (read < 0)
     {
         LOG_ERR("nanocbor_get_uint32 2: %d\n", read);
@@ -512,13 +524,6 @@ int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len
         LOG_ERR("!nanocbor_at_end 3: %d\n", read);
         return -1;
     }
-
-    return 0;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-int process_received_trust(void* trust_info, const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len)
-{
-    deserialise_trust(NULL, buffer, buffer_len);
 
     return 0;
 }
