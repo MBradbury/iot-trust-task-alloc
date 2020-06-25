@@ -1,0 +1,2 @@
+MODULES_REL += ../common/nanocbor/repo/src
+CFLAGS += -I../common/nanocbor/repo/include -I../common/nanocbor/config
