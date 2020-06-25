@@ -132,7 +132,7 @@ static void
 publish_callback(coap_callback_request_state_t *callback_state);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
-mqtt_over_coap_publish(const char* topic, const char* data, size_t data_len)
+mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
 {
     int ret;
 

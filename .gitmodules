@@ -1,0 +1,3 @@
+[submodule "wsn/common/nanocbor/repo"]
+	path = wsn/common/nanocbor/repo
+	url = https://github.com/bergzand/NanoCBOR.git

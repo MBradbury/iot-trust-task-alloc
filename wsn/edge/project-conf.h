@@ -1,5 +1,7 @@
 #pragma once
 
+#include "device-classes.h"
+
 // Disable Low Power Mode 2 to enable access to all them RAM
 // See: https://github.com/contiki-ng/contiki-ng/wiki/Platform-zoul#low-power-modes
 #define LPM_CONF_MAX_PM 1
@@ -16,3 +18,5 @@
 #define MQTT_CLIENT_CONF_BROKER_IP_ADDR "fd00::1"
 
 #define COAP_MAX_CHUNK_SIZE 256
+
+#define TRUST_DEVICE_CLASS TRUST_RASPBERRY_PI

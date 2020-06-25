@@ -23,11 +23,12 @@ CFLAGS += -DKEYSTORE_LOG_LEVEL=LOG_LEVEL_DBG
 
 # Include Contiki-NG system modules
 #MODULES += os/services/shell
-MODULES += os/lib/json
 
 # Include application modules
 MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust crypto}
 MODULES_REL += ./capability
+
+include ../common/nanocbor/Makefile.include
 
 # MQTT configuration
 CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=4

@@ -3,7 +3,6 @@
 
 #include "contiki.h"
 #include "os/sys/log.h"
-#include "os/lib/json/jsonparse.h"
 #include "os/net/ipv6/uip-ds6.h"
 #include "os/net/ipv6/uiplib.h"
 #include "assert.h"
@@ -14,6 +13,8 @@
 #include "applications.h"
 #include "trust-common.h"
 #include "keystore.h"
+
+#include "nanocbor/nanocbor.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
@@ -72,63 +73,72 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
                               const uint8_t *chunk, uint16_t chunk_len,
                               const char* topic_identity)
 {
-    struct jsonparse_state state;
-    jsonparse_setup(&state, (const char*)chunk, chunk_len);
+    int read;
 
-    int next;
+    nanocbor_value_t dec;
+    nanocbor_decoder_init(&dec, chunk, chunk_len);
 
-    if ((next = jsonparse_next(&state)) != '{')
+    nanocbor_value_t arr;
+    read = nanocbor_enter_array(&dec, &arr);
+    if (read < 0)
     {
-        LOG_ERR("jsonparse_next 1 (next=%d)\n", next);
+        LOG_ERR("nanocbor_enter_array 1: %d\n", read);
         return;
     }
 
-    if ((next = jsonparse_next(&state)) != JSON_TYPE_PAIR_NAME)
+    const uip_ipaddr_t* ip_addr;
+    size_t ip_addr_len;
+    read = nanocbor_get_bstr(&arr, (const uint8_t**)&ip_addr, &ip_addr_len);
+    if (read < 0 || ip_addr_len != sizeof(*ip_addr))
     {
-        LOG_ERR("jsonparse_next 2 (next=%d)\n", next);
+        LOG_ERR("nanocbor_get_bstr 2: %d\n", read);
         return;
     }
 
-    if (jsonparse_strcmp_value(&state, "addr") != 0)
+    int32_t class;
+    read = nanocbor_get_int32(&arr, &class);
+    if (read < 0)
     {
-        LOG_ERR("jsonparse_next 3\n");
+        LOG_ERR("nanocbor_get_int32 3: %d\n", read);
         return;
     }
 
-    if ((next = jsonparse_next(&state)) != '"')
+    const ecdsa_secp256r1_pubkey_t* pubkey;
+    size_t pubkey_len;
+    read = nanocbor_get_bstr(&arr, (const uint8_t**)&pubkey, &pubkey_len);
+    if (read < 0 || pubkey_len != sizeof(*pubkey))
     {
-        LOG_ERR("jsonparse_next 4 (next=%d)\n", next);
+        LOG_ERR("nanocbor_get_bstr 4: %d\n", read);
         return;
     }
 
-    char ip_addr_buf[UIPLIB_IPV6_MAX_STR_LEN];
-    jsonparse_copy_value(&state, ip_addr_buf, sizeof(ip_addr_buf));
-
-    uip_ipaddr_t ip_addr;
-    uiplib_ip6addrconv(ip_addr_buf, &ip_addr);
-
-    if (jsonparse_next(&state) != '}')
+    const ecdsa_secp256r1_sig_t* sig;
+    size_t sig_len;
+    read = nanocbor_get_bstr(&arr, (const uint8_t**)&sig, &sig_len);
+    if (read < 0 || sig_len != sizeof(*sig))
     {
-        LOG_ERR("jsonparse_next 5\n");
+        LOG_ERR("nanocbor_get_bstr 5: %d\n", read);
         return;
     }
 
-    if (chunk[state.pos] != 0)
+    if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("parse 6 (missing NUL)\n");
+        LOG_ERR("!nanocbor_at_end 6: %d\n", read);
         return;
     }
 
     // We should add a record of other edge resources, but not ourselves.
-    if (is_our_addr(&ip_addr))
+    if (is_our_addr(ip_addr))
     {
         return;
     }
 
-    edge_resource_t* edge_resource = edge_info_add(&ip_addr, topic_identity);
+    edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity);
     if (edge_resource != NULL)
     {
-        LOG_DBG("Received announce for %s with address %s\n", topic_identity, ip_addr_buf);
+        LOG_DBG("Received announce for %s with address ", topic_identity);
+        LOG_DBG_6ADDR(ip_addr);
+        LOG_DBG_("\n");
 
         edge_resource->active = true;
     }
@@ -152,21 +162,9 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
 
     // We are probably going to be interacting with this edge resource,
     // so ask for its public key. If this fails we will obtain the key later.
-
-    if (state.pos + 1 + sizeof(ecdsa_secp256r1_pubkey_t) + sizeof(ecdsa_secp256r1_sig_t) != chunk_len)
+    if (keystore_add_unverified(ip_addr, pubkey, sig) == NULL)
     {
-        LOG_ERR("%d + 1 + %u + %u != %u\n",
-            state.pos, sizeof(ecdsa_secp256r1_pubkey_t), sizeof(ecdsa_secp256r1_sig_t), chunk_len);
-        assert(false);
-    }
-
-    // Now we need to extract the public key and signature from the announce message
-    const ecdsa_secp256r1_pubkey_t* pubkey = (const ecdsa_secp256r1_pubkey_t*)(chunk + state.pos + 1);
-    const ecdsa_secp256r1_sig_t* sig = (const ecdsa_secp256r1_sig_t*)(chunk + state.pos + 1 + sizeof(ecdsa_secp256r1_pubkey_t));
-
-    if (keystore_add_unverified(&ip_addr, pubkey, sig) == NULL)
-    {
-        request_public_key(&ip_addr);
+        request_public_key(ip_addr);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -175,55 +173,36 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
                                 const uint8_t *chunk, uint16_t chunk_len,
                                 const char* topic_identity)
 {
-    struct jsonparse_state state;
-    jsonparse_setup(&state, (const char*)chunk, chunk_len);
+    int read;
 
-    int next;
+    nanocbor_value_t dec;
+    nanocbor_decoder_init(&dec, chunk, chunk_len);
 
-    if ((next = jsonparse_next(&state)) != '{')
+    nanocbor_value_t arr;
+    read = nanocbor_enter_array(&dec, &arr);
+    if (read < 0)
     {
-        LOG_ERR("jsonparse_next 1 (next=%d)\n", next);
+        LOG_ERR("nanocbor_enter_array 1: %d\n", read);
         return;
     }
 
-    if ((next = jsonparse_next(&state)) != JSON_TYPE_PAIR_NAME)
+    const uip_ipaddr_t* ip_addr;
+    size_t ip_addr_len;
+    read = nanocbor_get_bstr(&arr, (const uint8_t**)&ip_addr, &ip_addr_len);
+    if (read < 0 || ip_addr_len != sizeof(*ip_addr))
     {
-        LOG_ERR("jsonparse_next 2 (next=%d)\n", next);
+        LOG_ERR("nanocbor_get_bstr 2: %d\n", read);
         return;
     }
 
-    if (jsonparse_strcmp_value(&state, "addr") != 0)
+    if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("jsonparse_next 3\n");
-        return;
-    }
-
-    if ((next = jsonparse_next(&state)) != '"')
-    {
-        LOG_ERR("jsonparse_next 4 (next=%d)\n", next);
-        return;
-    }
-
-    char ip_addr_buf[UIPLIB_IPV6_MAX_STR_LEN];
-    jsonparse_copy_value(&state, ip_addr_buf, sizeof(ip_addr_buf));
-
-    uip_ipaddr_t ip_addr;
-    uiplib_ip6addrconv(ip_addr_buf, &ip_addr);
-
-    if (jsonparse_next(&state) != '}')
-    {
-        LOG_ERR("jsonparse_next 5\n");
-        return;
-    }
-
-    if (chunk[state.pos] != 0)
-    {
-        LOG_ERR("parse 6 (missing NUL)\n");
+        LOG_ERR("!nanocbor_at_end 3: %d\n", read);
         return;
     }
 
     // We should add a record of other edge resources, but not ourselves.
-    if (is_our_addr(&ip_addr))
+    if (is_our_addr(ip_addr))
     {
         return;
     }
@@ -231,7 +210,9 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
     edge_resource_t* edge_resource = edge_info_find_ident(topic_identity);
     if (edge_resource != NULL)
     {
-        LOG_DBG("Received unannounce for %s with address %s\n", topic_identity, ip_addr_buf);
+        LOG_DBG("Received unannounce for %s with address ", topic_identity);
+        LOG_DBG_6ADDR(ip_addr);
+        LOG_DBG_("\n");
 
         edge_resource->active = false;
 
@@ -239,7 +220,103 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
     }
     else
     {
-        LOG_ERR("Failed to find edge resource %s with address %s\n", topic_identity, ip_addr_buf);
+        LOG_ERR("Failed to find edge resource %s with address ", topic_identity);
+        LOG_ERR_6ADDR(ip_addr);
+        LOG_ERR_("\n");
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+mqtt_publish_capability_add_handler(edge_resource_t* edge, const char* capability_name,
+                                    const uint8_t *chunk, uint16_t chunk_len)
+{
+    int read;
+
+    nanocbor_value_t dec;
+    nanocbor_decoder_init(&dec, chunk, chunk_len);
+
+    read = nanocbor_get_null(&dec);
+    if (read < 0)
+    {
+        LOG_ERR("nanocbor_get_null 1: %d\n", read);
+        return;
+    }
+
+    // Do not process capabilities we already know about
+    edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
+    if (capability)
+    {
+        LOG_DBG("Notified of capability (%s) already known of\n", capability_name);
+        return;
+    }
+
+    capability = edge_info_capability_add(edge, capability_name);
+    if (capability == NULL)
+    {
+        LOG_ERR("Failed to create capability (%s) for edge with identity %s\n", capability_name, edge->name);
+        return;
+    }
+
+    LOG_DBG("Added capability (%s) for edge with identity %s\n", capability_name, edge->name);
+
+    // We have at least one Edge resource to support this application, so we need to inform the process
+    struct process* proc = find_process_with_name(capability_name);
+    if (proc != NULL)
+    {
+        process_post(proc, pe_edge_capability_add, edge);
+    }
+    else
+    {
+        LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+mqtt_publish_capability_remove_handler(edge_resource_t* edge, const char* capability_name,
+                                       const uint8_t *chunk, uint16_t chunk_len)
+{
+    int read;
+
+    nanocbor_value_t dec;
+    nanocbor_decoder_init(&dec, chunk, chunk_len);
+
+    read = nanocbor_get_null(&dec);
+    if (read < 0)
+    {
+        LOG_ERR("nanocbor_get_null 1: %d\n", read);
+        return;
+    }
+
+    // Check that this edge has this capability
+    edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
+    if (capability == NULL)
+    {
+        LOG_DBG("Notified of removal of capability %s from %s, but had not recorded this previously.\n",
+            capability_name, edge->name);
+        return;
+    }
+
+    // We have at least one Edge resource to support this application, so we need to inform the process
+    struct process* proc = find_process_with_name(capability_name);
+    if (proc != NULL)
+    {
+        process_post(proc, pe_edge_capability_remove, edge);
+    }
+    else
+    {
+        LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
+    }
+
+    bool result = edge_info_capability_remove(edge, capability);
+    if (result)
+    {
+        LOG_DBG("Removed capability %s from %s\n", capability_name, edge->name);
+    }
+    else
+    {
+        // Should never get here
+        LOG_ERR("Cannot removed capability %s from %s as it does not have that capability\n",
+            capability_name, edge->name);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -289,84 +366,11 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
 
     if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_ADD, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
     {
-        // Do not process capabilities we already know about
-        edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
-        if (capability)
-        {
-            LOG_DBG("Notified of capability (%s) already known of\n", capability_name);
-            return;
-        }
-
-        capability = edge_info_capability_add(edge, capability_name);
-        if (capability == NULL)
-        {
-            LOG_ERR("Failed to create capability (%s) for edge with identity %s\n", capability_name, topic_identity);
-            return;
-        }
-
-        struct jsonparse_state state;
-        jsonparse_setup(&state, (const char*)chunk, chunk_len);
-
-        int next;
-
-        if ((next = jsonparse_next(&state)) != '{')
-        {
-            LOG_ERR("jsonparse_next 1 (next=%d)\n", next);
-            return;
-        }
-
-        if ((next = jsonparse_next(&state)) != '}')
-        {
-            LOG_ERR("jsonparse_next 2 (next=%d)\n", next);
-            return;
-        }
-
-        LOG_DBG("Added capability (%s) for edge with identity %s\n", capability_name, topic_identity);
-
-        // We have at least one Edge resource to support this application, so we need to inform the process
-        struct process* proc = find_process_with_name(capability_name);
-        if (proc != NULL)
-        {
-            process_post(proc, pe_edge_capability_add, edge);
-        }
-        else
-        {
-            LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
-        }
+        mqtt_publish_capability_add_handler(edge, capability_name, chunk, chunk_len);
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_REMOVE)) == 0)
     {
-        // Check that this edge has this capability
-        edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
-        if (capability == NULL)
-        {
-            LOG_DBG("Notified of removal of capability %s from %s, but had not recorded this previously.\n",
-                capability_name, topic_identity);
-            return;
-        }
-
-        // We have at least one Edge resource to support this application, so we need to inform the process
-        struct process* proc = find_process_with_name(capability_name);
-        if (proc != NULL)
-        {
-            process_post(proc, pe_edge_capability_remove, edge);
-        }
-        else
-        {
-            LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
-        }
-
-        bool result = edge_info_capability_remove(edge, capability);
-        if (result)
-        {
-            LOG_DBG("Removed capability %s from %s\n", capability_name, topic_identity);
-        }
-        else
-        {
-            // Should never get here
-            LOG_ERR("Cannot removed capability %s from %s as it does not have that capability\n",
-                capability_name, topic_identity);
-        }
+        mqtt_publish_capability_remove_handler(edge, capability_name, chunk, chunk_len);
     }
     else
     {
