@@ -56,7 +56,7 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
     // Send data to connected edge node for processing
     printf(APPLICATION_SERIAL_PREFIX MONITORING_APPLICATION_NAME SERIAL_SEP);
     uiplib_ipaddr_print(&request->src_ep->ipaddr);
-    printf(SERIAL_SEP"%u" SERIAL_SEP);
+    printf(SERIAL_SEP "%u" SERIAL_SEP, payload_len);
     for (int i = 0; i != payload_len; ++i)
     {
         printf("%02X", payload[i]);
