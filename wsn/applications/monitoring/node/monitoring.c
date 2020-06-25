@@ -126,7 +126,7 @@ periodic_action(void)
         return;
     }
 
-    LOG_DBG("Generated message %s\n", msg_buf);
+    LOG_DBG("Generated message (len=%d)\n", len);
 
     // Choose an Edge node to send information to
     edge_resource_t* edge = choose_edge(MONITORING_APPLICATION_NAME);
