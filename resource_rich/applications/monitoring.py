@@ -19,16 +19,21 @@ class MonitoringClient(client_common.Client):
         super().__init__("envmon")
 
     async def receive(self, message: str):
-        logger.info(f"Received message '{message}'")
+        try:
+            dt, src, payload_len, payload = message.split(serial_sep, 3)
 
-        dt, src, payload_len, payload = message.split(serial_sep, 3)
+            dt = datetime.fromisoformat(dt)
+            src = ipaddress.IPv6Address(src)
+            payload_len = int(payload_len)
+            payload = cbor2.loads(bytes.fromhex(payload))
 
-        dt = datetime.fromisoformat(dt)
-        src = ipaddress.IPv6Address(src)
-        payload_len = int(payload_len)
-        payload = cbor2.loads(bytes.fromhex(payload))
+            (time, temp, vdd3) = payload
 
-        print(payload)
+            logger.debug(f"Received message at {dt} from {src} <time={time}, temp={temp}, vdd3={vdd3}>")
+
+        except:
+            logger.error(f"Failed to parse message '{message}'")
+            return
 
         # TODO: do something with this message
 
