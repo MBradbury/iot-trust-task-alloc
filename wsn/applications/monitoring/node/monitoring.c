@@ -161,7 +161,7 @@ periodic_action(void)
         return;
     }
     
-    coap_set_header_content_format(&msg, APPLICATION_JSON);
+    coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, len);
 
     ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);

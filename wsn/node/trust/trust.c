@@ -1,5 +1,6 @@
 #include "trust.h"
 #include "edge-info.h"
+#include "peer-info.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -126,7 +127,7 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
         addr = (const uip_ipaddr_t*)payload;
     }
 
-    int payload_len = serialise_trust(NULL, addr, item->payload_buf, sizeof(item->payload_buf));
+    int payload_len = serialise_trust(addr, item->payload_buf, sizeof(item->payload_buf));
     if (payload_len <= 0 || payload_len > sizeof(item->payload_buf))
     {
         LOG_DBG("serialise_trust failed %d\n", payload_len);
@@ -134,6 +135,8 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
         memb_free(&trust_tx_memb, item);
         return;
     }
+
+    coap_set_header_content_format(&item->msg, APPLICATION_CBOR);
 
     // Save the target
     memcpy(&item->ep, request->src_ep, sizeof(item->ep));
@@ -209,7 +212,7 @@ static void trust_rx_continue(void* data)
         int payload_len = entry->message_len - DTLS_EC_KEY_SIZE*2;
 
         LOG_DBG("Trust payload verified (len=%d), need to merge with our db\n", payload_len);
-        process_received_trust(NULL, &item->key->addr, item->payload_buf, payload_len);
+        process_received_trust(&item->key->addr, item->payload_buf, payload_len);
     }
     else
     {
@@ -242,6 +245,7 @@ static bool periodic_action(void)
 
     // This is a non-confirmable message
     coap_init_message(&item->msg, COAP_TYPE_NON, COAP_POST, 0);
+    coap_set_header_content_format(&item->msg, APPLICATION_CBOR);
 
     int ret = coap_set_header_uri_path(&item->msg, TRUST_COAP_URI);
     if (ret <= 0)
@@ -251,7 +255,7 @@ static bool periodic_action(void)
         return false;
     }
 
-    int payload_len = serialise_trust(NULL, NULL, item->payload_buf, sizeof(item->payload_buf));
+    int payload_len = serialise_trust(NULL, item->payload_buf, sizeof(item->payload_buf));
     if (payload_len <= 0 || payload_len > sizeof(item->payload_buf))
     {
         LOG_ERR("serialise_trust failed %d\n", payload_len);
@@ -309,6 +313,7 @@ static bool init(void)
 {
     trust_common_init();
     edge_info_init();
+    peer_info_init();
 
     coap_activate_resource(&res_trust, TRUST_COAP_URI);
 

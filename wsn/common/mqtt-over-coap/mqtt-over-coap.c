@@ -197,6 +197,7 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
 
     return true;*/
 
+    coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, coap_payload, data_len);
 
     ret = coap_send_request(&coap_callback, &server_ep, &msg, publish_callback);
