@@ -134,7 +134,7 @@ print("Deploying keystore to root")
 
 with fabric.Connection(f'pi@{root_node}', connect_kwargs={"password": password}) as conn:
     src = "./setup/keystore"
-    dest = "/home/pi/iot-trust-task-alloc/root"
+    dest = "/home/pi/iot-trust-task-alloc/resource_rich/root"
 
     patchwork.transfers.rsync(conn, src, dest, rsync_opts="-r")
 
