@@ -90,7 +90,7 @@ publish_announce(void)
 
     assert(0 == nanocbor_fmt_array(&enc, 4));
     assert(0 == nanocbor_put_bstr(&enc, ip_addr.u8, sizeof(uip_ip6addr_t)));
-    assert(0 == nanocbor_fmt_uint(&enc, TRUST_DEVICE_CLASS));
+    assert(0 == nanocbor_fmt_uint(&enc, DEVICE_CLASS));
     assert(0 == nanocbor_put_bstr(&enc, (const uint8_t *)&our_key.pub_key, sizeof(our_key.pub_key)));
     assert(0 == nanocbor_put_bstr(&enc, (const uint8_t *)&our_pubkey_sig, sizeof(our_pubkey_sig)));
 

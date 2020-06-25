@@ -8,6 +8,8 @@
 #include "coap.h"
 #include "coap-callback-api.h"
 
+#include "nanocbor/nanocbor.h"
+
 #include "edge.h"
 #include "keystore.h"
 
@@ -47,14 +49,19 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
     const uint8_t* payload;
     int payload_len = coap_get_payload(request, &payload);
 
-    LOG_DBG("Received envmon data uri=%.*s, payload=%.*s from ", uri_len, uri_path, payload_len, (const char*)payload);
+    LOG_DBG("Received envmon data uri=%.*s, payload_len=%d from ", uri_len, uri_path, payload_len);
     coap_endpoint_log(request->src_ep);
     LOG_DBG_("\n");
 
     // Send data to connected edge node for processing
     printf(APPLICATION_SERIAL_PREFIX MONITORING_APPLICATION_NAME SERIAL_SEP);
     uiplib_ipaddr_print(&request->src_ep->ipaddr);
-    printf(SERIAL_SEP"%u" SERIAL_SEP "%.*s\n", payload_len, payload_len, (const char*)payload);
+    printf(SERIAL_SEP"%u" SERIAL_SEP);
+    for (int i = 0; i != payload_len; ++i)
+    {
+        printf("%02X", payload[i]);
+    }
+    printf("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void

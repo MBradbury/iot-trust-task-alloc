@@ -13,6 +13,7 @@
 #include "applications.h"
 #include "trust-common.h"
 #include "keystore.h"
+#include "device-classes.h"
 
 #include "nanocbor/nanocbor.h"
 
@@ -95,11 +96,16 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
         return;
     }
 
-    int32_t class;
-    read = nanocbor_get_int32(&arr, &class);
+    int32_t device_class;
+    read = nanocbor_get_int32(&arr, &device_class);
     if (read < 0)
     {
         LOG_ERR("nanocbor_get_int32 3: %d\n", read);
+        return;
+    }
+    if (device_class < DEVICE_CLASS_MINIMUM || device_class > DEVICE_CLASS_MAXIMUM)
+    {
+        LOG_ERR("Invalid device class %"PRIi32"\n", device_class);
         return;
     }
 
@@ -133,7 +139,7 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
         return;
     }
 
-    edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity);
+    edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity, device_class);
     if (edge_resource != NULL)
     {
         LOG_DBG("Received announce for %s with address ", topic_identity);
@@ -465,31 +471,55 @@ int serialise_trust(void* trust_info, const uip_ipaddr_t* addr, uint8_t* buffer,
 
     uint32_t time_secs = clock_seconds();
 
-    int len = snprintf((char*)buffer, buffer_len,
-        "{"
-            "\"name\":\"serialised-trust\","
-            "\"time\":%" PRIu32
-        "}",
-        time_secs
-    );
-    if (len < 0 || len >= buffer_len)
-    {
-        return -1;
-    }
+    uint8_t cbor_buffer[(1) + (1 + sizeof(uint32_t))];
 
-    // Include NUL byte
-    len += 1;
+    nanocbor_encoder_t enc;
+    nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
-    return len;
+    assert(0 == nanocbor_fmt_array(&enc, 1));
+    assert(0 == nanocbor_fmt_uint(&enc, time_secs));
+
+    assert(nanocbor_encoded_len(&enc) <= sizeof(cbor_buffer));
+
+    return nanocbor_encoded_len(&enc);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int deserialise_trust(void* trust_info, const uint8_t* buffer, size_t buffer_len)
 {
+    int read;
+
+    nanocbor_value_t dec;
+    nanocbor_decoder_init(&dec, buffer, buffer_len);
+
+    nanocbor_value_t arr;
+    read = nanocbor_enter_array(&dec, &arr);
+    if (read < 0)
+    {
+        LOG_ERR("nanocbor_enter_array 1: %d\n", read);
+        return -1;
+    }
+
+    uint32_t time_secs;
+    read = nanocbor_get_uint32(&arr, &time_secs);
+    if (read < 0)
+    {
+        LOG_ERR("nanocbor_get_uint32 2: %d\n", read);
+        return -1;
+    }
+
+    if (!nanocbor_at_end(&arr))
+    {
+        LOG_ERR("!nanocbor_at_end 3: %d\n", read);
+        return -1;
+    }
+
     return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int process_received_trust(void* trust_info, const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len)
 {
+    deserialise_trust(NULL, buffer, buffer_len);
+
     return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

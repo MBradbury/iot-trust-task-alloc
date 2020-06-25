@@ -61,6 +61,13 @@ Flash and run the terminal
 ./flash.py "/dev/ttyUSB0" node.bin zolertia contiki &&  ./tools/pyterm -b 115200 -p /dev/ttyUSB0
 ```
 
+## On Edge Observer
+
+```bash
+python3 -m pip install cbor2
+python3 -m pip install --upgrade "git+https://github.com/chrysn/aiocoap#egg=aiocoap[all]"
+```
+
 ## On Root Observer
 
 ### Border Router

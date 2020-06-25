@@ -6,6 +6,8 @@
 #include "coap.h"
 #include "coap-callback-api.h"
 
+#include "nanocbor/nanocbor.h"
+
 #include <stdio.h>
 
 #include "monitoring.h"
@@ -25,31 +27,28 @@
 #define SHORT_PUBLISH_PERIOD (CLOCK_SECOND * 10)
 #define CONNECT_PERIOD (CLOCK_SECOND * 5)
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define TMP_BUF_SZ 64
-/*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
 static bool coap_callback_in_use;
-static char msg_buf[TMP_BUF_SZ];
+static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + sizeof(int)) + (1 + sizeof(int))];
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
-generate_sensor_data(char* buf, size_t buf_len)
+generate_sensor_data(uint8_t* buf, size_t buf_len)
 {
     uint32_t time_secs = clock_seconds();
 
     int temp_value = cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
     int vdd3_value = vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
 
-    int would_have_written = snprintf(buf, buf_len,
-        "{"
-            "\"time\":%" PRIu32 ","
-            "\"temp\":%d,"
-            "\"vdd3\":%d"
-        "}",
-        time_secs, temp_value, vdd3_value
-    );
+    nanocbor_encoder_t enc;
+    nanocbor_encoder_init(&enc, buf, buf_len);
 
-    return would_have_written;
+    if (nanocbor_fmt_array(&enc, 3) < 0) return 0;
+    if (nanocbor_fmt_uint(&enc, time_secs) < 0) return 0;
+    if (nanocbor_fmt_int(&enc, temp_value) < 0) return 0;
+    if (nanocbor_fmt_int(&enc, vdd3_value) < 0) return 0;
+
+    return nanocbor_encoded_len(&enc);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer, publish_short_timer;

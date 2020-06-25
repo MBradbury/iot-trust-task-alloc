@@ -66,7 +66,7 @@ edge_info_init(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t*
-edge_info_add(const uip_ipaddr_t* addr, const char* ident)
+edge_info_add(const uip_ipaddr_t* addr, const char* ident, uint8_t device_class)
 {
     edge_resource_t* edge;
 
@@ -92,6 +92,7 @@ edge_info_add(const uip_ipaddr_t* addr, const char* ident)
     list_push(edge_resources, edge);
 
     edge->active = false;
+    edge->device_class = device_class;
 
     return edge;
 }

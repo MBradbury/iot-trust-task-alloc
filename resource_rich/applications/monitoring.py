@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import cbor2
+
 import logging
 from datetime import datetime
 import ipaddress
@@ -24,6 +26,9 @@ class MonitoringClient(client_common.Client):
         dt = datetime.fromisoformat(dt)
         src = ipaddress.IPv6Address(src)
         payload_len = int(payload_len)
+        payload = cbor2.loads(bytes.fromhex(payload))
+
+        print(payload)
 
         # TODO: do something with this message
 

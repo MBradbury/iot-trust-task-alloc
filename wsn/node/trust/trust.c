@@ -208,7 +208,7 @@ static void trust_rx_continue(void* data)
     {
         int payload_len = entry->message_len - DTLS_EC_KEY_SIZE*2;
 
-        LOG_DBG("Trust payload verified (%.*s), need to merge with our db\n", payload_len, item->payload_buf);
+        LOG_DBG("Trust payload verified (len=%d), need to merge with our db\n", payload_len);
         process_received_trust(NULL, &item->key->addr, item->payload_buf, payload_len);
     }
     else

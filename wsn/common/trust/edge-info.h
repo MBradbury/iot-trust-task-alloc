@@ -28,12 +28,14 @@ typedef struct edge_resource
 
     bool active;
 
+    uint8_t device_class;
+
     LIST_STRUCT(capabilities);
 } edge_resource_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_info_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident);
+edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident, uint8_t device_class);
 void edge_info_remove(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_find_addr(const uip_ipaddr_t* addr);
