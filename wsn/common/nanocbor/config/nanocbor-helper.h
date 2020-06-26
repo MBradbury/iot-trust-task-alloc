@@ -10,7 +10,7 @@
         int result = (expr); \
         if (result < 0) \
         { \
-            LOG_ERR("Failed '" PP_STR(expr) " on line " PP_STR(__LINE__) " in file " __FILE__ " (result=%d)\n", result); \
+            LOG_ERR("Failed '" PP_STR(expr) "' on line " PP_STR(__LINE__) " in file " __FILE__ " (result=%d)\n", result); \
             return result; \
         } \
     } while (0)

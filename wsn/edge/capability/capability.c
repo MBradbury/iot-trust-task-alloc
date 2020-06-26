@@ -195,10 +195,18 @@ trigger_faster_publish(void)
 {
     clock_time_t remaining;
 
+    LOG_INFO("Triggering a faster publish of announce\n");
+
     remaining = timer_remaining(&publish_announce_timer.timer);
     if (remaining > PUBLISH_ANNOUNCE_PERIOD_SHORT)
     {
+        LOG_DBG("publish_announce_timer: Resetting timer = %d\n", PUBLISH_CAPABILITY_PERIOD_SHORT);
+
         etimer_reset_with_new_interval(&publish_announce_timer, PUBLISH_CAPABILITY_PERIOD_SHORT);
+    }
+    else
+    {
+        LOG_DBG("publish_announce_timer: no need to reset, time remaining = %" PRIu32 "\n", remaining);
     }
 
     announce_short_count = 0;
