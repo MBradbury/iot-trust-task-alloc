@@ -3,6 +3,7 @@
 #include <stdint.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define DTLS_EC_KEY_SIZE (8 * 4) // 32 bytes
+#define DTLS_EC_SIG_SIZE (DTLS_EC_KEY_SIZE * 2)
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct ecdsa_secp256r1_pubkey {
     uint8_t x[DTLS_EC_KEY_SIZE]; /** < x part of the public key for the given private key (big-endian) > */
