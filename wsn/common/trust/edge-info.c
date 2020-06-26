@@ -1,6 +1,7 @@
 #include "edge-info.h"
 
 #include "lib/memb.h"
+#include "os/sys/log.h"
 
 #include "coap-constants.h"
 
@@ -11,6 +12,13 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef NUM_EDGE_CAPABILITIES
 #define NUM_EDGE_CAPABILITIES 2
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define LOG_MODULE "trust-comm"
+#ifdef TRUST_MODEL_LOG_LEVEL
+#define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
+#else
+#define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(edge_resources_memb, edge_resource_t, NUM_EDGE_RESOURCES);
@@ -60,6 +68,8 @@ edge_resource_free(edge_resource_t* edge)
 void
 edge_info_init(void)
 {
+    LOG_DBG("Initialising edge info\n");
+
     memb_init(&edge_resources_memb);
     memb_init(&edge_capabilities_memb);
     list_init(edge_resources);
@@ -122,7 +132,7 @@ edge_info_find_addr(const uip_ipaddr_t* addr)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
     {
-        if (uip_ip6addr_cmp(&iter->ep.ipaddr, addr) == 0)
+        if (uip_ip6addr_cmp(&iter->ep.ipaddr, addr))
         {
             return iter;
         }

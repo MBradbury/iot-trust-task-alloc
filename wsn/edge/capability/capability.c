@@ -206,7 +206,8 @@ trigger_faster_publish(void)
     }
     else
     {
-        LOG_DBG("publish_announce_timer: no need to reset, time remaining = %" PRIu32 "\n", remaining);
+        LOG_DBG("publish_announce_timer: no need to reset, time remaining = %" PRIu32 " <= %d\n",
+            remaining, PUBLISH_ANNOUNCE_PERIOD_SHORT);
     }
 
     announce_short_count = 0;

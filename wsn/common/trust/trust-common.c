@@ -478,7 +478,7 @@ int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_
 {
     // Add or find peer
     peer_t* peer = peer_info_add(src);
-    if (!peer)
+    if (peer == NULL)
     {
         LOG_ERR("Failed to create peer data storage for ");
         LOG_ERR_6ADDR(src);
@@ -539,6 +539,8 @@ int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_
 void
 trust_common_init(void)
 {
+    LOG_DBG("Initialising trust common\n");
+
     pe_edge_capability_add = process_alloc_event();
     pe_edge_capability_remove = process_alloc_event();
 }

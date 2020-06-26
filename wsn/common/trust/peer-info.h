@@ -3,13 +3,16 @@
 #include "contiki.h"
 #include "net/ipv6/uip.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define PEER_LAST_SEEN_INVALID UINT32_MAX
+/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct peer
 {
     struct peer *next;
 
-    uip_ip6addr_t addr;
+    uip_ipaddr_t addr;
 
-    uint32_t last_seen; // Time in peer's local clock (non-monotonic)
+    // Time in peer's local clock (non-monotonic)
+    uint32_t last_seen;
 
 } peer_t;
 /*-------------------------------------------------------------------------------------------------------------------*/

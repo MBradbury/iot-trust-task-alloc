@@ -2,6 +2,14 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 #include "lib/list.h"
 #include "lib/memb.h"
+#include "os/sys/log.h"
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define LOG_MODULE "trust-comm"
+#ifdef TRUST_MODEL_LOG_LEVEL
+#define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
+#else
+#define LOG_LEVEL LOG_LEVEL_NONE
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef NUM_PEERS
 #define NUM_PEERS 16
@@ -25,6 +33,8 @@ peer_free(peer_t* peer)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_info_init(void)
 {
+    LOG_DBG("Initialising peer info\n");
+
     memb_init(&peers_memb);
     list_init(peers);
 }
@@ -48,6 +58,7 @@ peer_info_add(const uip_ipaddr_t* addr)
     }
 
     uip_ipaddr_copy(&peer->addr, addr);
+    peer->last_seen = PEER_LAST_SEEN_INVALID;
 
     list_push(peers, peer);
 
@@ -79,7 +90,7 @@ peer_info_find(const uip_ipaddr_t* addr)
 {
     for (peer_t* iter = peer_info_iter(); iter != NULL; iter = peer_info_next(iter))
     {
-        if (uip_ip6addr_cmp(&iter->addr, addr) == 0)
+        if (uip_ip6addr_cmp(&iter->addr, addr))
         {
             return iter;
         }
