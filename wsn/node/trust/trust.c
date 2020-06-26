@@ -65,7 +65,7 @@ typedef struct trust_tx_item
     coap_endpoint_t ep;
     coap_message_t msg;
     coap_callback_request_state_t coap_callback;
-    uint8_t payload_buf[MAX_TRUST_PAYLOAD];
+    uint8_t payload_buf[MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE];
 } trust_tx_item_t;
 
 MEMB(trust_tx_memb, trust_tx_item_t, TRUST_TX_SIZE);
@@ -73,7 +73,7 @@ MEMB(trust_tx_memb, trust_tx_item_t, TRUST_TX_SIZE);
 typedef struct trust_rx_item
 {
     public_key_item_t* key;
-    uint8_t payload_buf[MAX_TRUST_PAYLOAD];
+    uint8_t payload_buf[MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE];
 } trust_rx_item_t;
 
 MEMB(trust_rx_memb, trust_rx_item_t, TRUST_RX_SIZE);
@@ -127,8 +127,8 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
         addr = (const uip_ipaddr_t*)payload;
     }
 
-    int payload_len = serialise_trust(addr, item->payload_buf, sizeof(item->payload_buf));
-    if (payload_len <= 0 || payload_len > sizeof(item->payload_buf))
+    int payload_len = serialise_trust(addr, item->payload_buf, MAX_TRUST_PAYLOAD);
+    if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
     {
         LOG_DBG("serialise_trust failed %d\n", payload_len);
         coap_set_status_code(response, INTERNAL_SERVER_ERROR_5_00);
@@ -164,9 +164,10 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
     coap_endpoint_log(request->src_ep);
     LOG_DBG_(" of length %d\n", payload_len);
 
-    if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
+    if (payload_len <= 0 || payload_len > (MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE))
     {
-        LOG_WARN("Received payload either too short or too long for buffer %d (max %d)\n", payload_len, MAX_TRUST_PAYLOAD);
+        LOG_WARN("Received payload either too short or too long for buffer %d (max %d)\n",
+            payload_len, (MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE));
         coap_set_status_code(response, BAD_REQUEST_4_00);
         return;
     }
@@ -255,8 +256,8 @@ static bool periodic_action(void)
         return false;
     }
 
-    int payload_len = serialise_trust(NULL, item->payload_buf, sizeof(item->payload_buf));
-    if (payload_len <= 0 || payload_len > sizeof(item->payload_buf))
+    int payload_len = serialise_trust(NULL, item->payload_buf, MAX_TRUST_PAYLOAD);
+    if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
     {
         LOG_ERR("serialise_trust failed %d\n", payload_len);
         memb_free(&trust_tx_memb, item);
