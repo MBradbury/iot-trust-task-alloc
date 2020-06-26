@@ -145,6 +145,11 @@ edge_info_find_ident(const char* ident)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+size_t edge_info_count(void)
+{
+    return list_length(edge_resources);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t*
 edge_info_capability_add(edge_resource_t* edge, const char* name)
 {

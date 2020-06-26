@@ -44,6 +44,8 @@ edge_resource_t* edge_info_find_ident(const char* ident);
 edge_resource_t* edge_info_iter(void);
 edge_resource_t* edge_info_next(edge_resource_t* iter);
 /*-------------------------------------------------------------------------------------------------------------------*/
+size_t edge_info_count(void);
+/*-------------------------------------------------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* name);
 bool edge_info_capability_remove_by_name(edge_resource_t* edge, const char* name);
