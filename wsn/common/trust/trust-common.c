@@ -16,7 +16,7 @@
 #include "keystore.h"
 #include "device-classes.h"
 
-#include "nanocbor/nanocbor.h"
+#include "nanocbor-helper.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
@@ -70,74 +70,44 @@ static bool is_our_ident(const char* ident)
     return strncmp(ident, our_ident, len) == 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static int
 mqtt_publish_announce_handler(const char *topic, const char* topic_end,
                               const uint8_t *chunk, uint16_t chunk_len,
                               const char* topic_identity)
 {
-    int read;
-
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, chunk, chunk_len);
 
     nanocbor_value_t arr;
-    read = nanocbor_enter_array(&dec, &arr);
-    if (read < 0)
-    {
-        LOG_ERR("nanocbor_enter_array 1: %d\n", read);
-        return;
-    }
+    NANOCBOR_CHECK(nanocbor_enter_array(&dec, &arr));
 
     const uip_ipaddr_t* ip_addr;
-    size_t ip_addr_len;
-    read = nanocbor_get_bstr(&arr, (const uint8_t**)&ip_addr, &ip_addr_len);
-    if (read < 0 || ip_addr_len != sizeof(*ip_addr))
-    {
-        LOG_ERR("nanocbor_get_bstr 2: %d\n", read);
-        return;
-    }
+    NANOCBOR_GET_OBJECT(&arr, &ip_addr);
 
     int32_t device_class;
-    read = nanocbor_get_int32(&arr, &device_class);
-    if (read < 0)
-    {
-        LOG_ERR("nanocbor_get_int32 3: %d\n", read);
-        return;
-    }
+    NANOCBOR_CHECK(nanocbor_get_int32(&arr, &device_class));
     if (device_class < DEVICE_CLASS_MINIMUM || device_class > DEVICE_CLASS_MAXIMUM)
     {
         LOG_ERR("Invalid device class %"PRIi32"\n", device_class);
-        return;
+        return -1;
     }
 
     const ecdsa_secp256r1_pubkey_t* pubkey;
-    size_t pubkey_len;
-    read = nanocbor_get_bstr(&arr, (const uint8_t**)&pubkey, &pubkey_len);
-    if (read < 0 || pubkey_len != sizeof(*pubkey))
-    {
-        LOG_ERR("nanocbor_get_bstr 4: %d\n", read);
-        return;
-    }
+    NANOCBOR_GET_OBJECT(&arr, &pubkey);
 
     const ecdsa_secp256r1_sig_t* sig;
-    size_t sig_len;
-    read = nanocbor_get_bstr(&arr, (const uint8_t**)&sig, &sig_len);
-    if (read < 0 || sig_len != sizeof(*sig))
-    {
-        LOG_ERR("nanocbor_get_bstr 5: %d\n", read);
-        return;
-    }
+    NANOCBOR_GET_OBJECT(&arr, &sig);
 
     if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("!nanocbor_at_end 6: %d\n", read);
-        return;
+        LOG_ERR("!nanocbor_at_end 6\n");
+        return -1;
     }
 
     // We should add a record of other edge resources, but not ourselves.
     if (is_our_addr(ip_addr))
     {
-        return;
+        return -1;
     }
 
     edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity, device_class);
@@ -173,45 +143,34 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     {
         request_public_key(ip_addr);
     }
+
+    return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static int
 mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
                                 const uint8_t *chunk, uint16_t chunk_len,
                                 const char* topic_identity)
 {
-    int read;
-
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, chunk, chunk_len);
 
     nanocbor_value_t arr;
-    read = nanocbor_enter_array(&dec, &arr);
-    if (read < 0)
-    {
-        LOG_ERR("nanocbor_enter_array 1: %d\n", read);
-        return;
-    }
+    NANOCBOR_CHECK(nanocbor_enter_array(&dec, &arr));
 
     const uip_ipaddr_t* ip_addr;
-    size_t ip_addr_len;
-    read = nanocbor_get_bstr(&arr, (const uint8_t**)&ip_addr, &ip_addr_len);
-    if (read < 0 || ip_addr_len != sizeof(*ip_addr))
-    {
-        LOG_ERR("nanocbor_get_bstr 2: %d\n", read);
-        return;
-    }
+    NANOCBOR_GET_OBJECT(&arr, &ip_addr);
 
     if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("!nanocbor_at_end 3: %d\n", read);
-        return;
+        LOG_ERR("!nanocbor_at_end 3\n");
+        return -1;
     }
 
     // We should add a record of other edge resources, but not ourselves.
     if (is_our_addr(ip_addr))
     {
-        return;
+        return -1;
     }
 
     edge_resource_t* edge_resource = edge_info_find_ident(topic_identity);
@@ -231,37 +190,32 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         LOG_ERR_6ADDR(ip_addr);
         LOG_ERR_("\n");
     }
+
+    return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static int
 mqtt_publish_capability_add_handler(edge_resource_t* edge, const char* capability_name,
                                     const uint8_t *chunk, uint16_t chunk_len)
 {
-    int read;
-
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, chunk, chunk_len);
 
-    read = nanocbor_get_null(&dec);
-    if (read < 0)
-    {
-        LOG_ERR("nanocbor_get_null 1: %d\n", read);
-        return;
-    }
+    NANOCBOR_CHECK(nanocbor_get_null(&dec));
 
     // Do not process capabilities we already know about
     edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
     if (capability)
     {
         LOG_DBG("Notified of capability (%s) already known of\n", capability_name);
-        return;
+        return -1;
     }
 
     capability = edge_info_capability_add(edge, capability_name);
     if (capability == NULL)
     {
         LOG_ERR("Failed to create capability (%s) for edge with identity %s\n", capability_name, edge->name);
-        return;
+        return -1;
     }
 
     LOG_DBG("Added capability (%s) for edge with identity %s\n", capability_name, edge->name);
@@ -276,23 +230,18 @@ mqtt_publish_capability_add_handler(edge_resource_t* edge, const char* capabilit
     {
         LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
     }
+
+    return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static int
 mqtt_publish_capability_remove_handler(edge_resource_t* edge, const char* capability_name,
                                        const uint8_t *chunk, uint16_t chunk_len)
 {
-    int read;
-
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, chunk, chunk_len);
 
-    read = nanocbor_get_null(&dec);
-    if (read < 0)
-    {
-        LOG_ERR("nanocbor_get_null 1: %d\n", read);
-        return;
-    }
+    NANOCBOR_CHECK(nanocbor_get_null(&dec));
 
     // Check that this edge has this capability
     edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
@@ -300,7 +249,7 @@ mqtt_publish_capability_remove_handler(edge_resource_t* edge, const char* capabi
     {
         LOG_DBG("Notified of removal of capability %s from %s, but had not recorded this previously.\n",
             capability_name, edge->name);
-        return;
+        return -1;
     }
 
     // We have at least one Edge resource to support this application, so we need to inform the process
@@ -325,9 +274,11 @@ mqtt_publish_capability_remove_handler(edge_resource_t* edge, const char* capabi
         LOG_ERR("Cannot removed capability %s from %s as it does not have that capability\n",
             capability_name, edge->name);
     }
+
+    return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static int
 mqtt_publish_capability_handler(const char *topic, const char* topic_end,
                                 const uint8_t *chunk, uint16_t chunk_len,
                                 const char* topic_identity)
@@ -336,7 +287,7 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     if (edge == NULL)
     {
         LOG_ERR("Failed to find edge with identity %s\n", topic_identity);
-        return;
+        return -1;
     }
 
     // Format of topic is now in "/%s/add"
@@ -344,7 +295,7 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     if (*topic != '/')
     {
         LOG_ERR("Bad sep\n");
-        return;
+        return -1;
     }
 
     topic += 1;
@@ -353,7 +304,7 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     if (next_slash == NULL)
     {
         LOG_ERR("Bad sep\n");
-        return;
+        return -1;
     }
 
     // Check that capability name isn't too long
@@ -361,7 +312,7 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
     if (distance <= 0 || distance > EDGE_CAPABILITY_NAME_LEN)
     {
         LOG_ERR("Bad cap name\n");
-        return;
+        return -1;
     }
 
     // Parse capability name
@@ -373,15 +324,16 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
 
     if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_ADD, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
     {
-        mqtt_publish_capability_add_handler(edge, capability_name, chunk, chunk_len);
+        return mqtt_publish_capability_add_handler(edge, capability_name, chunk, chunk_len);
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_REMOVE)) == 0)
     {
-        mqtt_publish_capability_remove_handler(edge, capability_name, chunk, chunk_len);
+        return mqtt_publish_capability_remove_handler(edge, capability_name, chunk, chunk_len);
     }
     else
     {
         LOG_WARN("Unknown cap action (%.*s)\n", topic_end - topic, topic);
+        return -1;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -466,23 +418,60 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static int serialise_trust_single(nanocbor_encoder_t* enc, edge_resource_t* edge)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_null(enc));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len)
 {
-    // TODO: could provide addr to request trust on specific nodes
+    // Can provide addr to request trust on specific nodes, when NULL is provided
+    // Then details on all edges are sent
+
+    const size_t num_edges = (addr == NULL) ? edge_info_count(): 1;
 
     uint32_t time_secs = clock_seconds();
 
-    uint8_t cbor_buffer[(1) + (1 + sizeof(uint32_t))];
-
     nanocbor_encoder_t enc;
-    nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
+    nanocbor_encoder_init(&enc, buffer, buffer_len);
 
-    assert(0 == nanocbor_fmt_array(&enc, 1));
-    assert(0 == nanocbor_fmt_uint(&enc, time_secs));
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, time_secs));
+    NANOCBOR_CHECK(nanocbor_fmt_map(&enc, num_edges));
 
-    assert(nanocbor_encoded_len(&enc) <= sizeof(cbor_buffer));
+    if (addr != NULL)
+    {
+        edge_resource_t* edge = edge_info_find_addr(addr);
+        if (edge == NULL)
+        {
+            return -1;
+        }
+
+        NANOCBOR_CHECK(nanocbor_put_bstr(&enc, addr->u8, sizeof(*addr)));
+        NANOCBOR_CHECK(serialise_trust_single(&enc, edge));
+    }
+    else
+    {
+        for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
+        {
+            NANOCBOR_CHECK(nanocbor_put_bstr(&enc, iter->ep.ipaddr.u8, sizeof(iter->ep.ipaddr)));
+            NANOCBOR_CHECK(serialise_trust_single(&enc, iter));
+        }
+    }
+
+
+    assert(nanocbor_encoded_len(&enc) <= buffer_len);
 
     return nanocbor_encoded_len(&enc);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int process_received_trust_single(peer_t* peer, nanocbor_value_t* dec, edge_resource_t* edge)
+{
+    NANOCBOR_CHECK(nanocbor_get_null(dec));
+
+    return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len)
@@ -499,31 +488,50 @@ int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_
 
     //const uint32_t previous_last_seen = peer->last_seen;
 
-    int read;
-
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, buffer, buffer_len);
 
     nanocbor_value_t arr;
-    read = nanocbor_enter_array(&dec, &arr);
-    if (read < 0)
+    NANOCBOR_CHECK(nanocbor_enter_array(&dec, &arr));
+
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &peer->last_seen));
+
+    nanocbor_value_t map;
+    NANOCBOR_CHECK(nanocbor_enter_map(&arr, &map));
+
+    while (!nanocbor_at_end(&map))
     {
-        LOG_ERR("nanocbor_enter_array 1: %d\n", read);
+        const uip_ipaddr_t* ip_addr;
+        NANOCBOR_GET_OBJECT(&map, &ip_addr);
+
+        // TODO: in the future might want to consider creating an edge here
+        // Risk of possible DoS via buffer exhaustion though
+        edge_resource_t* edge = edge_info_find_addr(ip_addr);
+        if (edge == NULL)
+        {
+            NANOCBOR_CHECK(nanocbor_skip(&map));
+        }
+        else
+        {
+            NANOCBOR_CHECK(process_received_trust_single(peer, &map, edge));
+        }
+    }
+
+    if (!nanocbor_at_end(&map))
+    {
+        LOG_ERR("!nanocbor_leave_container 4\n");
         return -1;
     }
 
-    read = nanocbor_get_uint32(&arr, &peer->last_seen);
-    if (read < 0)
-    {
-        LOG_ERR("nanocbor_get_uint32 2: %d\n", read);
-        return -1;
-    }
+    nanocbor_leave_container(&arr, &map);
 
     if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("!nanocbor_at_end 3: %d\n", read);
+        LOG_ERR("!nanocbor_leave_container 5\n");
         return -1;
     }
+
+    nanocbor_leave_container(&dec, &arr);
 
     return 0;
 }

@@ -81,7 +81,7 @@ peer_info_next(peer_t* iter)
 peer_t*
 peer_info_find(const uip_ipaddr_t* addr)
 {
-    for (peer_t* iter = list_head(peers); iter != NULL; iter = list_item_next(iter))
+    for (peer_t* iter = peer_info_iter(); iter != NULL; iter = peer_info_next(iter))
     {
         if (uip_ip6addr_cmp(&iter->addr, addr) == 0)
         {

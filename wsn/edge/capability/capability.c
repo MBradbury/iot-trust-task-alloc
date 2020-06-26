@@ -9,7 +9,7 @@
 #include "os/sys/log.h"
 #include "os/lib/assert.h"
 
-#include "nanocbor/nanocbor.h"
+#include "nanocbor-helper.h"
 
 #include <stdio.h>
 
@@ -88,11 +88,11 @@ publish_announce(void)
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
-    assert(0 == nanocbor_fmt_array(&enc, 4));
-    assert(0 == nanocbor_put_bstr(&enc, ip_addr.u8, sizeof(uip_ip6addr_t)));
-    assert(0 == nanocbor_fmt_uint(&enc, DEVICE_CLASS));
-    assert(0 == nanocbor_put_bstr(&enc, (const uint8_t *)&our_key.pub_key, sizeof(our_key.pub_key)));
-    assert(0 == nanocbor_put_bstr(&enc, (const uint8_t *)&our_pubkey_sig, sizeof(our_pubkey_sig)));
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 4));
+    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, ip_addr.u8, sizeof(uip_ip6addr_t)));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, DEVICE_CLASS));
+    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, (const uint8_t *)&our_key.pub_key, sizeof(our_key.pub_key)));
+    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, (const uint8_t *)&our_pubkey_sig, sizeof(our_pubkey_sig)));
 
     LOG_DBG("Publishing announce [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 
@@ -126,8 +126,8 @@ publish_unannounce(void)
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
-    assert(0 == nanocbor_fmt_array(&enc, 1));
-    assert(0 == nanocbor_put_bstr(&enc, ip_addr.u8, sizeof(uip_ip6addr_t)));
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 1));
+    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, ip_addr.u8, sizeof(uip_ip6addr_t)));
 
     LOG_DBG("Publishing unannounce [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 
@@ -154,7 +154,7 @@ publish_add_capability(const char* name)
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
-    assert(0 == nanocbor_fmt_null(&enc));
+    NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
 
     LOG_DBG("Publishing add [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 
@@ -181,7 +181,7 @@ publish_remove_capability(const char* name)
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
-    assert(0 == nanocbor_fmt_null(&enc));
+    NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
 
     LOG_DBG("Publishing remove [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 

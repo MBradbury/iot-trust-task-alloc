@@ -6,7 +6,7 @@
 #include "coap.h"
 #include "coap-callback-api.h"
 
-#include "nanocbor/nanocbor.h"
+#include "nanocbor-helper.h"
 
 #include <stdio.h>
 
@@ -43,10 +43,10 @@ generate_sensor_data(uint8_t* buf, size_t buf_len)
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, buf, buf_len);
 
-    if (nanocbor_fmt_array(&enc, 3) < 0) return 0;
-    if (nanocbor_fmt_uint(&enc, time_secs) < 0) return 0;
-    if (nanocbor_fmt_int(&enc, temp_value) < 0) return 0;
-    if (nanocbor_fmt_int(&enc, vdd3_value) < 0) return 0;
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 3));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, time_secs));
+    NANOCBOR_CHECK(nanocbor_fmt_int(&enc, temp_value));
+    NANOCBOR_CHECK(nanocbor_fmt_int(&enc, vdd3_value));
 
     return nanocbor_encoded_len(&enc);
 }
