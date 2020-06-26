@@ -361,10 +361,6 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
         LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
     }
 
-    const char* data = "Request";
-
-    coap_set_payload(&msg, data, strlen(data)+1);
-
     ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
     if (ret)
     {
