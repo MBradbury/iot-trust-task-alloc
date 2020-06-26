@@ -14,13 +14,7 @@ LIST(peers);
 static peer_t*
 peer_new(void)
 {
-    peer_t* peer = memb_alloc(&peers_memb);
-    if (peer == NULL)
-    {
-        return NULL;
-    }
-
-    return peer;
+    return memb_alloc(&peers_memb);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -54,6 +48,8 @@ peer_info_add(const uip_ipaddr_t* addr)
     }
 
     uip_ipaddr_copy(&peer->addr, addr);
+
+    list_push(peers, peer);
 
     return peer;
 }
