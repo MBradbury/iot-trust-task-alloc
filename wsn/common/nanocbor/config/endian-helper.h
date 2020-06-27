@@ -1,11 +1,8 @@
-#ifndef ENDIAN_H_
-#define ENDIAN_H_
+#pragma once
 
 #include "uipopt.h"
 
-#define __bswap16(__x) __builtin_bswap16(__x)
-#define __bswap32(__x) __builtin_bswap32(__x)
-#define __bswap64(__x) __builtin_bswap64(__x)
+#include "machine/endian.h"
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
@@ -61,5 +58,3 @@
 #define letoh16(x) le16toh(x)
 #define letoh32(x) le32toh(x)
 #define letoh64(x) le64toh(x)
-
-#endif /* ENDIAN_H_ */

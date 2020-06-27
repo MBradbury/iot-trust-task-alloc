@@ -1,2 +1,3 @@
 MODULES_REL += ../common/nanocbor/repo/src
 CFLAGS += -I../common/nanocbor/repo/include -I../common/nanocbor/config
+CFLAGS += -DNANOCBOR_BYTEORDER_HEADER=\"endian-helper.h\"
