@@ -35,10 +35,12 @@
 #error "Please define TOPICS_TO_SUBSCRIBE_LEN"
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-typedef uint8_t topic_subscribe_status_t;
-#define TOPIC_STATE_NOT_SUBSCRIBED   0
-#define TOPIC_STATE_SUBSCRIBING      1
-#define TOPIC_STATE_SUBSCRIBED       3
+typedef enum 
+{
+    TOPIC_STATE_NOT_SUBSCRIBED = 0,
+    TOPIC_STATE_SUBSCRIBING    = 1,
+    TOPIC_STATE_SUBSCRIBED     = 2,
+} topic_subscribe_status_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern const char *topics_to_suscribe[TOPICS_TO_SUBSCRIBE_LEN];
 static topic_subscribe_status_t topic_subscribe_status[TOPICS_TO_SUBSCRIBE_LEN];
