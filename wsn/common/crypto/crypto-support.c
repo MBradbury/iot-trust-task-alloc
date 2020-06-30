@@ -7,7 +7,11 @@
 #include "os/lib/queue.h"
 #include "os/lib/memb.h"
 
-#include "random.h"
+#include <limits.h>
+
+#include "dtls-hmac.h"
+
+//#include "random.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "crypto-sup"
 #ifdef CRYPTO_SUPPORT_LOG_LEVEL
@@ -52,6 +56,26 @@ typedef struct {
     struct pt      pt;
     struct process *process;
 
+    ecc_compare_state_t ecc_compare_state;
+
+    uint8_t V[SHA256_DIGEST_LEN_BYTES];
+    uint8_t K[SHA256_DIGEST_LEN_BYTES];
+    uint8_t T[SHA256_DIGEST_LEN_BYTES];
+
+    bool good_k;
+
+#ifdef CRYPTO_SUPPORT_TIME_METRICS
+    rtimer_clock_t time;
+#endif
+} generate_k_state_t;
+
+PT_THREAD(ecc_generate_k(generate_k_state_t* state, const uint8_t* digest));
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    struct pt      pt;
+    struct process *process;
+
+    generate_k_state_t ecc_generate_k_state;
     ecc_dsa_sign_state_t ecc_sign_state;
 
     uint16_t sig_len;
@@ -76,7 +100,7 @@ typedef struct {
 
 PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool
+/*static bool
 crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
 {
     if (buffer == NULL)
@@ -94,6 +118,18 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
         buffer_u16[i] = random_rand();
     }
 
+    return true;
+}*/
+/*-------------------------------------------------------------------------------------------------------------------*/
+static bool bignum_is_zero(const uint8_t *number, const uint8_t number_size)
+{
+    for (uint8_t i = 0; i != number_size; ++i)
+    {
+        if (number[i] != 0)
+        {
+            return false;
+        }
+    }
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -198,6 +234,98 @@ end:
     return ret;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+PT_THREAD(ecc_generate_k(generate_k_state_t* state, const uint8_t* digest))
+{
+    // Constants set up each time
+    const uint8_t zero = 0;
+    const uint8_t one = 1;
+
+    PT_BEGIN(&state->pt);
+
+    // Implementation of rfc6979
+    // Create a deterministic k as per: https://tools.ietf.org/html/rfc6979#section-3.2
+
+    state->good_k = false;
+
+    // Set the compare state for later
+
+    // Already in correct format
+    // Contiki calls this parameter n whereas the RFC calls this q
+    memcpy(state->ecc_compare_state.b, nist_p_256.n, DTLS_EC_KEY_SIZE);
+    state->ecc_compare_state.size = DTLS_EC_KEY_SIZE;
+
+    // 3.2b
+    memset(state->V, 0x01, sizeof(state->V));
+
+    // 3.2c
+    memset(state->K, 0, sizeof(state->K));
+
+    // 3.2d
+    dtls_hmac_context_t ctx;
+    dtls_hmac_init(&ctx, state->K, sizeof(state->K));
+    dtls_hmac_update(&ctx, state->V, sizeof(state->V));
+    dtls_hmac_update(&ctx, &zero, 1);
+    dtls_hmac_update(&ctx, our_key.priv_key, DTLS_EC_KEY_SIZE);
+    dtls_hmac_update(&ctx, digest, SHA256_DIGEST_LEN_BYTES);
+    dtls_hmac_finalize(&ctx, state->K);
+
+    // 3.2e
+    dtls_hmac_init(&ctx, state->K, sizeof(state->K));
+    dtls_hmac_update(&ctx, state->V, sizeof(state->V));
+    dtls_hmac_finalize(&ctx, state->V);
+
+    // 3.2f
+    dtls_hmac_init(&ctx, state->K, sizeof(state->K));
+    dtls_hmac_update(&ctx, state->V, sizeof(state->V));
+    dtls_hmac_update(&ctx, &one, 1);
+    dtls_hmac_update(&ctx, our_key.priv_key, DTLS_EC_KEY_SIZE);
+    dtls_hmac_update(&ctx, digest, SHA256_DIGEST_LEN_BYTES);
+    dtls_hmac_finalize(&ctx, state->K);
+
+    // 3.2g
+    dtls_hmac_init(&ctx, state->K, sizeof(state->K));
+    dtls_hmac_update(&ctx, state->V, sizeof(state->V));
+    dtls_hmac_finalize(&ctx, state->V);
+
+    // 3.2h
+    do {
+        // 3.2h 2
+        dtls_hmac_init(&ctx, state->K, sizeof(state->K));
+        dtls_hmac_update(&ctx, state->V, sizeof(state->V));
+        int len = dtls_hmac_finalize(&ctx, state->V);
+
+        // hmac should always give a suitably long T
+        assert(len == SHA256_DIGEST_LEN_BYTES);
+        assert((nist_p_256.size * sizeof(uint32_t) * CHAR_BIT) == SHA256_DIGEST_LEN_BYTES * CHAR_BIT);
+
+        memcpy(state->T, state->V, sizeof(state->V));
+
+        // 3.2h 3 - Check that T is within the range [1,q-1]
+
+        ec_uint8v_to_uint32v(state->T, DTLS_EC_KEY_SIZE, state->ecc_compare_state.a);
+        
+        PT_SPAWN(&state->pt, &state->ecc_compare_state.pt, ecc_compare(&state->ecc_compare_state));
+
+        state->good_k = !bignum_is_zero(state->T, sizeof(state->T)) &&
+                        state->ecc_compare_state.result == PKA_STATUS_A_LT_B;
+
+        // 3.2h 3 - Update K and V
+        if (!state->good_k)
+        {
+            dtls_hmac_init(&ctx, state->K, sizeof(state->K));
+            dtls_hmac_update(&ctx, state->V, sizeof(state->V));
+            dtls_hmac_update(&ctx, &zero, 1);
+            dtls_hmac_finalize(&ctx, state->K);
+
+            dtls_hmac_init(&ctx, state->K, sizeof(state->K));
+            dtls_hmac_update(&ctx, state->V, sizeof(state->V));
+            dtls_hmac_finalize(&ctx, state->V);
+        }
+    } while (!state->good_k);
+
+    PT_END(&state->pt);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
 {
     PT_BEGIN(&state->pt);
@@ -227,13 +355,12 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 
     ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_sign_state.hash);
 
+    state->ecc_generate_k_state.process = state->process;
     state->ecc_sign_state.process = state->process;
     state->ecc_sign_state.curve_info = &nist_p_256;
 
     // Set secret key from our private key
     ec_uint8v_to_uint32v(our_key.priv_key, DTLS_EC_KEY_SIZE, state->ecc_sign_state.secret);
-
-    crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_sign()...\n");
@@ -241,7 +368,22 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 #endif
 
     pka_enable();
+
+    PT_SPAWN(&state->pt, &state->ecc_generate_k_state.pt, ecc_generate_k(&state->ecc_generate_k_state, digest));
+    if (!state->ecc_generate_k_state.good_k)
+    {
+        LOG_ERR("Failed to generate a good k with %u\n", state->ecc_generate_k_state.ecc_compare_state.result);
+        state->ecc_sign_state.result = state->ecc_generate_k_state.ecc_compare_state.result;
+        PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+        pka_disable();
+        PT_EXIT(&state->pt);
+    }
+
+    // Set k
+    ec_uint8v_to_uint32v(state->ecc_generate_k_state.T, DTLS_EC_KEY_SIZE, state->ecc_sign_state.k_e);
+
     PT_SPAWN(&state->pt, &state->ecc_sign_state.pt, ecc_dsa_sign(&state->ecc_sign_state));
+
     pka_disable();
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
