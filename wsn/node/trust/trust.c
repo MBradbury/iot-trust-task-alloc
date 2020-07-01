@@ -46,21 +46,6 @@ static struct etimer periodic_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* choose_edge(const char* capability_name)
-{
-    // For now FCFS
-    for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
-    {
-        edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
-        if (capability != NULL)
-        {
-            return iter;
-        }
-    }
-
-    return NULL;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct trust_tx_item
 {
     coap_endpoint_t ep;

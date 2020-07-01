@@ -14,6 +14,7 @@
 #include "monitoring.h"
 #include "edge-info.h"
 #include "trust.h"
+#include "trust-models.h"
 #include "applications.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -68,6 +69,11 @@ send_callback(coap_callback_request_state_t* callback_state)
     edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
     edge_capability_t* cap = edge_info_capability_find(edge, MONITORING_APPLICATION_NAME);
 
+    tm_task_submission_info_t info = {
+        .coap_status = NO_ERROR,
+        .coap_request_status = callback_state->state.status
+    };
+
     switch (callback_state->state.status)
     {
     case COAP_REQUEST_STATUS_RESPONSE:
@@ -77,18 +83,15 @@ send_callback(coap_callback_request_state_t* callback_state)
         if (response->code == CONTENT_2_05)
         {
             LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
-
-            beta_dist_add_good(&edge->tm.task_submission);
-
             process_task_ack(edge, cap, response);
         }
         else
         {
             LOG_WARN("Message send failed with code (%u) '%.*s' (len=%d)\n",
                 response->code, response->payload_len, response->payload, response->payload_len);
-
-            beta_dist_add_bad(&edge->tm.task_submission);
         }
+
+        info.coap_status = response->code;
     } break;
 
     case COAP_REQUEST_STATUS_MORE:
@@ -103,28 +106,24 @@ send_callback(coap_callback_request_state_t* callback_state)
 
     case COAP_REQUEST_STATUS_TIMEOUT:
     {
-        beta_dist_add_bad(&edge->tm.task_submission);
-
         LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
         coap_callback_in_use = false;
     } break;
 
     case COAP_REQUEST_STATUS_BLOCK_ERROR:
     {
-        beta_dist_add_bad(&edge->tm.task_submission);
-
         LOG_ERR("Failed to send message with status %d (block error)\n", callback_state->state.status);
         coap_callback_in_use = false;
     } break;
 
     default:
     {
-        beta_dist_add_bad(&edge->tm.task_submission);
-
         LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
         coap_callback_in_use = false;
     } break;
     }
+
+    tm_update_task_submission(edge, cap, &info);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
