@@ -20,3 +20,6 @@
 #define COAP_MAX_CHUNK_SIZE 256
 
 #define DEVICE_CLASS DEVICE_CLASS_RASPBERRY_PI
+
+// Enable coloured log prefix
+#define LOG_CONF_WITH_COLOR 1

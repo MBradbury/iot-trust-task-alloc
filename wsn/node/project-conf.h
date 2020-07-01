@@ -16,3 +16,6 @@
 #define MQTT_CLIENT_CONF_BROKER_IP_ADDR "fd00::1"
 
 #define COAP_MAX_CHUNK_SIZE 256
+
+// Enable coloured log prefix
+#define LOG_CONF_WITH_COLOR 1
