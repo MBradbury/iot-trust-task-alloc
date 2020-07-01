@@ -27,8 +27,16 @@ MEMB(edge_capabilities_memb, edge_capability_t, NUM_EDGE_RESOURCES * NUM_EDGE_CA
 LIST(edge_resources);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static edge_capability_t*
-edge_capability_new(void)
+edge_capability_new(edge_resource_t* edge)
 {
+    // This edge already has the maximum number of capabilities it is allowed to have
+    if (list_length(edge->capabilities) >= NUM_EDGE_CAPABILITIES)
+    {
+        LOG_ERR("Cannot allocate another capability for edge %s, as it has reached the maximum number allowed\n",
+            edge->name);
+        return NULL;
+    }
+
     edge_capability_t* cap = memb_alloc(&edge_capabilities_memb);
     if (cap == NULL)
     {
@@ -181,7 +189,7 @@ edge_info_capability_add(edge_resource_t* edge, const char* name)
         return capability;
     }
 
-    capability = edge_capability_new();
+    capability = edge_capability_new(edge);
     if (capability == NULL)
     {
         return NULL;
