@@ -64,7 +64,7 @@ Flash and run the terminal
 ## On Edge Observer
 
 ```bash
-python3 -m pip install cbor2
+python3 -m pip install cbor2 pyroutelib3
 python3 -m pip install --upgrade "git+https://github.com/chrysn/aiocoap#egg=aiocoap[all]"
 ```
 
