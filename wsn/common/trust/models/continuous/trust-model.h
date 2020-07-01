@@ -38,7 +38,7 @@ typedef struct edge_capability_tm {
 
 } edge_capability_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
-void edge_capability_tm_init(edge_capability_tm_t* tm, float expected_latency_mean, float expected_latency_variance);
+void edge_capability_tm_init(edge_capability_tm_t* tm);
 void edge_capability_tm_print(const edge_capability_tm_t* tm);
 /*-------------------------------------------------------------------------------------------------------------------*/
 

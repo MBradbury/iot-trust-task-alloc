@@ -22,10 +22,10 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm)
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void edge_capability_tm_init(edge_capability_tm_t* tm, float expected_latency_mean, float expected_latency_variance)
+void edge_capability_tm_init(edge_capability_tm_t* tm)
 {
     beta_dist_init(&tm->result_quality, 1, 1);
-    gaussian_dist_init(&tm->latency, expected_latency_mean, expected_latency_variance);
+    gaussian_dist_init(&tm->latency, 0.0f, 0.0f);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
