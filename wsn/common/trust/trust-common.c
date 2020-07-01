@@ -7,6 +7,7 @@
 #include "os/net/ipv6/uip-ds6.h"
 #include "os/net/ipv6/uiplib.h"
 #include "assert.h"
+#include "coap-log.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -130,7 +131,7 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     if (!coap_endpoint_is_connected(&edge_resource->ep))
     {
         LOG_DBG("Connecting to CoAP endpoint ");
-        coap_endpoint_log(&edge_resource->ep);
+        LOG_DBG_COAP_EP(&edge_resource->ep);
         LOG_DBG_("\n");
 
         // TODO: delay this by a random amount to space out connects

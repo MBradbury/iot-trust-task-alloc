@@ -10,6 +10,7 @@
 
 #include "coap.h"
 #include "coap-callback-api.h"
+#include "coap-log.h"
 
 #ifdef WITH_DTLS
 #include "tinydtls.h"
@@ -161,7 +162,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
     int payload_len = coap_get_payload(request, &payload);
 
     LOG_DBG("Received trust info via POST from ");
-    coap_endpoint_log(request->src_ep);
+    LOG_DBG_COAP_EP(request->src_ep);
     LOG_DBG_(" of length %d\n", payload_len);
 
     if (payload_len <= 0 || payload_len > (MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE))

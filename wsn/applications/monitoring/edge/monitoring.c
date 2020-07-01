@@ -7,6 +7,7 @@
 
 #include "coap.h"
 #include "coap-callback-api.h"
+#include "coap-log.h"
 
 #include "nanocbor/nanocbor.h"
 
@@ -50,7 +51,7 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
     int payload_len = coap_get_payload(request, &payload);
 
     LOG_DBG("Received envmon data uri=%.*s, payload_len=%d from ", uri_len, uri_path, payload_len);
-    coap_endpoint_log(request->src_ep);
+    LOG_DBG_COAP_EP(request->src_ep);
     LOG_DBG_("\n");
 
     // Send data to connected edge node for processing

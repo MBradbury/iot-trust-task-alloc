@@ -5,6 +5,7 @@
 
 #include "coap.h"
 #include "coap-callback-api.h"
+#include "coap-log.h"
 
 #include "nanocbor-helper.h"
 
@@ -55,9 +56,17 @@ static struct etimer publish_periodic_timer, publish_short_timer;
 static uint8_t capability_count;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
+process_task_ack(edge_resource_t* edge, edge_capability_t* cap, coap_message_t* response)
+{
+    // Do anything that needs to be done with the ack
+    // e.g., record the estimated time until the task response is sent
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
     edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
+    edge_capability_t* cap = edge_info_capability_find(edge, MONITORING_APPLICATION_NAME);
 
     switch (callback_state->state.status)
     {
@@ -70,6 +79,8 @@ send_callback(coap_callback_request_state_t* callback_state)
             LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
 
             beta_dist_add_good(&edge->tm.task_submission);
+
+            process_task_ack(edge, cap, response);
         }
         else
         {
@@ -78,8 +89,6 @@ send_callback(coap_callback_request_state_t* callback_state)
 
             beta_dist_add_bad(&edge->tm.task_submission);
         }
-
-        // TODO: record information on Edge response
     } break;
 
     case COAP_REQUEST_STATUS_MORE:
@@ -151,7 +160,7 @@ periodic_action(void)
     if (!coap_endpoint_is_connected(&edge->ep))
     {
         LOG_DBG("We are not connected to ");
-        coap_endpoint_log(&edge->ep);
+        LOG_DBG_COAP_EP(&edge->ep);
         LOG_DBG_(", so will initiate a connection to it.\n");
 
         // Initiate a connect
@@ -184,15 +193,13 @@ periodic_action(void)
     {
         coap_callback_in_use = true;
         LOG_DBG("Message sent to ");
-        coap_endpoint_log(&edge->ep);
+        LOG_DBG_COAP_EP(&edge->ep);
         LOG_DBG_("\n");
     }
     else
     {
         LOG_ERR("Failed to send message with %d\n", ret);
     }
-
-    // TODO: Record metrics about tasks sent to edge nodes and their ability to respond in the trust model
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
