@@ -12,17 +12,17 @@
 #define LOG_LEVEL LOG_LEVEL_DBG
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
-PROCESS_NAME(environment_monitoring);
 PROCESS_NAME(capability);
 PROCESS_NAME(keystore_req);
 PROCESS_NAME(keystore_unver);
-PROCESS(edge, MONITORING_APPLICATION_NAME);
+APPLICATION_PROCESSES_DECL;
+PROCESS(edge, "edge");
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char* const application_names[APPLICATION_NUM] = APPLICATION_NAMES;
 bool applications_available[APPLICATION_NUM];
 bool resource_rich_edge_started;
 /*-------------------------------------------------------------------------------------------------------------------*/
-AUTOSTART_PROCESSES(&edge, &capability, &environment_monitoring, &mqtt_client_process, &keystore_req, &keystore_unver);
+AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process, &keystore_req, &keystore_unver, APPLICATION_PROCESSES);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int8_t
 index_of_application(const char* name)

@@ -1,6 +1,17 @@
+#include "monitoring.h"
 #include "trust-models.h"
 
-const trust_weight_t trust_weights[] = {
+static const trust_weight_t weights[] = {
     { TRUST_METRIC_TASK_SUBMISSION, 1.0f },
 };
-const uint8_t trust_weights_len = sizeof(trust_weights)/sizeof(*trust_weights);
+
+static trust_weights_t weights_info = {
+    .application_name = MONITORING_APPLICATION_NAME,
+    .weights = weights,
+    .num = sizeof(weights)/sizeof(*weights)
+};
+
+void init_trust_weights_monitoring(void)
+{
+    trust_weights_add(&weights_info);
+}

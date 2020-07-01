@@ -236,17 +236,25 @@ edge_capability_remove(edge_resource_t* edge)
     edge_capability_remove_common(edge, MONITORING_APPLICATION_URI);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(environment_monitoring, MONITORING_APPLICATION_NAME);
+PROCESS(monitoring_process, MONITORING_APPLICATION_NAME);
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS_THREAD(environment_monitoring, ev, data)
+static void
+init(void)
 {
-    PROCESS_BEGIN();
+    init_trust_weights_monitoring();
 
     SENSORS_ACTIVATE(cc2538_temp_sensor);
     SENSORS_ACTIVATE(vdd3_sensor);
 
     capability_count = 0;
     coap_callback_in_use = false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS_THREAD(monitoring_process, ev, data)
+{
+    PROCESS_BEGIN();
+
+    init();
 
     while (1)
     {

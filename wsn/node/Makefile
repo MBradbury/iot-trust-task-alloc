@@ -53,7 +53,7 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
 #MAKE_MAC = MAKE_MAC_TSCH
 
 # Applications to include
-APPLICATIONS = monitoring 
+APPLICATIONS = monitoring
 include ../applications/Makefile.include
 
 # Main Contiki-NG compile

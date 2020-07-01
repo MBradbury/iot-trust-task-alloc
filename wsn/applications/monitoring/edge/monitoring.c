@@ -27,14 +27,15 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(environment_monitoring, MONITORING_APPLICATION_NAME);
+PROCESS(monitoring_process, MONITORING_APPLICATION_NAME);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
 // TODO: See RFC6690 Section 3.1 for what to set rt to
 // https://tools.ietf.org/html/rfc6690#section-3.1
-RESOURCE(res_coap_envmon,
+static
+RESOURCE(res_coap,
          "title=\"Environment Monitoring\";rt=\"" MONITORING_APPLICATION_NAME "\"",
          NULL,                         /*GET*/
          res_coap_envmon_post_handler, /*POST*/
@@ -68,14 +69,16 @@ res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, 
 static void
 init(void)
 {
-    coap_activate_resource(&res_coap_envmon, MONITORING_APPLICATION_URI);
+    coap_activate_resource(&res_coap, MONITORING_APPLICATION_URI);
 
 #ifdef WITH_OSCORE
-    oscore_protect_resource(&res_coap_envmon);
+    oscore_protect_resource(&res_coap);
 #endif
+
+    init_trust_weights_monitoring();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS_THREAD(environment_monitoring, ev, data)
+PROCESS_THREAD(monitoring_process, ev, data)
 {
     PROCESS_BEGIN();
 

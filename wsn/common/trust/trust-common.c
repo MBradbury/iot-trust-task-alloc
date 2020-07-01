@@ -1,6 +1,7 @@
 #include "trust-common.h"
 #include "edge-info.h"
 #include "peer-info.h"
+#include "trust-models.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -13,7 +14,6 @@
 #include <ctype.h>
 
 #include "applications.h"
-#include "trust-common.h"
 #include "keystore.h"
 #include "device-classes.h"
 
@@ -544,5 +544,7 @@ trust_common_init(void)
 
     pe_edge_capability_add = process_alloc_event();
     pe_edge_capability_remove = process_alloc_event();
+
+    trust_weights_init();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
