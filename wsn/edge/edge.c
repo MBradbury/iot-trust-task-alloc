@@ -6,6 +6,7 @@
 #include "applications.h"
 #include "application-serial.h"
 #include "capability/capability.h"
+#include "serial-helpers.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "edge"
@@ -41,14 +42,6 @@ bool application_available(const char* name)
 {
     int8_t idx = index_of_application(name);
     return idx < 0 ? false : applications_available[idx];
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static bool
-match_action(const char* data, const char* data_end, const char* action)
-{
-    size_t action_len = strlen(action);
-    return data_end - data >= action_len &&
-           strncmp(action, data, action_len) == 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
