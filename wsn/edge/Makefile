@@ -21,12 +21,19 @@ CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
 CFLAGS += -DCRYPTO_SUPPORT_LOG_LEVEL=LOG_LEVEL_DBG
 CFLAGS += -DKEYSTORE_LOG_LEVEL=LOG_LEVEL_DBG
 
+ifeq ($(TRUST_MODEL),)
+    $(error "TRUST_MODEL not set")
+else
+    CFLAGS += -DTRUST_MODEL=TRUST_MODEL_$(shell echo $(TRUST_MODEL) | tr '[:lower:]' '[:upper:]')
+endif
+
 # Include Contiki-NG system modules
 #MODULES += os/services/shell
 
 # Include application modules
 MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust crypto}
 MODULES_REL += ./capability
+MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 
 include ../common/nanocbor/Makefile.include
 

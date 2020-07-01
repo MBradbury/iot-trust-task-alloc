@@ -29,7 +29,15 @@ LIST(edge_resources);
 static edge_capability_t*
 edge_capability_new(void)
 {
-    return memb_alloc(&edge_capabilities_memb);
+    edge_capability_t* cap = memb_alloc(&edge_capabilities_memb);
+    if (cap == NULL)
+    {
+        return NULL;
+    }
+
+    edge_capability_tm_init(&cap->tm);
+
+    return cap;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -46,6 +54,8 @@ edge_resource_new(void)
     {
         return NULL;
     }
+
+    edge_resource_tm_init(&edge->tm);
 
     LIST_STRUCT_INIT(edge, capabilities);
 

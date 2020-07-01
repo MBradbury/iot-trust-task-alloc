@@ -57,6 +57,8 @@ static uint8_t capability_count;
 static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
+    edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
+
     switch (callback_state->state.status)
     {
     case COAP_REQUEST_STATUS_RESPONSE:
@@ -66,11 +68,15 @@ send_callback(coap_callback_request_state_t* callback_state)
         if (response->code == CONTENT_2_05)
         {
             LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
+
+            beta_dist_add_good(&edge->tm.task_submission);
         }
         else
         {
             LOG_WARN("Message send failed with code (%u) '%.*s' (len=%d)\n",
                 response->code, response->payload_len, response->payload, response->payload_len);
+
+            beta_dist_add_bad(&edge->tm.task_submission);
         }
 
         // TODO: record information on Edge response
@@ -88,18 +94,24 @@ send_callback(coap_callback_request_state_t* callback_state)
 
     case COAP_REQUEST_STATUS_TIMEOUT:
     {
+        beta_dist_add_bad(&edge->tm.task_submission);
+
         LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
         coap_callback_in_use = false;
     } break;
 
     case COAP_REQUEST_STATUS_BLOCK_ERROR:
     {
+        beta_dist_add_bad(&edge->tm.task_submission);
+
         LOG_ERR("Failed to send message with status %d (block error)\n", callback_state->state.status);
         coap_callback_in_use = false;
     } break;
 
     default:
     {
+        beta_dist_add_bad(&edge->tm.task_submission);
+
         LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
         coap_callback_in_use = false;
     } break;
@@ -163,6 +175,9 @@ periodic_action(void)
     
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, len);
+
+    // Save the edge that this task is being submitted to
+    coap_callback.state.user_data = edge;
 
     ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);
     if (ret)

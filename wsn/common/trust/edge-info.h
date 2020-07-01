@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "trust-common.h"
+#include "trust-model.h"
 
 #include "coap-endpoint.h"
 
@@ -16,6 +17,9 @@ typedef struct edge_capability
     struct edge_capability *next;
 
     char name[EDGE_CAPABILITY_NAME_LEN + 1];
+
+    edge_capability_tm_t tm;
+
 } edge_capability_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_resource
@@ -30,7 +34,10 @@ typedef struct edge_resource
 
     uint8_t device_class;
 
+    edge_resource_tm_t tm;
+
     LIST_STRUCT(capabilities);
+
 } edge_resource_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_info_init(void);

@@ -22,7 +22,15 @@ LIST(peers);
 static peer_t*
 peer_new(void)
 {
-    return memb_alloc(&peers_memb);
+    peer_t* peer = memb_alloc(&peers_memb);
+    if (peer == NULL)
+    {
+        return NULL;
+    }
+
+    peer_tm_init(&peer->tm);
+
+    return peer;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void

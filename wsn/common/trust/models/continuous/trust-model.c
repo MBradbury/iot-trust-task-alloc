@@ -12,11 +12,11 @@ void edge_resource_tm_init(edge_resource_tm_t* tm)
 void edge_resource_tm_print(const edge_resource_tm_t* tm)
 {
     printf("EdgeResourceTM(TaskSub=");
-    beta_dist_print(&tm->task_submission);
+    dist_print(&tm->task_submission);
     printf(",TaskRes=");
-    beta_dist_print(&tm->task_result);
+    dist_print(&tm->task_result);
     printf(",Announce=");
-    poisson_observation_print(&tm->announce);
+    dist_print(&tm->announce);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -29,9 +29,9 @@ void edge_capability_tm_init(edge_capability_tm_t* tm, float expected_latency_me
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
 {
     printf("EdgeResourceTM(ResQual=");
-    beta_dist_print(&tm->result_quality);
+    dist_print(&tm->result_quality);
     printf(",Latency=");
-    gaussian_dist_print(&tm->latency);
+    dist_print(&tm->latency);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -43,7 +43,7 @@ void peer_tm_init(peer_tm_t* tm)
 void peer_tm_print(const peer_tm_t* tm)
 {
     printf("EdgeResourceTM(TaskObserve=");
-    beta_dist_print(&tm->task_observation);
+    dist_print(&tm->task_observation);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

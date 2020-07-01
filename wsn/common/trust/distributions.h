@@ -57,3 +57,8 @@ void poisson_observation_print(const poisson_observation_t* obs);
 void poisson_observation_add(poisson_observation_t* obs);
 void poisson_observation_reset(poisson_observation_t* obs);
 /*-------------------------------------------------------------------------------------------------------------------*/
+
+#define dist_print(x) _Generic((x), const beta_dist_t*:             beta_dist_print, \
+                                    const gaussian_dist_t*:         gaussian_dist_print, \
+                                    const poisson_dist_t*:          poisson_dist_print, \
+                                    const poisson_observation_t*:   poisson_observation_print)(x)
