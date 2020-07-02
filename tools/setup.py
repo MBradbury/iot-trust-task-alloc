@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import subprocess
 from datetime import datetime
 import shutil
@@ -13,9 +14,13 @@ import patchwork.transfers
 
 import eckeygen
 
-trust_model = sys.argv[1]
+available_trust_models = list(os.listdir("wsn/common/trust/models"))
 
-print(f"Using trust model {trust_model}")
+parser = argparse.ArgumentParser(description='Setup')
+parser.add_argument('trust-model', type=str, choices=available_trust_models, help='The trust model to use')
+args = parser.parse_args()
+
+print(f"Using trust model {args.trust_model}")
 
 ips = {
     "wsn1": "fd00::1",
@@ -46,7 +51,7 @@ with open("setup/build_number", "w") as build_number_file:
 
 print("Cleaning directories")
 for binary in binaries:
-    subprocess.run(f"make distclean -C wsn/{binary} TRUST_MODEL={trust_model}", shell=True, check=True, capture_output=True)
+    subprocess.run(f"make distclean -C wsn/{binary} TRUST_MODEL={args.trust_model}", shell=True, check=True, capture_output=True)
 
 print("Building keystore")
 keys = {
@@ -90,7 +95,7 @@ for (target, ip) in ips.items():
 
     for binary in binaries:
         print(f"Building {binary}")
-        subprocess.run(f"make -C wsn/{binary} BUILD_NUMBER={build_number} TRUST_MODEL={trust_model}", shell=True, check=True)
+        subprocess.run(f"make -C wsn/{binary} BUILD_NUMBER={build_number} TRUST_MODEL={args.trust_model}", shell=True, check=True)
         shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
 
     shutil.move("wsn/common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
