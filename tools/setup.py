@@ -17,7 +17,7 @@ import eckeygen
 available_trust_models = list(os.listdir("wsn/common/trust/models"))
 
 parser = argparse.ArgumentParser(description='Setup')
-parser.add_argument('trust-model', type=str, choices=available_trust_models, help='The trust model to use')
+parser.add_argument('trust_model', type=str, choices=available_trust_models, help='The trust model to use')
 args = parser.parse_args()
 
 print(f"Using trust model {args.trust_model}")
