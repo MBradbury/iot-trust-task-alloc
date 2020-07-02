@@ -217,6 +217,12 @@ event_triggered_action(const char* data)
         return;
     }
 
+    if (capability_count == 0)
+    {
+        LOG_WARN("No Edge servers available to process request\n");
+        return;
+    }
+
     int len = generate_routing_request(msg_buf, sizeof(msg_buf), &source, &destination);
     if (len <= 0 || len > sizeof(msg_buf))
     {
@@ -225,10 +231,10 @@ event_triggered_action(const char* data)
     }
 
     // TODO: %f isn't supported
-    LOG_DBG("Generated message for path from (%f,%f) to (%f,%f) (len=%d)\n",
+    LOG_DBG("Generated message (len=%d) for path from (%f,%f) to (%f,%f)\n",
+        len,
         source.latitude, source.longitude,
-        destination.latitude, destination.longitude,
-        len);
+        destination.latitude, destination.longitude);
 
     // Choose an Edge node to send information to
     edge_resource_t* edge = choose_edge(ROUTING_APPLICATION_NAME);
@@ -321,11 +327,6 @@ edge_capability_add(edge_resource_t* edge)
 
     capability_count += 1;
 
-    if (capability_count == 1)
-    {
-        LOG_INFO("Starting periodic timer to send information\n");
-    }
-
     edge_capability_add_common(edge, ROUTING_APPLICATION_URI);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -335,11 +336,6 @@ edge_capability_remove(edge_resource_t* edge)
     LOG_INFO("Notified edge %s no longer has capability\n", edge->name);
 
     capability_count -= 1;
-
-    if (capability_count == 0)
-    {
-        LOG_INFO("Stop sending information, no edges to process it\n");
-    }
 
     edge_capability_remove_common(edge, ROUTING_APPLICATION_URI);
 }
