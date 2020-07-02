@@ -36,7 +36,7 @@ static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 #define PUBLISH_ANNOUNCE_PERIOD_SHORT   (CLOCK_SECOND * 2 * 60)
 #define PUBLISH_ANNOUNCE_PERIOD_LONG    (PUBLISH_ANNOUNCE_PERIOD_SHORT * 15)
 #define PUBLISH_CAPABILITY_PERIOD_SHORT (CLOCK_SECOND * 5)
-#define PUBLISH_CAPABILITY_PERIOD_LONG  (PUBLISH_CAPABILITY_PERIOD_SHORT * (APPLICATION_NUM + 10))
+#define PUBLISH_CAPABILITY_PERIOD_LONG  (PUBLISH_CAPABILITY_PERIOD_SHORT * (APPLICATION_NUM + 20))
 #define PUBLISH_ANNOUNCE_SHORT_TO_LONG 5
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_announce_timer;
@@ -224,12 +224,12 @@ periodic_publish_announce(void)
     bool ret;
     if (resource_rich_edge_started)
     {
-        LOG_DBG("Attempting to publish announce...\n");
+        LOG_INFO("Attempting to publish announce...\n");
         ret = publish_announce();
     }
     else
     {
-        LOG_DBG("Attempting to publish unannounce...\n");
+        LOG_INFO("Attempting to publish unannounce...\n");
         ret = publish_unannounce();
     }
 
@@ -242,12 +242,13 @@ periodic_publish_announce(void)
         if (resource_rich_edge_started)
         {
             // Don't send capabilities until we have announced ourselves
-            LOG_DBG("Announce sent! Starting capability publish timer...\n");
+            LOG_DBG("Announce sent! Starting capability publish timer.\n");
             etimer_set(&publish_capability_timer, PUBLISH_CAPABILITY_PERIOD_SHORT);
         }
         else
         {
             // Don't publish capabilities, if nothing connected
+            LOG_DBG("Unannounce sent! Stopping capability publish timer.\n");
             etimer_stop(&publish_capability_timer);
         }
     }
