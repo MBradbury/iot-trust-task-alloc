@@ -23,3 +23,8 @@
 
 // Enable coloured log prefix
 #define LOG_CONF_WITH_COLOR 1
+
+// Need to increase the serial line buffer in order to support the coap
+// messages we could like to send
+// TODO: Probably needs to be 512
+//#define SERIAL_LINE_CONF_BUFSIZE 256

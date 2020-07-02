@@ -11,6 +11,7 @@ import ipaddress
 import struct
 import time
 from concurrent.futures import ProcessPoolExecutor
+import math
 
 from config import application_edge_marker, serial_sep
 import client_common
@@ -53,7 +54,7 @@ class RoutingClient(client_common.Client):
         # Send task response back to edge sensor node
         await self.write(
             f"{application_edge_marker}{self.name}{serial_sep}app{serial_sep}task-resp{serial_sep}"
-            f"{dest}{serial_sep}{message_response}\n")
+            f"{dest}{serial_sep}{len(message_response)}{serial_sep}{message_response}\n")
 
         # Update the average time taken to perform jobs
         self.stats.push(duration)
@@ -65,11 +66,17 @@ class RoutingClient(client_common.Client):
 
     def _stats_string(self):
         try:
-            variance = self.stats.mean()
+            variance = int(math.ceil(self.stats.variance()))
         except ZeroDivisionError:
             variance = 0
 
-        return f"{self.stats.mean()}{serial_sep}{self.stats.maximum()}{serial_sep}{self.stats.minimum()}{serial_sep}{variance}"
+        mean = int(math.ceil(self.stats.mean()))
+        maximum = int(math.ceil(self.stats.maximum()))
+        minimum = int(math.ceil(self.stats.minimum()))
+
+        data = [mean, maximum, minimum, variance]
+
+        return cbor2.dumps(data).hex()
 
 def _format_route(route):
     # By default using canonical=True will try to format floats
@@ -101,9 +108,9 @@ def _task_runner(task):
         route_coords = [router.nodeLatLon(x) for x in route]
         route_cbor = _format_route(route_coords)
 
-        logger.debug(f"CBOR response length ({len(route_cbor)}) for route (len={len(route_coords)})")
-
         encoded_route = cbor2.encoder.dumps((0, route_cbor), canonical=True)
+
+        logger.debug(f"CBOR response length ({len(encoded_route)}) for route (len={len(route_coords)})")
     elif status == "no_route":
         encoded_route = cbor2.encoder.dumps((1, None), canonical=True)
     elif status == "gave_up":
