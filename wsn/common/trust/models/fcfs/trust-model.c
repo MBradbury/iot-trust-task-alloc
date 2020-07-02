@@ -1,6 +1,14 @@
 #include "trust-model.h"
 #include "trust-models.h"
 #include <stdio.h>
+#include "os/sys/log.h"
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define LOG_MODULE "trust-comm"
+#ifdef TRUST_MODEL_LOG_LEVEL
+#define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
+#else
+#define LOG_LEVEL LOG_LEVEL_NONE
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_resource_tm_init(edge_resource_tm_t* tm)
 {
