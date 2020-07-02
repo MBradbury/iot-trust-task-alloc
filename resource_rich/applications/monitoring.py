@@ -6,13 +6,12 @@ import logging
 from datetime import datetime
 import ipaddress
 
+from config import serial_sep
 import client_common
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-monitoring")
 logger.setLevel(logging.DEBUG)
-
-serial_sep = "|"
 
 class MonitoringClient(client_common.Client):
     def __init__(self):

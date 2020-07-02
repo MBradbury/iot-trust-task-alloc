@@ -2,13 +2,11 @@ import logging
 import asyncio
 import signal
 
+from config import application_edge_marker, serial_sep, edge_server_port
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-client")
 logger.setLevel(logging.DEBUG)
-
-application_edge_marker = "@"
-serial_sep = "|"
-edge_server_port = 10_000
 
 class Client:
     def __init__(self, name):

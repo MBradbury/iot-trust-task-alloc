@@ -5,14 +5,11 @@ import asyncio
 import signal
 import datetime
 
+from config import edge_marker, application_edge_marker, serial_sep, edge_server_port
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("edge-bridge")
 logger.setLevel(logging.DEBUG)
-
-edge_marker = "!"
-application_edge_marker = "@"
-serial_sep = "|"
-edge_server_port = 10_000
 
 class NodeSerialBridge:
     def __init__(self):
@@ -71,7 +68,7 @@ class NodeSerialBridge:
             await writer.drain()
 
         except KeyError:
-            logger.warn(f"Unable to find local application {application_name} to forward message to")
+            logger.warning(f"Unable to find local application {application_name} to forward message to")
 
     async def _run_serial(self):
         async for output in self.proc.stdout:
@@ -86,7 +83,7 @@ class NodeSerialBridge:
 
             # Edge message
             elif line.startswith(edge_marker):
-                logger.warn(f"Don't know what to do with {line}")
+                logger.warning(f"Don't know what to do with {line}")
 
             # Regular log
             else:
