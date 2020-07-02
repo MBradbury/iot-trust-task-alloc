@@ -13,13 +13,18 @@ void beta_dist_init(beta_dist_t* dist, uint32_t alpha, uint32_t beta)
 /*-------------------------------------------------------------------------------------------------------------------*/
 float beta_dist_expected(const beta_dist_t* dist)
 {
-    return (dist->alpha) / (dist->alpha + dist->beta);
+    const float a = dist->alpha;
+    const float b = dist->beta;
+
+    return a / (a + b);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 float beta_dist_variance(const beta_dist_t* dist)
 {
-    return (dist->alpha * dist->beta) /
-           (((dist->alpha + dist->beta) * (dist->alpha + dist->beta)) + (dist->alpha + dist->beta + 1.0f));
+    const float a = dist->alpha;
+    const float b = dist->beta;
+
+    return (a * b) / (((a + b) * (a + b)) + (a + b + 1.0f));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void beta_dist_add_good(beta_dist_t* dist)
