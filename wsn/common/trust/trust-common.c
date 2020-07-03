@@ -461,13 +461,6 @@ int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len
     return nanocbor_encoded_len(&enc);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int process_received_trust_single(peer_t* peer, nanocbor_value_t* dec, edge_resource_t* edge)
-{
-    NANOCBOR_CHECK(nanocbor_get_null(dec));
-
-    return NANOCBOR_OK;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len)
 {
     // Add or find peer
@@ -507,7 +500,10 @@ int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_
         }
         else
         {
-            NANOCBOR_CHECK(process_received_trust_single(peer, &map, edge));
+            edge_resource_tm_t edge_tm;
+            NANOCBOR_CHECK(deserialise_trust_edge_resource(&map, &edge_tm));
+
+            // TODO: merge edge_tm with the peer trust model 
         }
     }
 

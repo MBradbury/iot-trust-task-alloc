@@ -63,4 +63,6 @@ struct edge_resource* choose_edge(const char* capability_name);
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge);
 int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capability_tm_t* cap);
+int deserialise_trust_edge_resource(nanocbor_value_t* dec, edge_resource_tm_t* edge);
+int deserialise_trust_edge_capability(nanocbor_value_t* dec, edge_capability_tm_t* cap);
 /*-------------------------------------------------------------------------------------------------------------------*/

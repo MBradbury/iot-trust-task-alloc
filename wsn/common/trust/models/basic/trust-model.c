@@ -128,3 +128,26 @@ int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capabili
     return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int deserialise_trust_edge_resource(nanocbor_value_t* dec, edge_resource_tm_t* edge)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+    NANOCBOR_CHECK(dist_deserialise(&arr, &edge->task_submission));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int deserialise_trust_edge_capability(nanocbor_value_t* dec, edge_capability_tm_t* cap)
+{
+    NANOCBOR_CHECK(nanocbor_get_null(dec));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
