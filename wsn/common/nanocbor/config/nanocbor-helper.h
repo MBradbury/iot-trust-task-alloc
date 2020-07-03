@@ -2,6 +2,8 @@
 
 #include "nanocbor/nanocbor.h"
 
+#include "uip.h"
+
 #define PP_STR(x) PP_STR_(x)
 #define PP_STR_(x) #x
 
@@ -25,3 +27,7 @@
             return -1; \
         } \
     } while (0)
+
+int nanocbor_fmt_ipaddr(nanocbor_encoder_t *enc, const uip_ip6addr_t *addr);
+
+int nanocbor_get_ipaddr(nanocbor_value_t *cvalue, const uip_ip6addr_t **addr);
