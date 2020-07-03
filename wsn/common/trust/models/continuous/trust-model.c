@@ -113,3 +113,22 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 3));
+    NANOCBOR_CHECK(dist_serialise(enc, &edge->task_submission));
+    NANOCBOR_CHECK(dist_serialise(enc, &edge->task_result));
+    NANOCBOR_CHECK(dist_serialise(enc, &edge->task_announce));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capability_tm_t* cap)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(dist_serialise(enc, &cap->result_quality));
+    NANOCBOR_CHECK(dist_serialise(enc, &cap->latency));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/

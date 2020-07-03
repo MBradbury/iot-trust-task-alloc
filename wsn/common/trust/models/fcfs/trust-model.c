@@ -55,3 +55,17 @@ edge_resource_t* choose_edge(const char* capability_name)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_null(enc));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capability_tm_t* cap)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_null(enc));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/

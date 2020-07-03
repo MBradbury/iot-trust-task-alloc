@@ -1,6 +1,14 @@
 #include "distributions.h"
 #include <assert.h>
 #include <stdio.h>
+#include "os/sys/log.h"
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define LOG_MODULE "trust-comm"
+#ifdef TRUST_MODEL_LOG_LEVEL
+#define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
+#else
+#define LOG_LEVEL LOG_LEVEL_NONE
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 void beta_dist_init(beta_dist_t* dist, uint32_t alpha, uint32_t beta)
 {
@@ -42,6 +50,32 @@ void beta_dist_print(const beta_dist_t* dist)
     printf("Beta(alpha=%"PRIu32",beta=%"PRIu32")", dist->alpha, dist->beta);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int beta_dist_serialise(nanocbor_encoder_t* enc, const beta_dist_t* dist)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, dist->alpha));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, dist->beta));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int beta_dist_deserialise(nanocbor_value_t* dec, beta_dist_t* dist)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &dist->alpha));
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &dist->beta));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_init(gaussian_dist_t* dist, float mean, float variance)
 {
     dist->mean = mean;
@@ -72,6 +106,34 @@ void gaussian_dist_print(const gaussian_dist_t* dist)
     printf("N(mean=%f,var=%f,n=%"PRIu32")", dist->mean, dist->variance, dist->count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int gaussian_dist_serialise(nanocbor_encoder_t* enc, const gaussian_dist_t* dist)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 3));
+    NANOCBOR_CHECK(nanocbor_fmt_float(enc, dist->mean));
+    NANOCBOR_CHECK(nanocbor_fmt_float(enc, dist->variance));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, dist->count));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int gaussian_dist_deserialise(nanocbor_value_t* dec, gaussian_dist_t* dist)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+    NANOCBOR_CHECK(nanocbor_get_float(&arr, &dist->mean));
+    NANOCBOR_CHECK(nanocbor_get_float(&arr, &dist->variance));
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &dist->count));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void poisson_dist_init(poisson_dist_t* dist, uint32_t lambda)
 {
     dist->lambda = lambda;
@@ -92,6 +154,30 @@ void poisson_dist_print(const poisson_dist_t* dist)
     printf("Poisson(lambda=%"PRIu32")", dist->lambda);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int poisson_dist_serialise(nanocbor_encoder_t* enc, const poisson_dist_t* dist)
+{
+    //NANOCBOR_CHECK(nanocbor_fmt_array(enc, 1));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, dist->lambda));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int poisson_dist_deserialise(nanocbor_value_t* dec, poisson_dist_t* dist)
+{
+    //nanocbor_value_t arr;
+    //NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+    NANOCBOR_CHECK(nanocbor_get_uint32(dec, &dist->lambda)); //&arr
+
+    /*if (!nanocbor_at_end(arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);*/
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void poisson_observation_init(poisson_observation_t* obs)
 {
     obs->observations = 0;
@@ -110,5 +196,29 @@ void poisson_observation_reset(poisson_observation_t* obs)
 void poisson_observation_print(const poisson_observation_t* obs)
 {
     printf("PoissonObs(%"PRIu32")", obs->observations);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int poisson_observation_serialise(nanocbor_encoder_t* enc, const poisson_observation_t* dist)
+{
+    //NANOCBOR_CHECK(nanocbor_fmt_array(enc, 1));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, dist->observations));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int poisson_observation_deserialise(nanocbor_value_t* dec, poisson_observation_t* dist)
+{
+    //nanocbor_value_t arr;
+    //NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+    NANOCBOR_CHECK(nanocbor_get_uint32(dec, &dist->observations)); // &arr
+
+    /*if (!nanocbor_at_end(arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);*/
+
+    return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
