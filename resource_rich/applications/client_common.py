@@ -14,6 +14,9 @@ class Client:
         self.reader = None
         self.writer = None
 
+        self.max_serial_len = 128
+        self.message_prefix = f"{application_edge_marker}{self.name}{serial_sep}"
+
     async def receive(self, message: str):
         raise NotImplementedError()
 
@@ -50,14 +53,23 @@ class Client:
         self.writer = None
 
     async def write(self, message: str):
-        self.writer.write(message.encode("utf-8"))
+        logger.debug(f"Writing {message!r} of length {len(message)}")
+        encoded_message = message.encode("utf-8")
+
+        if len(encoded_message) > self.max_serial_len:
+            logger.warn(f"Encoded message is longer ({len(encoded_message)}) than the maximum allowed length ({self.max_serial_len}) it will be truncated")
+
+        self.writer.write(encoded_message)
         await self.writer.drain()
 
+    async def _write_to_application(self, message: str):
+        await self.write(f"{self.message_prefix}{message}\n")
+
     async def _inform_application_started(self):
-        await self.write(f"{application_edge_marker}{self.name}{serial_sep}start\n")
+        await self._write_to_application("start")
 
     async def _inform_application_stopped(self):
-        await self.write(f"{application_edge_marker}{self.name}{serial_sep}stop\n")
+        await self._write_to_application("stop")
 
 
 async def do_run(service):
@@ -81,6 +93,11 @@ async def shutdown(signal, loop, services):
 
     loop.stop()
 
+def exception_handler(loop, context, services):
+    #logger.info(f"Stopping services tasks...")
+    #loop.create_task(asyncio.gather(*[service.stop() for service in services], return_exceptions=True))
+    pass
+
 def main(name, main_service, services=None):
     if services is None:
         services = []
@@ -93,6 +110,8 @@ def main(name, main_service, services=None):
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
     for sig in signals:
         loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, [main_service] + services)))
+
+    loop.set_exception_handler(lambda l, c: exception_handler(l, c, [main_service] + services))
 
     try:
         for service in services:

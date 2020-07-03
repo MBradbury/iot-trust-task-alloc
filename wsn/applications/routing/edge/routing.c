@@ -14,6 +14,7 @@
 #include "keystore.h"
 #include "application-serial.h"
 #include "serial-helpers.h"
+#include "base64.h"
 
 #ifdef WITH_OSCORE
 #include "oscore.h"
@@ -117,15 +118,15 @@ process_task_stats(const char* data, const char* data_end)
     uint32_t scn_mean, scn_max, scn_min, scn_var;
 
     uint8_t buffer[(1) + (1 + 4)*4];
-    int len = hex2bytes(data, data_end, buffer, sizeof(buffer));
-    if (len <= 0)
+    size_t buffer_len = sizeof(buffer);
+    if (!base64_decode(data, data_end - data, buffer, &buffer_len))
     {
-        LOG_ERR("!hex2bytes 1 (ret=%d)\n", len);
+        LOG_ERR("!base64_decode 1\n");
         return -1;
     }
 
     nanocbor_value_t dec;
-    nanocbor_decoder_init(&dec, buffer, len);
+    nanocbor_decoder_init(&dec, buffer, buffer_len);
 
     nanocbor_value_t arr;
     NANOCBOR_CHECK(nanocbor_enter_array(&dec, &arr));
@@ -168,20 +169,27 @@ process_task_stats(const char* data, const char* data_end)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-process_task_resp(const char* data, const char* data_end)
+process_task_resp1(const char* data, const char* data_end)
 {
-    // <target>|<msg-hex-encoded-len>|<msg-hex-encoded>
+    // <target>|<n>|<status>
 
-    const char* pos = strchr(data, '|');
-    if (pos == NULL)
+    const char* sep1 = strchr(data, '|');
+    if (sep1 == NULL)
     {
         LOG_ERR("strchr 1\n");
         return;
     }
 
+    const char* sep2 = strchr(sep1+1, '|');
+    if (sep2 == NULL)
+    {
+        LOG_ERR("strchr 2\n");
+        return;
+    }
+
     char uip_buffer[UIPLIB_IPV6_MAX_STR_LEN];
     memset(uip_buffer, 0, sizeof(uip_buffer));
-    strncpy(uip_buffer, data, pos - data);
+    strncpy(uip_buffer, data, sep1 - data);
 
     uip_ip6addr_t addr;
     if (!uiplib_ip6addrconv(uip_buffer, &addr))
@@ -190,31 +198,57 @@ process_task_resp(const char* data, const char* data_end)
         return;
     }
 
-    unsigned long length = strtoul(pos+1, NULL, 10);
+    unsigned long n = strtoul(sep1+1, NULL, 10);
 
-    const char* pos2 = strchr(pos+1, '|');
-    if (pos2 == NULL)
+    unsigned long status = strtoul(sep2+1, NULL, 10);
+
+    LOG_INFO("Task response: result=%lu n=%lu target=", status, );
+    LOG_INFO_6ADDR(&addr);
+    LOG_INFO_("\n");
+
+    // TODO: include somewhere if we are going to process this message
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+process_task_resp2(const char* data, const char* data_end)
+{
+    // <i>/<n>|<message>
+
+    const char* slashpos = strchr(data, '/');
+    if (slashpos == NULL)
     {
-        LOG_ERR("strchr 3\n");
+        LOG_ERR("strchr 1\n");
         return;
     }
 
-    if (data_end - (pos2+1) < length)
+    const char* seppos = strchr(data, '|');
+    if (seppos == NULL)
     {
-        LOG_ERR("Input truncated from %lu to %d\n", length, data_end - (pos2+1));
+        LOG_ERR("strchr 2\n");
         return;
     }
+
+    unsigned long i = strtoul(data, NULL, 10);
+    unsigned long n = strtoul(slashpos+1, NULL, 10);
 
     uint8_t buffer[COAP_MAX_CHUNK_SIZE];
-    int len = hex2bytes(pos2+1, data_end, buffer, sizeof(buffer));
-    if (len <= 0)
+    size_t len = sizeof(buffer);
+    if (!base64_decode(seppos+1, data_end - (seppos+1), buffer, &len))
     {
-        LOG_ERR("hex2bytes 4 (ret=%d)\n", len);
+        LOG_ERR("base64_decode 3 (ret=%d)\n", len);
         return;
     }
 
+    LOG_WARN("Sending task response %lu/%lu of length %zu not yet implemented\n", i, n, len);
+
     // TODO: send the buffer back to the target node
-    LOG_WARN("Sending task response not yet implemented\n");
+    // TODO: want to use block1 to send the data in multiple packets
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+ack_serial_input(void)
+{
+    printf(APPLICATION_SERIAL_PREFIX ROUTING_APPLICATION_NAME SERIAL_SEP "ack\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -228,15 +262,23 @@ process_serial_input(const char* data)
     }
     data += strlen(SERIAL_SEP);
 
-    if (match_action(data, data_end, "task-stats" SERIAL_SEP))
+    if (match_action(data, data_end, "stats" SERIAL_SEP))
     {
-        data += strlen("task-stats" SERIAL_SEP);
+        data += strlen("stats" SERIAL_SEP);
         process_task_stats(data, data_end);
+        ack_serial_input();
     }
-    else if (match_action(data, data_end, "task-resp" SERIAL_SEP))
+    else if (match_action(data, data_end, "resp1" SERIAL_SEP))
     {
-        data += strlen("task-resp" SERIAL_SEP);
-        process_task_resp(data, data_end);
+        data += strlen("resp1" SERIAL_SEP);
+        process_task_resp1(data, data_end);
+        ack_serial_input();
+    }
+    else if (match_action(data, data_end, "resp2" SERIAL_SEP))
+    {
+        data += strlen("resp2" SERIAL_SEP);
+        process_task_resp2(data, data_end);
+        ack_serial_input();
     }
     else
     {
