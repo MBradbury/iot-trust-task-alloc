@@ -202,7 +202,7 @@ process_task_resp1(const char* data, const char* data_end)
 
     unsigned long status = strtoul(sep2+1, NULL, 10);
 
-    LOG_INFO("Task response: result=%lu n=%lu target=", status, );
+    LOG_INFO("Task response: result=%lu n=%lu target=", status, n);
     LOG_INFO_6ADDR(&addr);
     LOG_INFO_("\n");
 
