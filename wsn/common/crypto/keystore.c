@@ -283,20 +283,12 @@ bool request_public_key(const uip_ip6addr_t* addr)
         return false;
     }
 
-    int ret;
-
     LOG_DBG("Generating public key request for ");
     LOG_DBG_6ADDR(addr);
     LOG_DBG_("\n");
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
-
-    ret = coap_set_header_uri_path(&msg, "key");
-    if (ret <= 0)
-    {
-        LOG_ERR("coap_set_header_uri_path failed %d\n", ret);
-        return false;
-    }
+    coap_set_header_uri_path(&msg, "key");
 
     memcpy(key_req_payload, addr, sizeof(*addr));
 

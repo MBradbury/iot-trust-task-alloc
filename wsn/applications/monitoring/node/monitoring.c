@@ -173,14 +173,7 @@ periodic_action(void)
     // TODO: encrypt and sign message
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
-
-    ret = coap_set_header_uri_path(&msg, MONITORING_APPLICATION_URI);
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-        return;
-    }
-    
+    coap_set_header_uri_path(&msg, MONITORING_APPLICATION_URI);
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, len);
 

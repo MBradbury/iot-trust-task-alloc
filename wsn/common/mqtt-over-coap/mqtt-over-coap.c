@@ -171,22 +171,8 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
     }
     
     coap_init_message(&msg, COAP_TYPE_CON, COAP_PUT, 0);
-
-    ret = coap_set_header_uri_path(&msg, MQTT_URI_PATH);
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-        coap_callback_in_use = false;
-        return false;
-    }
-
-    ret = coap_set_header_uri_query(&msg, uri_query);
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
-        coap_callback_in_use = false;
-        return false;
-    }
+    coap_set_header_uri_path(&msg, MQTT_URI_PATH);
+    coap_set_header_uri_query(&msg, uri_query);
 
     memcpy(coap_payload, data, data_len);
 
@@ -350,18 +336,8 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
     LOG_DBG("Subscribing to [%u]='%s'! (" MQTT_URI_PATH "?%s)\n", msg_id, topic, uri_query);
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
-
-    ret = coap_set_header_uri_path(&msg, MQTT_URI_PATH);
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_path failed %d\n", ret);
-    }
-
-    ret = coap_set_header_uri_query(&msg, uri_query);
-    if (ret <= 0)
-    {
-        LOG_DBG("coap_set_header_uri_query failed %d\n", ret);
-    }
+    coap_set_header_uri_path(&msg, MQTT_URI_PATH);
+    coap_set_header_uri_query(&msg, uri_query);
 
     ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
     if (ret)

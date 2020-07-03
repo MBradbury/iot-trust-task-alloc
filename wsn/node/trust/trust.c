@@ -93,15 +93,7 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
 
     // This is a non-confirmable message
     coap_init_message(&item->msg, COAP_TYPE_NON, COAP_POST, 0);
-
-    int ret = coap_set_header_uri_path(&item->msg, TRUST_COAP_URI);
-    if (ret <= 0)
-    {
-        LOG_ERR("coap_set_header_uri_path failed %d\n", ret);
-        coap_set_status_code(response, INTERNAL_SERVER_ERROR_5_00);
-        memb_free(&trust_tx_memb, item);
-        return;
-    }
+    coap_set_header_uri_path(&item->msg, TRUST_COAP_URI);
     
     // Possibly a request for a specific edge resource, so could only send that information
     const uip_ipaddr_t* addr = NULL;
@@ -233,14 +225,7 @@ static bool periodic_action(void)
     // This is a non-confirmable message
     coap_init_message(&item->msg, COAP_TYPE_NON, COAP_POST, 0);
     coap_set_header_content_format(&item->msg, APPLICATION_CBOR);
-
-    int ret = coap_set_header_uri_path(&item->msg, TRUST_COAP_URI);
-    if (ret <= 0)
-    {
-        LOG_ERR("coap_set_header_uri_path failed %d\n", ret);
-        memb_free(&trust_tx_memb, item);
-        return false;
-    }
+    coap_set_header_uri_path(&item->msg, TRUST_COAP_URI);
 
     int payload_len = serialise_trust(NULL, item->payload_buf, MAX_TRUST_PAYLOAD);
     if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
