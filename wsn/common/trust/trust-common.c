@@ -83,7 +83,7 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     NANOCBOR_CHECK(nanocbor_enter_array(&dec, &arr));
 
     const uip_ipaddr_t* ip_addr;
-    NANOCBOR_GET_OBJECT(&arr, &ip_addr);
+    NANOCBOR_CHECK(nanocbor_get_ipaddr(&arr, &ip_addr));
 
     int32_t device_class;
     NANOCBOR_CHECK(nanocbor_get_int32(&arr, &device_class));
@@ -160,7 +160,7 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
     NANOCBOR_CHECK(nanocbor_enter_array(&dec, &arr));
 
     const uip_ipaddr_t* ip_addr;
-    NANOCBOR_GET_OBJECT(&arr, &ip_addr);
+    NANOCBOR_CHECK(nanocbor_get_ipaddr(&arr, &ip_addr));
 
     if (!nanocbor_at_end(&arr))
     {
@@ -489,7 +489,7 @@ int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_
     while (!nanocbor_at_end(&map))
     {
         const uip_ipaddr_t* ip_addr;
-        NANOCBOR_GET_OBJECT(&map, &ip_addr);
+        NANOCBOR_CHECK(nanocbor_get_ipaddr(&map, &ip_addr));
 
         // TODO: in the future might want to consider creating an edge here
         // Risk of possible DoS via buffer exhaustion though

@@ -89,7 +89,7 @@ publish_announce(void)
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
     NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 4));
-    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, ip_addr.u8, sizeof(uip_ip6addr_t)));
+    NANOCBOR_CHECK(nanocbor_fmt_ipaddr(&enc, &ip_addr));
     NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, DEVICE_CLASS));
     NANOCBOR_CHECK(nanocbor_put_bstr(&enc, (const uint8_t *)&our_key.pub_key, sizeof(our_key.pub_key)));
     NANOCBOR_CHECK(nanocbor_put_bstr(&enc, (const uint8_t *)&our_pubkey_sig, sizeof(our_pubkey_sig)));
@@ -127,7 +127,7 @@ publish_unannounce(void)
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
     NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 1));
-    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, ip_addr.u8, sizeof(uip_ip6addr_t)));
+    NANOCBOR_CHECK(nanocbor_fmt_ipaddr(&enc, &ip_addr));
 
     LOG_DBG("Publishing unannounce [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 
