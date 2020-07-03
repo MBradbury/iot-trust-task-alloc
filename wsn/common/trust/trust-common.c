@@ -419,13 +419,6 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int serialise_trust_single(nanocbor_encoder_t* enc, edge_resource_t* edge)
-{
-    NANOCBOR_CHECK(nanocbor_fmt_null(enc));
-
-    return NANOCBOR_OK;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len)
 {
     // Can provide addr to request trust on specific nodes, when NULL is provided
@@ -451,14 +444,14 @@ int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len
         }
 
         NANOCBOR_CHECK(nanocbor_put_bstr(&enc, addr->u8, sizeof(*addr)));
-        NANOCBOR_CHECK(serialise_trust_single(&enc, edge));
+        NANOCBOR_CHECK(serialise_trust_edge_resource(&enc, &edge->tm));
     }
     else
     {
         for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
         {
             NANOCBOR_CHECK(nanocbor_put_bstr(&enc, iter->ep.ipaddr.u8, sizeof(iter->ep.ipaddr)));
-            NANOCBOR_CHECK(serialise_trust_single(&enc, iter));
+            NANOCBOR_CHECK(serialise_trust_edge_resource(&enc, &iter->tm));
         }
     }
 
