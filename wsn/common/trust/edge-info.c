@@ -244,6 +244,11 @@ void edge_info_capability_clear(edge_resource_t* edge)
 edge_capability_t*
 edge_info_capability_find(edge_resource_t* edge, const char* name)
 {
+    if (edge == NULL)
+    {
+        return NULL;
+    }
+
     for (edge_capability_t* iter = list_head(edge->capabilities); iter != NULL; iter = list_item_next(iter))
     {
         if (strcmp(iter->name, name) == 0)
