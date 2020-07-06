@@ -16,7 +16,7 @@ typedef struct edge_resource_tm {
     beta_dist_t task_submission;
 
     // Was a task result received when it was expected
-    //beta_dist_t task_result;
+    beta_dist_t task_result;
 
     // Are periodic announces being sent as often as expected
     //poisson_observation_t announce;
@@ -33,7 +33,7 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm);
 // Per-Application of Edge interactions
 typedef struct edge_capability_tm {
     // Was the result correct or not (nodes do not have the capability to evaluate response 'goodness')
-    //beta_dist_t result_quality;
+    beta_dist_t result_quality;
 
     // How long did it take to receive a response?
     //beta_dist_t latency;
