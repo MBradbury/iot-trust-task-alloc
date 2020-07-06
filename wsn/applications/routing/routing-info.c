@@ -2,9 +2,9 @@
 #include "trust-models.h"
 
 static const trust_weight_t weights[] = {
-    { TRUST_METRIC_TASK_SUBMISSION, 1f/3f },
-    { TRUST_METRIC_TASK_RESULT,     1f/3f },
-    { TRUST_METRIC_RESULT_QUALITY,  1f/3f },
+    { TRUST_METRIC_TASK_SUBMISSION, 1.0f/3.0f },
+    { TRUST_METRIC_TASK_RESULT,     1.0f/3.0f },
+    { TRUST_METRIC_RESULT_QUALITY,  1.0f/3.0f },
 };
 
 static trust_weights_t weights_info = {
