@@ -96,7 +96,7 @@ edge_resource_t* choose_edge(const char* capability_name)
     edge_resource_t* best_edge = NULL;
 
     // Start trust at -1, so even edges with 0 trust will be considered
-    float best_trust = 1.0f;
+    float best_trust = -1.0f;
 
     for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
     {
@@ -123,6 +123,15 @@ edge_resource_t* choose_edge(const char* capability_name)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, const tm_task_submission_info_t* info)
 {
+    // Do not update on COAP_REQUEST_STATUS_FINISHED
+    if (info->coap_request_status == COAP_REQUEST_STATUS_FINISHED)
+    {
+        return;
+    }
+
+    LOG_INFO("Updating Edge %s TM task_submission (%d, %d)\n",
+        edge->name, info->coap_request_status, info->coap_status);
+
     if (info->coap_request_status == COAP_REQUEST_STATUS_RESPONSE &&
         (info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05))
     {
