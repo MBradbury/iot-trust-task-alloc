@@ -129,7 +129,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
         return;
     }
 
-    LOG_INFO("Updating Edge %s Cap %s TM task_submission (%d, %d): ",
+    LOG_INFO("Updating Edge %s Cap %s TM task_submission (req=%d, coap=%d): ",
         edge->name, cap->name, info->coap_request_status, info->coap_status);
     beta_dist_print(&edge->tm.task_submission);
     LOG_INFO_(" -> ");

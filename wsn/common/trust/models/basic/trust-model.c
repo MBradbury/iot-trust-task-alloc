@@ -128,7 +128,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
         return;
     }
 
-    LOG_INFO("Updating Edge %s Cap %s TM task_submission (%d, %d): ",
+    LOG_INFO("Updating Edge %s Cap %s TM task_submission (req=%d, coap=%d): ",
         edge->name, cap->name, info->coap_request_status, info->coap_status);
     beta_dist_print(&edge->tm.task_submission);
     LOG_INFO_(" -> ");
@@ -149,7 +149,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM task_result (%d)", edge->name, cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM task_result (good=%d)", edge->name, cap->name, info->good);
     beta_dist_print(&edge->tm.task_result);
     LOG_INFO_(" -> ");
 
@@ -168,7 +168,7 @@ void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const 
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, const tm_result_quality_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM result_quality (%d)", edge->name, cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM result_quality (good=%d)", edge->name, cap->name, info->good);
     beta_dist_print(&cap->tm.result_quality);
     LOG_INFO_(" -> ");
 
@@ -187,15 +187,17 @@ void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, con
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
 {
-    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 1));
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
     NANOCBOR_CHECK(dist_serialise(enc, &edge->task_submission));
+    NANOCBOR_CHECK(dist_serialise(enc, &edge->task_result));
 
     return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capability_tm_t* cap)
 {
-    NANOCBOR_CHECK(nanocbor_fmt_null(enc));
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(dist_serialise(enc, &cap->result_quality));
 
     return NANOCBOR_OK;
 }
@@ -205,6 +207,7 @@ int deserialise_trust_edge_resource(nanocbor_value_t* dec, edge_resource_tm_t* e
     nanocbor_value_t arr;
     NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
     NANOCBOR_CHECK(dist_deserialise(&arr, &edge->task_submission));
+    NANOCBOR_CHECK(dist_deserialise(&arr, &edge->task_result));
 
     if (!nanocbor_at_end(&arr))
     {
@@ -218,7 +221,16 @@ int deserialise_trust_edge_resource(nanocbor_value_t* dec, edge_resource_tm_t* e
 /*-------------------------------------------------------------------------------------------------------------------*/
 int deserialise_trust_edge_capability(nanocbor_value_t* dec, edge_capability_tm_t* cap)
 {
-    NANOCBOR_CHECK(nanocbor_get_null(dec));
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+    NANOCBOR_CHECK(dist_deserialise(&arr, &cap->result_quality));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);
 
     return NANOCBOR_OK;
 }
