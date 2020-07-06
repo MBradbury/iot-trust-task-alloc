@@ -122,6 +122,15 @@ edge_resource_t* choose_edge(const char* capability_name)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, const tm_task_submission_info_t* info)
 {
+    // Do not update on COAP_REQUEST_STATUS_FINISHED
+    if (info->coap_request_status == COAP_REQUEST_STATUS_FINISHED)
+    {
+        return;
+    }
+
+    LOG_INFO("Updating Edge %s TM task_submission (%d, %d)\n",
+        edge->name, info->coap_request_status, info->coap_status);
+
     if (info->coap_request_status == COAP_REQUEST_STATUS_RESPONSE &&
         (info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05))
     {
@@ -135,6 +144,8 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info)
 {
+    LOG_INFO("Updating Edge %s TM task_result (%d)\n", edge->name, info->good);
+
     if (info->good)
     {
         beta_dist_add_good(&edge->tm.task_result);
@@ -147,6 +158,8 @@ void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const 
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, const tm_result_quality_info_t* info)
 {
+    LOG_INFO("Updating Edge %s Cap %s TM result_quality (%d)\n", edge->name, cap->name, info->good);
+
     if (info->good)
     {
         beta_dist_add_good(&cap->tm.result_quality);
