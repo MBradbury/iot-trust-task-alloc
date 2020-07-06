@@ -107,7 +107,7 @@ class RoutingClient(client_common.Client):
 
             await self._write_task_result_result(dest, status, len(route_chunks))
 
-            for i, route_chunk in enumerate(route_chunks, start=1):
+            for i, route_chunk in enumerate(route_chunks):
                 await self._write_task_result_chunk(i, len(route_chunks), route_chunk)
 
         else:
@@ -123,6 +123,8 @@ class RoutingClient(client_common.Client):
 
     async def _write_task_result_chunk(self, i, n, route_chunk):
         # Need canonical to fit floats into smallest space possible
+        # Could considuer using https://github.com/allthingstalk/cbor/blob/master/CBOR-Tag103-Geographic-Coordinates.md
+        # but is likely best to avoid the additional overhead
         encoded = base64.b64encode(cbor2.encoder.dumps(route_chunk, canonical=True)).decode("utf-8")
 
         # Send task response back to edge sensor node

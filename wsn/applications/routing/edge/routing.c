@@ -60,6 +60,12 @@ format_nil_stats(uint8_t* buffer, size_t len)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
+ack_serial_input(void)
+{
+    printf(APPLICATION_SERIAL_PREFIX ROUTING_APPLICATION_NAME SERIAL_SEP "ack\n");
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
 res_coap_envmon_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
 // TODO: See RFC6690 Section 3.1 for what to set rt to
@@ -168,6 +174,142 @@ process_task_stats(const char* data, const char* data_end)
     return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static coap_message_t msg;
+static coap_endpoint_t ep;
+static coap_callback_request_state_t coap_callback;
+static bool coap_callback_in_use;
+static uint8_t msg_buf[COAP_MAX_CHUNK_SIZE];
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+send_callback(coap_callback_request_state_t* callback_state)
+{
+    switch (callback_state->state.status)
+    {
+    case COAP_REQUEST_STATUS_RESPONSE:
+    {
+        coap_message_t* response = callback_state->state.response;
+
+        if (response->code == CONTENT_2_05)
+        {
+            LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
+        }
+        else
+        {
+            LOG_WARN("Message send failed with code (%u) '%.*s' (len=%d)\n",
+                response->code, response->payload_len, response->payload, response->payload_len);
+        }
+    } break;
+
+    case COAP_REQUEST_STATUS_MORE:
+    {
+        LOG_ERR("Unhandled COAP_REQUEST_STATUS_MORE\n");
+    } break;
+
+    case COAP_REQUEST_STATUS_FINISHED:
+    {
+        coap_callback_in_use = false;
+
+        // Once the send is finished we need to ack, so if there is more data to send the
+        // resource rich application will now send this data to us.
+        ack_serial_input();
+    } break;
+
+    case COAP_REQUEST_STATUS_TIMEOUT:
+    {
+        LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
+        coap_callback_in_use = false;
+    } break;
+
+    case COAP_REQUEST_STATUS_BLOCK_ERROR:
+    {
+        LOG_ERR("Failed to send message with status %d (block error)\n", callback_state->state.status);
+        coap_callback_in_use = false;
+    } break;
+
+    default:
+    {
+        LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
+        coap_callback_in_use = false;
+    } break;
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int
+process_task_resp_send_status(pyroutelib3_status_t status)
+{
+    if (coap_callback_in_use)
+    {
+        return -1;
+    }
+
+    nanocbor_encoder_t enc;
+    nanocbor_encoder_init(&enc, msg_buf, sizeof(msg_buf));
+
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, status));
+
+    int ret;
+
+    coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
+    coap_set_header_uri_path(&msg, ROUTING_APPLICATION_URI);
+    coap_set_header_content_format(&msg, APPLICATION_CBOR);
+    coap_set_payload(&msg, msg_buf, nanocbor_encoded_len(&enc));
+
+    ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
+    if (ret)
+    {
+        coap_callback_in_use = true;
+        LOG_DBG("Message sent to ");
+        LOG_DBG_COAP_EP(&ep);
+        LOG_DBG_("\n");
+    }
+    else
+    {
+        LOG_ERR("Failed to send message with %d\n", ret);
+    }
+
+    return 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int
+process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
+{
+    if (coap_callback_in_use)
+    {
+        return -1;
+    }
+
+    int ret;
+
+    coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
+    coap_set_header_uri_path(&msg, ROUTING_APPLICATION_URI);
+    coap_set_header_content_format(&msg, APPLICATION_CBOR);
+    coap_set_payload(&msg, msg_buf, len);
+
+    // i starts at 0
+    const bool coap_block1_more = ((i + 1) != n);
+
+    ret = coap_set_header_block1(&msg, i, coap_block1_more, len);
+    if (!ret)
+    {
+        LOG_ERR("coap_set_header_block1 failed (%lu, %" PRIu8 ", %zu)\n", i, coap_block1_more, len);
+    }
+
+    ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
+    if (ret)
+    {
+        coap_callback_in_use = true;
+        LOG_DBG("Message sent to ");
+        LOG_DBG_COAP_EP(&ep);
+        LOG_DBG_("\n");
+    }
+    else
+    {
+        LOG_ERR("Failed to send message with %d\n", ret);
+    }
+
+    return 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 process_task_resp1(const char* data, const char* data_end)
 {
@@ -191,64 +333,67 @@ process_task_resp1(const char* data, const char* data_end)
     memset(uip_buffer, 0, sizeof(uip_buffer));
     strncpy(uip_buffer, data, sep1 - data);
 
-    uip_ip6addr_t addr;
-    if (!uiplib_ip6addrconv(uip_buffer, &addr))
+    if (!uiplib_ip6addrconv(uip_buffer, &ep.ipaddr))
     {
         LOG_ERR("uiplib_ip6addrconv 2\n");
         return;
     }
 
-    unsigned long n = strtoul(sep1+1, NULL, 10);
+    ep.secure = 0;
+    ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
 
-    unsigned long status = strtoul(sep2+1, NULL, 10);
+    const unsigned long n = strtoul(sep1+1, NULL, 10);
 
-    LOG_INFO("Task response: result=%lu n=%lu target=", status, n);
-    LOG_INFO_6ADDR(&addr);
+    const pyroutelib3_status_t status = (pyroutelib3_status_t)strtoul(sep2+1, NULL, 10);
+
+    LOG_INFO("Task response: result=%d n=%lu target=", status, n);
+    LOG_INFO_6ADDR(&ep.ipaddr);
     LOG_INFO_("\n");
 
-    // TODO: include somewhere if we are going to process this message
+    process_task_resp_send_status(status);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static int
 process_task_resp2(const char* data, const char* data_end)
 {
+    if (coap_callback_in_use)
+    {
+        return -1;
+    }
+
     // <i>/<n>|<message>
 
     const char* slashpos = strchr(data, '/');
     if (slashpos == NULL)
     {
         LOG_ERR("strchr 1\n");
-        return;
+        return -1;
     }
 
     const char* seppos = strchr(data, '|');
     if (seppos == NULL)
     {
         LOG_ERR("strchr 2\n");
-        return;
+        return -1;
     }
 
     unsigned long i = strtoul(data, NULL, 10);
     unsigned long n = strtoul(slashpos+1, NULL, 10);
 
-    uint8_t buffer[COAP_MAX_CHUNK_SIZE];
-    size_t len = sizeof(buffer);
-    if (!base64_decode(seppos+1, data_end - (seppos+1), buffer, &len))
+    size_t len = sizeof(msg_buf);
+    if (!base64_decode(seppos+1, data_end - (seppos+1), msg_buf, &len))
     {
         LOG_ERR("base64_decode 3 (ret=%d)\n", len);
-        return;
+        return -1;
     }
 
-    LOG_WARN("Sending task response %lu/%lu of length %zu not yet implemented\n", i, n, len);
+    LOG_DBG("Sending task response %lu/%lu of length %zu\n", i, n, len);
 
-    // TODO: send the buffer back to the target node
-    // TODO: want to use block1 to send the data in multiple packets
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static void
-ack_serial_input(void)
-{
-    printf(APPLICATION_SERIAL_PREFIX ROUTING_APPLICATION_NAME SERIAL_SEP "ack\n");
+    // Send the buffer back to the target node
+    // Use block1 to send the data in multiple packets
+    process_task_resp_send_success(i, n, len);
+
+    return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -272,13 +417,11 @@ process_serial_input(const char* data)
     {
         data += strlen("resp1" SERIAL_SEP);
         process_task_resp1(data, data_end);
-        ack_serial_input();
     }
     else if (match_action(data, data_end, "resp2" SERIAL_SEP))
     {
         data += strlen("resp2" SERIAL_SEP);
         process_task_resp2(data, data_end);
-        ack_serial_input();
     }
     else
     {
@@ -299,6 +442,8 @@ init(void)
 
     // Set to a default value
     mean = minimum = maximum = variance = 0;
+
+    coap_callback_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(routing_process, ev, data)

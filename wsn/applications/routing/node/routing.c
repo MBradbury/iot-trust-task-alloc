@@ -9,6 +9,7 @@
 #include "coap.h"
 #include "coap-callback-api.h"
 #include "coap-log.h"
+#include "coap-block1.h"
 
 #include "nanocbor-helper.h"
 
@@ -283,6 +284,54 @@ event_triggered_action(const char* data)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
+routing_response_process_status(coap_message_t *request)
+{
+    int ret;
+
+    const uint8_t* payload;
+    int payload_len = coap_get_payload(request, &payload);
+
+    nanocbor_value_t dec;
+    nanocbor_decoder_init(&dec, payload, payload_len);
+
+    uint32_t status;
+    ret = nanocbor_get_uint32(&dec, &status);
+    if (ret < 0)
+    {
+        LOG_ERR("Failed to parse contents of task response\n");
+        status = ROUTING_PARSING_ERROR;
+    }
+
+    if (status == ROUTING_SUCCESS)
+    {
+        LOG_INFO("Routing task succeeded, waiting for task result data from server...\n");
+    }
+    else
+    {
+        LOG_ERR("Routing task failed with error %"PRIu32"\n", status);
+    }
+
+    // Update trust model
+    edge_resource_t* edge = edge_info_find_addr(&request->src_ep->ipaddr);
+    if (edge)
+    {
+        edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
+
+        // Update trust model with notification of task success/failure
+        const tm_task_result_info_t info = {
+            .good = (status == ROUTING_SUCCESS)
+        };
+        tm_update_task_result(edge, cap, &info);
+    }
+    else
+    {
+        LOG_ERR("Failed to find edge (");
+        LOG_ERR_6ADDR(&request->src_ep->ipaddr);
+        LOG_ERR_(") to update trust of\n");
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
 res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
 // TODO: See RFC6690 Section 3.1 for what to set rt to
@@ -298,6 +347,8 @@ RESOURCE(res_coap,
 static void
 res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
+    int ret;
+
     const char* uri_path;
     int uri_len = coap_get_header_uri_path(request, &uri_path);
 
@@ -308,9 +359,59 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
     LOG_DBG_COAP_EP(request->src_ep);
     LOG_DBG_("\n");
 
-    // TODO: parse routing response
+    if (!coap_is_option(request, COAP_OPTION_BLOCK1))
+    {
+        // First message is whether the task succeeded or failed
+        routing_response_process_status(request);
+    }
+    else
+    {
+        // Subsequent messages (after success) are the results 
 
-    // TODO: update trust model
+        uint32_t b1_num;
+        uint8_t b1_more;
+        uint16_t b1_size;
+        uint32_t b1_offset;
+        ret = coap_get_header_block1(request, &b1_num, &b1_more, &b1_size, &b1_offset);
+        if (!ret)
+        {
+            LOG_ERR("Message does not include block1 header\n");
+            return;
+        }
+        else
+        {
+            LOG_DBG("block1: num=%" PRIu32 " more=%" PRIu8 " size=%" PRIu16 " offset=%" PRIu32 "\n",
+                b1_num, b1_more, b1_size, b1_offset);
+        }
+
+        // Set up appropriate block1 headers in the response.
+        // Don't need to provide target and length as we will
+        // not be using them to extract the data into a single location.
+        // There is no limit to the data we can handle, so set UINT32_MAX.
+        ret = coap_block1_handler(request, response, NULL, NULL, UINT32_MAX);
+        if (ret < 0)
+        {
+            return;
+        }
+
+        // TODO: Update trust model with success if the start and end are as expected
+
+        // First block
+        if (b1_num == 0)
+        {
+            // Check first item (origin) is as expected
+        }
+
+        // last block
+        if (!b1_more)
+        {
+            // Check last item (destination) is as expected
+        }
+
+        // TODO: update trust model
+
+        // TODO: output this information for the client
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void

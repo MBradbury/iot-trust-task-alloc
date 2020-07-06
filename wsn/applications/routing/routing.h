@@ -11,3 +11,11 @@ typedef struct {
     float latitude;
     float longitude;
 } coordinate_t;
+
+typedef enum {
+    ROUTING_SUCCESS = 0,
+    ROUTING_NO_ROUTE = 1,
+    ROUTING_GAVE_UP = 2,
+    ROUTING_UNKNOWN_ERROR = 3,
+    ROUTING_PARSING_ERROR = 4,
+} pyroutelib3_status_t;
