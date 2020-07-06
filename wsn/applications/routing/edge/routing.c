@@ -288,6 +288,7 @@ process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
     // i starts at 0
     const bool coap_block1_more = ((i + 1) != n);
 
+    // TODO: block len should be a power of 2 (i.e.,64)
     ret = coap_set_header_block1(&msg, i, coap_block1_more, len);
     if (!ret)
     {

@@ -108,7 +108,7 @@ edge_resource_t* choose_edge(const char* capability_name)
 
         float trust_value = calculate_trust_value(iter, capability);
 
-        LOG_INFO("Trust value for edge %s and capability %s=%d%%\n", iter->name, capability_name, (int)(trust_value*100));
+        LOG_INFO("Trust value for edge %s and capability %s=%f\n", iter->name, capability_name, trust_value);
 
         if (trust_value > best_trust)
         {
@@ -128,8 +128,10 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
         return;
     }
 
-    LOG_INFO("Updating Edge %s TM task_submission (%d, %d)\n",
+    LOG_INFO("Updating Edge %s TM task_submission (%d, %d): ",
         edge->name, info->coap_request_status, info->coap_status);
+    beta_dist_print(&edge->tm.task_submission);
+    LOG_INFO_(" -> ");
 
     if (info->coap_request_status == COAP_REQUEST_STATUS_RESPONSE &&
         (info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05))
@@ -140,11 +142,16 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
     {
         beta_dist_add_bad(&edge->tm.task_submission);
     }
+
+    beta_dist_print(&edge->tm.task_submission);
+    LOG_INFO_("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info)
 {
-    LOG_INFO("Updating Edge %s TM task_result (%d)\n", edge->name, info->good);
+    LOG_INFO("Updating Edge %s TM task_result (%d)", edge->name, info->good);
+    beta_dist_print(&edge->tm.task_result);
+    LOG_INFO_(" -> ");
 
     if (info->good)
     {
@@ -154,11 +161,16 @@ void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const 
     {
         beta_dist_add_bad(&edge->tm.task_result);
     }
+
+    beta_dist_print(&edge->tm.task_result);
+    LOG_INFO_("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, const tm_result_quality_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM result_quality (%d)\n", edge->name, cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM result_quality (%d)", edge->name, cap->name, info->good);
+    beta_dist_print(&cap->tm.result_quality);
+    LOG_INFO_(" -> ");
 
     if (info->good)
     {
@@ -168,6 +180,9 @@ void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, con
     {
         beta_dist_add_bad(&cap->tm.result_quality);
     }
+
+    beta_dist_print(&cap->tm.result_quality);
+    LOG_INFO_("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
