@@ -12,11 +12,14 @@ int nanocbor_fmt_ipaddr(nanocbor_encoder_t *enc, const uip_ip6addr_t *addr)
 {
     int ret;
 
+#if 0
+    // Tag is the correct way to do this, it will also add 3 bytes of overhead (1 for tag, 2 for tag value)
     ret = nanocbor_fmt_tag(enc, NANOCBOR_TAG_NETWORK_ADDRESS);
     if (ret < 0)
     {
         return ret;
     }
+#endif
 
     ret = nanocbor_put_bstr(enc, addr->u8, sizeof(*addr));
 
@@ -25,8 +28,10 @@ int nanocbor_fmt_ipaddr(nanocbor_encoder_t *enc, const uip_ip6addr_t *addr)
 /*-------------------------------------------------------------------------------------------------------------------*/
 int nanocbor_get_ipaddr(nanocbor_value_t *cvalue, const uip_ip6addr_t **addr)
 {
+#if 0
     int ret;
 
+    // Tag is the correct way to do this, it will also add 3 bytes of overhead (1 for tag, 2 for tag value)
     uint32_t tag;
     ret = nanocbor_get_tag(cvalue, &tag);
     if (ret < 0)
@@ -38,6 +43,7 @@ int nanocbor_get_ipaddr(nanocbor_value_t *cvalue, const uip_ip6addr_t **addr)
     {
         return NANOCBOR_ERR_INVALID_TAG;
     }
+#endif
 
     NANOCBOR_GET_OBJECT(cvalue, addr);
 
