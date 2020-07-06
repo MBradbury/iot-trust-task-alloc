@@ -128,8 +128,8 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
         return;
     }
 
-    LOG_INFO("Updating Edge %s TM task_submission (%d, %d): ",
-        edge->name, info->coap_request_status, info->coap_status);
+    LOG_INFO("Updating Edge %s Cap %s TM task_submission (%d, %d): ",
+        edge->name, cap->name, info->coap_request_status, info->coap_status);
     beta_dist_print(&edge->tm.task_submission);
     LOG_INFO_(" -> ");
 
@@ -149,7 +149,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info)
 {
-    LOG_INFO("Updating Edge %s TM task_result (%d)", edge->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM task_result (%d)", edge->name, cap->name, info->good);
     beta_dist_print(&edge->tm.task_result);
     LOG_INFO_(" -> ");
 
