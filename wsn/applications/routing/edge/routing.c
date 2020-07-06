@@ -193,6 +193,10 @@ send_callback(coap_callback_request_state_t* callback_state)
         {
             LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
         }
+        else if (response->code == CONTINUE_2_31)
+        {
+            LOG_DBG("Message send complete with code CONTINUE_2_31 (len=%d)\n", response->payload_len);
+        }
         else
         {
             LOG_WARN("Message send failed with code (%u) '%.*s' (len=%d)\n",
