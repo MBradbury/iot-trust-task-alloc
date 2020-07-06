@@ -21,6 +21,7 @@
 #include "trust-models.h"
 #include "applications.h"
 #include "serial-helpers.h"
+#include "float-helpers.h"
 
 #ifdef WITH_OSCORE
 #include "oscore.h"
@@ -38,6 +39,10 @@ static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
 static bool coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + (1 + sizeof(float)) * 2) * 2];
+/*-------------------------------------------------------------------------------------------------------------------*/
+static bool task_in_use;
+static coordinate_t task_src, task_dest;
+static bool first_src_isclose;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
 generate_routing_request(uint8_t* buf, size_t buf_len, const coordinate_t* source, const coordinate_t* destination)
@@ -57,6 +62,62 @@ generate_routing_request(uint8_t* buf, size_t buf_len, const coordinate_t* sourc
     NANOCBOR_CHECK(nanocbor_fmt_float(&enc, destination->longitude));
 
     return nanocbor_encoded_len(&enc);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int
+nanocbor_get_coordinate(nanocbor_value_t* dec, coordinate_t* coord)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+
+    NANOCBOR_CHECK(nanocbor_get_float(&arr, &coord->latitude));
+    NANOCBOR_CHECK(nanocbor_get_float(&arr, &coord->longitude));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        LOG_ERR("!nanocbor_leave_container\n");
+        return -1;
+    }
+
+    nanocbor_leave_container(dec, &arr);
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int
+nanocbor_get_coordinate_from_payload(nanocbor_value_t* dec, coordinate_t* coord, int pos)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+
+    if (nanocbor_at_end(&arr))
+    {
+        return -1;
+    }
+
+    if (pos == 1)
+    {
+        NANOCBOR_CHECK(nanocbor_get_coordinate(&arr, coord));
+    }
+    else if (pos == -1)
+    {
+        // This should be at least 1, due to the previous check of nanocbor_at_end
+        uint32_t remaining = arr.remaining;
+
+        // Skip all but the last items
+        for (uint32_t i = 0; i < remaining - 1; ++i)
+        {
+            NANOCBOR_CHECK(nanocbor_skip(&arr));
+        }
+
+        NANOCBOR_CHECK(nanocbor_get_coordinate(&arr, coord));
+    }
+    else
+    {
+        assert(false);
+    }
+
+    return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static uint8_t capability_count;
@@ -94,6 +155,7 @@ send_callback(coap_callback_request_state_t* callback_state)
         {
             LOG_WARN("Message send failed with code (%u) '%.*s' (len=%d)\n",
                 response->code, response->payload_len, response->payload, response->payload_len);
+            task_in_use = false;
         }
 
         info.coap_status = response->code;
@@ -113,18 +175,21 @@ send_callback(coap_callback_request_state_t* callback_state)
     {
         LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
         coap_callback_in_use = false;
+        task_in_use = false;
     } break;
 
     case COAP_REQUEST_STATUS_BLOCK_ERROR:
     {
         LOG_ERR("Failed to send message with status %d (block error)\n", callback_state->state.status);
         coap_callback_in_use = false;
+        task_in_use = false;
     } break;
 
     default:
     {
         LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
         coap_callback_in_use = false;
+        task_in_use = false;
     } break;
     }
 
@@ -211,8 +276,13 @@ event_triggered_action(const char* data)
         return;
     }
 
-    coordinate_t source, destination;
-    if (!parse_input(data, &source, &destination))
+    if (task_in_use)
+    {
+        LOG_WARN("Cannot generate a new task, as in process of processing one\n");
+        return;
+    }
+
+    if (!parse_input(data, &task_src, &task_dest))
     {
         LOG_WARN("Invalid command '%s'\n", data);
         return;
@@ -224,18 +294,17 @@ event_triggered_action(const char* data)
         return;
     }
 
-    int len = generate_routing_request(msg_buf, sizeof(msg_buf), &source, &destination);
+    int len = generate_routing_request(msg_buf, sizeof(msg_buf), &task_src, &task_dest);
     if (len <= 0 || len > sizeof(msg_buf))
     {
         LOG_ERR("Failed to generated message (%d)\n", len);
         return;
     }
 
-    // TODO: %f isn't supported
     LOG_DBG("Generated message (len=%d) for path from (%f,%f) to (%f,%f)\n",
         len,
-        source.latitude, source.longitude,
-        destination.latitude, destination.longitude);
+        task_src.latitude, task_src.longitude,
+        task_dest.latitude, task_dest.longitude);
 
     // Choose an Edge node to send information to
     edge_resource_t* edge = choose_edge(ROUTING_APPLICATION_NAME);
@@ -272,6 +341,7 @@ event_triggered_action(const char* data)
     ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);
     if (ret)
     {
+        task_in_use = true;
         coap_callback_in_use = true;
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&edge->ep);
@@ -373,16 +443,13 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
         uint16_t b1_size;
         uint32_t b1_offset;
         ret = coap_get_header_block1(request, &b1_num, &b1_more, &b1_size, &b1_offset);
-        if (!ret)
-        {
-            LOG_ERR("Message does not include block1 header\n");
-            return;
-        }
-        else
-        {
-            LOG_DBG("block1: num=%" PRIu32 " more=%" PRIu8 " size=%" PRIu16 " offset=%" PRIu32 "\n",
-                b1_num, b1_more, b1_size, b1_offset);
-        }
+
+        // Must be okay as we've already checked if the block1 header is present
+        assert(ret);
+
+        LOG_DBG("block1: num=%" PRIu32 " more=%" PRIu8 " size=%" PRIu16 " offset=%" PRIu32 "\n",
+            b1_num, b1_more, b1_size, b1_offset);
+
 
         // Set up appropriate block1 headers in the response.
         // Don't need to provide target and length as we will
@@ -394,21 +461,45 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
             return;
         }
 
-        // TODO: Update trust model with success if the start and end are as expected
+        // Update trust model with success if the start and end are as expected
 
         // First block
         if (b1_num == 0)
         {
             // Check first item (origin) is as expected
+            nanocbor_value_t dec;
+            nanocbor_decoder_init(&dec, payload, payload_len);
+
+            coordinate_t first;
+            nanocbor_get_coordinate_from_payload(&dec, &first, 1);
+
+            first_src_isclose = isclose(first.latitude, task_src.latitude) && isclose(first.longitude, task_src.longitude);
         }
 
         // last block
         if (!b1_more)
         {
             // Check last item (destination) is as expected
-        }
+            nanocbor_value_t dec;
+            nanocbor_decoder_init(&dec, payload, payload_len);
 
-        // TODO: update trust model
+            coordinate_t last;
+            nanocbor_get_coordinate_from_payload(&dec, &last, -1);
+
+            // Update trust model
+            const bool last_dest_isclose = isclose(last.latitude, task_dest.latitude) && isclose(last.longitude, task_dest.longitude);
+
+            const tm_result_quality_info_t info = {
+                .good = (first_src_isclose && last_dest_isclose)
+            };
+
+            edge_resource_t* edge = edge_info_find_addr(&request->src_ep->ipaddr);
+            edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
+
+            tm_update_result_quality(edge, cap, &info);
+
+            task_in_use = false;
+        }
 
         // TODO: output this information for the client
     }
@@ -449,6 +540,7 @@ init(void)
 
     capability_count = 0;
     coap_callback_in_use = false;
+    task_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(routing_process, ev, data)
