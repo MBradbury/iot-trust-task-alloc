@@ -74,7 +74,7 @@ process_application_serial_message(const char* data, const char* data_end)
         applications_available[idx] = true;
 
         LOG_INFO("publishing add capability\n");
-        publish_add_capability(application_name);
+        publish_add_capability(application_name, true);
 
         // The add may fail at the receiving node because the Edge
         // has not announced itself. So lets also schedule a faster announce.
@@ -85,7 +85,7 @@ process_application_serial_message(const char* data, const char* data_end)
         applications_available[idx] = false;
 
         LOG_INFO("publishing remove capability\n");
-        publish_remove_capability(application_name);
+        publish_remove_capability(application_name, true);
     }
     else if (match_action(data, data_end, APPLICATION_SERIAL_APP))
     {

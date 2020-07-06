@@ -11,10 +11,10 @@ bool
 publish_unannounce(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
-publish_add_capability(const char* name);
+publish_add_capability(const char* name, bool include_certificate);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
-publish_remove_capability(const char* name);
+publish_remove_capability(const char* name, bool include_certificate);
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
 trigger_faster_publish(void);

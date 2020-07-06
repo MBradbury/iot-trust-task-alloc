@@ -63,6 +63,28 @@ get_global_address(uip_ip6addr_t* addr)
   return false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define CERTIFICATE_MESSAGE_LENGTH ((1) + (1 + /*3 +*/ sizeof(uip_ip6addr_t)) + (1) + (2 + DTLS_EC_KEY_SIZE*2) + (2 + DTLS_EC_KEY_SIZE*2))
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int
+format_certificate(nanocbor_encoder_t* enc)
+{
+    uip_ip6addr_t ip_addr;
+    int ret = get_global_address(&ip_addr);
+    if (!ret)
+    {
+        LOG_ERR("Failed to obtain global IP address\n");
+        return NANOCBOR_ERR_INVALID_TYPE;
+    }
+
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 4));
+    NANOCBOR_CHECK(nanocbor_fmt_ipaddr(enc, &ip_addr));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, DEVICE_CLASS));
+    NANOCBOR_CHECK(nanocbor_put_bstr(enc, (const uint8_t *)&our_key.pub_key, sizeof(our_key.pub_key)));
+    NANOCBOR_CHECK(nanocbor_put_bstr(enc, (const uint8_t *)&our_pubkey_sig, sizeof(our_pubkey_sig)));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 bool
 publish_announce(void)
 {
@@ -75,24 +97,11 @@ publish_announce(void)
         return false;
     }
 
-    uip_ip6addr_t ip_addr;
-    ret = get_global_address(&ip_addr);
-    if (!ret)
-    {
-        LOG_ERR("Failed to obtain global IP address\n");
-        return false;
-    }
-
-    uint8_t cbor_buffer[(1) + (1 + sizeof(uip_ip6addr_t)) + (1) + (2 + DTLS_EC_KEY_SIZE*2) + (2 + DTLS_EC_KEY_SIZE*2)];
+    uint8_t cbor_buffer[CERTIFICATE_MESSAGE_LENGTH];
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
-
-    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 4));
-    NANOCBOR_CHECK(nanocbor_fmt_ipaddr(&enc, &ip_addr));
-    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, DEVICE_CLASS));
-    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, (const uint8_t *)&our_key.pub_key, sizeof(our_key.pub_key)));
-    NANOCBOR_CHECK(nanocbor_put_bstr(&enc, (const uint8_t *)&our_pubkey_sig, sizeof(our_pubkey_sig)));
+    NANOCBOR_CHECK(format_certificate(&enc));
 
     LOG_DBG("Publishing announce [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 
@@ -121,7 +130,7 @@ publish_unannounce(void)
         return false;
     }
 
-    uint8_t cbor_buffer[(1) + (1 + sizeof(uip_ip6addr_t))];
+    uint8_t cbor_buffer[(1) + (1 + /*3 +*/ sizeof(uip_ip6addr_t))];
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
@@ -137,7 +146,7 @@ publish_unannounce(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
-publish_add_capability(const char* name)
+publish_add_capability(const char* name, bool include_certificate)
 {
     int ret;
 
@@ -149,22 +158,32 @@ publish_add_capability(const char* name)
         return false;
     }
 
-    uint8_t cbor_buffer[(1)];
+    uint8_t cbor_buffer[(1) + (1) + CERTIFICATE_MESSAGE_LENGTH];
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
-    NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_bool(&enc, include_certificate));
+
+    if (include_certificate)
+    {
+        NANOCBOR_CHECK(format_certificate(&enc));
+    }
+    else
+    {
+        NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
+    }
 
     LOG_DBG("Publishing add [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 
-    assert(nanocbor_encoded_len(&enc) == sizeof(cbor_buffer));
+    assert(nanocbor_encoded_len(&enc) <= sizeof(cbor_buffer));
 
     return mqtt_over_coap_publish(pub_topic, cbor_buffer, nanocbor_encoded_len(&enc));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
-publish_remove_capability(const char* name)
+publish_remove_capability(const char* name, bool include_certificate)
 {
     int ret;
 
@@ -176,16 +195,26 @@ publish_remove_capability(const char* name)
         return false;
     }
 
-    uint8_t cbor_buffer[(1)];
+    uint8_t cbor_buffer[(1) + (1) + CERTIFICATE_MESSAGE_LENGTH];
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
 
-    NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_bool(&enc, include_certificate));
+
+    if (include_certificate)
+    {
+        NANOCBOR_CHECK(format_certificate(&enc));
+    }
+    else
+    {
+        NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
+    }
 
     LOG_DBG("Publishing remove [topic=%s, datalen=%d]\n", pub_topic, nanocbor_encoded_len(&enc));
 
-    assert(nanocbor_encoded_len(&enc) == sizeof(cbor_buffer));
+    assert(nanocbor_encoded_len(&enc) <= sizeof(cbor_buffer));
 
     return mqtt_over_coap_publish(pub_topic, cbor_buffer, nanocbor_encoded_len(&enc));
 }
@@ -291,11 +320,11 @@ periodic_publish_capability(void)
     // Check if it is available
     if (applications_available[application_capability_publish_idx])
     {
-        ret = publish_add_capability(application_name);
+        ret = publish_add_capability(application_name, false);
     }
     else
     {
-        ret = publish_remove_capability(application_name);
+        ret = publish_remove_capability(application_name, false);
     }
 
     // Move onto next capability if we succeeded in publishing this one
