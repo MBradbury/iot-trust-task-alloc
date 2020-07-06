@@ -62,10 +62,31 @@ void peer_tm_print(const peer_tm_t* tm)
 static float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability)
 {
     float trust = 0;
-    float w;
+    float w_total = 0;
+    float w, e;
 
     w = find_trust_weight(capability->name, TRUST_METRIC_TASK_SUBMISSION);
-    trust += w * beta_dist_expected(&edge->tm.task_submission);
+    e = beta_dist_expected(&edge->tm.task_submission);
+    trust += w * e;
+    w_total += w;
+
+#if 0
+    w = find_trust_weight(capability->name, TRUST_METRIC_TASK_RESULT);
+    e = beta_dist_expected(&edge->tm.task_result);
+    trust += w * e;
+    w_total += w;
+
+    w = find_trust_weight(capability->name, TRUST_METRIC_RESULT_QUALITY);
+    e = beta_dist_expected(&capability->tm.result_quality);
+    trust += w * e;
+    w_total += w;
+#endif
+
+    // The weights should add up to be 1, check this
+    if (!isclose(w_total, 1.0f))
+    {
+        LOG_ERR("The trust weights should total up to be close to 1, they are %f\n", w_total);
+    }
 
     return trust;
 }
