@@ -36,6 +36,12 @@ class RoutingClient(client_common.Client):
     def __init__(self):
         super().__init__("routing")
         self.stats = Statistics()
+        self.executor = ProcessPoolExecutor(max_workers=1)
+
+    async def stop(self):
+        self.executor.shutdown()
+
+        await super().stop()
 
     async def receive(self, message: str):
         try:
@@ -48,7 +54,9 @@ class RoutingClient(client_common.Client):
 
             (time, routing_source, routing_destination) = payload
 
-            logger.debug(f"Received message at {dt} from {src} <time={time}, routing_source={routing_source}, routing_destination={routing_destination}>")
+            logger.debug(f"Received message at {dt} from {src} <time={time}, "
+                f"routing_source={routing_source}, "
+                f"routing_destination={routing_destination}>")
 
         except:
             logger.error(f"Failed to parse message '{message}'")
@@ -57,8 +65,7 @@ class RoutingClient(client_common.Client):
         task = (src, routing_source, routing_destination)
 
         loop = asyncio.get_running_loop()
-        with ProcessPoolExecutor() as pool:
-            task_result = await loop.run_in_executor(pool, _task_runner, task)
+        task_result = await loop.run_in_executor(self.executor, _task_runner, task)
 
         (dest, message_response, duration) = task_result
         
@@ -101,7 +108,11 @@ class RoutingClient(client_common.Client):
 
             elements = int(math.floor(available / per_item_cost_b64))
 
-            logger.debug(f"Sending routes chunk with {elements} items each [prefix_len={prefix_len}, available={available}, per_item_cost={per_item_cost}, per_item_cost_b64={per_item_cost_b64}]")
+            logger.debug(f"Sending routes chunk with {elements} items each ["
+                f"prefix_len={prefix_len}, "
+                f"available={available}, "
+                f"per_item_cost={per_item_cost}, "
+                f"per_item_cost_b64={per_item_cost_b64}]")
 
             route_chunks = list(chunks(route, elements))
 
@@ -152,7 +163,7 @@ class RoutingClient(client_common.Client):
 
 def _format_route(route):
     # By default using canonical=True will try to format floats
-    # in the smalklest possible representation.
+    # in the smallest possible representation.
     # As we only plan on using 4 byte floats on the sensor nodes,
     # we can save space by forcing the coordinates to fit in a 4 byte float.
 
