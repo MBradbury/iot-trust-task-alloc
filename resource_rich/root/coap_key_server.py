@@ -87,32 +87,24 @@ class COAPKeyServer(resource.Resource):
 
     async def render_get(self, request):
         """An MQTT Subscribe request"""
+
         try:
-        	request_address = ipaddress.IPv6Address(request.payload.decode("utf-8"))
-        except (ValueError, UnicodeDecodeError):
-            # Try parsing as bytes
-            if len(request.payload) == ipv6_byte_len:
-                try:
-                    request_address = ipaddress.IPv6Address(request.payload)
-                except ValueError:
-                    raise InvalidAddressRequest()
+            if request.opt.content_format == media_types_rev['text/plain;charset=utf-8']:
+                request_address = ipaddress.IPv6Address(request.payload.decode("utf-8"))
 
-            # Try parsing as bytes with a signature
-            elif len(request.payload) == ipv6_byte_len + curve_byte_len*2:
-                payload = request.payload[0:ipv6_byte_len]
+            elif request.opt.content_format == media_types_rev['application/octet-stream']:
+                request_address = ipaddress.IPv6Address(request.payload[0:ipv6_byte_len])
 
-                try:
-                    request_address = ipaddress.IPv6Address(payload)
-                except ValueError:
-                    raise InvalidAddressRequest()
-
-                try:
+                if len(request.payload) == ipv6_byte_len + curve_byte_len*2:
                     self.verify_request(request)
-                except InvalidSignature:
-                    raise InvalidSignatureRequest()
-
             else:
                 raise InvalidAddressRequest()
+
+        except InvalidSignature:
+            raise InvalidSignatureRequest()
+
+        except (ValueError, UnicodeDecodeError):
+            raise InvalidAddressRequest()
 
         logger.info(f"Received request for {request_address} from {request.remote}")
 

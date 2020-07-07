@@ -319,6 +319,8 @@ static void request_public_key_continued(void* data)
             // TODO: how to handle block-wise transfer?
         }
 
+        coap_set_header_content_format(&msg, APPLICATION_OCTET_STREAM);
+
         int ret = coap_send_request(&coap_callback, &server_ep, &msg, &request_public_key_callback);
         if (ret)
         {
@@ -356,7 +358,8 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
 
         if (response->code != CONTENT_2_05)
         {
-            LOG_ERR("Failed to request public key from key server %.*s\n", req_resp_len, (const char*)payload);
+            LOG_ERR("Failed to request public key from key server '%.*s' (%d)\n",
+                req_resp_len, (const char*)payload, response->code);
             in_use = false;
         }
         else
