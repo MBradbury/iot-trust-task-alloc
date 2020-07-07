@@ -20,16 +20,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("coap-key-server")
 logger.setLevel(logging.DEBUG)
 
-class InvalidAddressRequest(error.ConstructionRenderableError):
-    code = codes.BAD_REQUEST
+class InvalidAddressRequest(error.BadRequest):
     message = "Error: Invalid IP Address requested"
 
-class UnknownAddressRequest(error.ConstructionRenderableError):
-    code = codes.BAD_REQUEST
+class UnknownAddressRequest(error.NotFound):
     message = "Error: Unknown IP Address requested"
 
-class InvalidSignatureRequest(error.ConstructionRenderableError):
-    code = codes.BAD_REQUEST
+class InvalidSignatureRequest(error.BadRequest):
     message = "Error: Invalid signature requested"
 
 # This is the curve used by the sensor nodes to sign and verify messages
