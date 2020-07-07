@@ -149,7 +149,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM task_result (good=%d)", edge->name, cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM task_result (good=%d): ", edge->name, cap->name, info->good);
     beta_dist_print(&edge->tm.task_result);
     LOG_INFO_(" -> ");
 
@@ -168,7 +168,7 @@ void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const 
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, const tm_result_quality_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM result_quality (good=%d)", edge->name, cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM result_quality (good=%d): ", edge->name, cap->name, info->good);
     beta_dist_print(&cap->tm.result_quality);
     LOG_INFO_(" -> ");
 
