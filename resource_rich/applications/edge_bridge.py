@@ -25,9 +25,7 @@ class NodeSerialBridge:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
-        line = f"{edge_marker}start\n".encode("utf-8")
-        self.proc.stdin.write(line)
-        await self.proc.stdin.drain()
+        await self._inform_edge_bridge_started()
 
         # Start a server that applications can connect to
         self.server = await asyncio.start_server(
@@ -45,9 +43,7 @@ class NodeSerialBridge:
             await self.server.wait_closed()
 
         # If we are being stopped, then inform the sensor node application
-        line = f"{edge_marker}stop\n".encode("utf-8")
-        self.proc.stdin.write(line)
-        await self.proc.stdin.drain()
+        await self._inform_edge_bridge_stopped()
 
         # Stop the serial line
         if self.proc is not None:
@@ -71,7 +67,13 @@ class NodeSerialBridge:
             logger.warning(f"Unable to find local application {application_name} to forward message to")
 
     async def _run_serial(self):
+        loop = asyncio.get_event_loop()
+
         async for output in self.proc.stdout:
+            # Exit if the event loop has stopped
+            if not loop.is_running():
+                break
+
             # Timestamp this line
             now = datetime.datetime.now(datetime.timezone.utc)
 
@@ -117,6 +119,18 @@ class NodeSerialBridge:
         finally:
             del self.applications[application_name]
 
+    async def _inform_edge_bridge_started(self):
+        line = f"{edge_marker}start\n".encode("utf-8")
+        self.proc.stdin.write(line)
+        await self.proc.stdin.drain()
+        logger.debug("Sent start event")
+
+    async def _inform_edge_bridge_stopped(self):
+        line = f"{edge_marker}stop\n".encode("utf-8")
+        self.proc.stdin.write(line)
+        await self.proc.stdin.drain()
+        logger.debug("Sent stop event")
+
 
 async def do_run(service):
     await service.start()
@@ -139,6 +153,12 @@ async def shutdown(signal, loop, services):
 
     loop.stop()
 
+def exception_handler(loop, context, services):
+    logger.info(f"Exception raised: {context}")
+
+    # TODO: Gracefully stop services and notify sensor node we have shutdown
+    #loop.create_task(asyncio.gather(*[service.stop() for service in services], return_exceptions=True))
+
 def main(services):
     logger.info("Starting edge serial bridge")
 
@@ -148,6 +168,8 @@ def main(services):
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
     for sig in signals:
         loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, services)))
+
+    loop.set_exception_handler(lambda l, c: exception_handler(l, c, services))
 
     try:
         for service in services:
