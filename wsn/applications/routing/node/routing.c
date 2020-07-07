@@ -368,7 +368,7 @@ routing_response_process_status(coap_message_t *request)
     ret = nanocbor_get_uint32(&dec, &status);
     if (ret < 0)
     {
-        LOG_ERR("Failed to parse contents of task response\n");
+        LOG_ERR("Failed to parse contents of task response (ret=%d)\n", ret);
         status = ROUTING_PARSING_ERROR;
     }
 
