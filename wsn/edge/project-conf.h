@@ -19,8 +19,6 @@
 
 #define COAP_MAX_CHUNK_SIZE 256
 
-#define DEVICE_CLASS DEVICE_CLASS_RASPBERRY_PI
-
 // Enable coloured log prefix
 #define LOG_CONF_WITH_COLOR 1
 
@@ -28,3 +26,6 @@
 // messages we could like to send
 // TODO: Probably needs to be 512
 //#define SERIAL_LINE_CONF_BUFSIZE 256
+
+// Define device tags here
+#define DEVICE_CLASS DEVICE_CLASS_RASPBERRY_PI

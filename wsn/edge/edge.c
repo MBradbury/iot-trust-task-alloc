@@ -7,7 +7,7 @@
 #include "application-serial.h"
 #include "capability/capability.h"
 #include "serial-helpers.h"
-#include "stereotype.h"
+#include "stereotype-tags.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "edge"

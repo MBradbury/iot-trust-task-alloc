@@ -8,7 +8,7 @@
 
 #include "trust-common.h"
 #include "trust-model.h"
-#include "stereotype.h"
+#include "stereotype-tags.h"
 
 #include "coap-endpoint.h"
 

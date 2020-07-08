@@ -1,4 +1,4 @@
-#include "stereotype.h"
+#include "stereotype-tags.h"
 
 #include "os/sys/log.h"
 

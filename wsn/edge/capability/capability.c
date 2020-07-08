@@ -17,7 +17,7 @@
 #include "trust-common.h"
 #include "mqtt-over-coap.h"
 #include "keys.h"
-#include "stereotype.h"
+#include "stereotype-tags.h"
 
 #include "monitoring.h"
 
