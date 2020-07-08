@@ -316,20 +316,22 @@ static void request_public_key_continued(void* data)
         if (coap_payload_len < payload_len)
         {
             LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
-            // TODO: how to handle block-wise transfer?
-        }
-
-        coap_set_header_content_format(&msg, APPLICATION_OCTET_STREAM);
-
-        int ret = coap_send_request(&coap_callback, &server_ep, &msg, &request_public_key_callback);
-        if (ret)
-        {
-            LOG_DBG("coap_send_request req pk done\n");
+            in_use = false;
         }
         else
         {
-            LOG_ERR("coap_send_request req pk failed %d\n", ret);
-            in_use = false;
+            coap_set_header_content_format(&msg, APPLICATION_OCTET_STREAM);
+
+            int ret = coap_send_request(&coap_callback, &server_ep, &msg, &request_public_key_callback);
+            if (ret)
+            {
+                LOG_DBG("coap_send_request req pk done\n");
+            }
+            else
+            {
+                LOG_ERR("coap_send_request req pk failed %d\n", ret);
+                in_use = false;
+            }
         }
     }
     else
@@ -376,11 +378,6 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         }
     } break;
 
-    case COAP_REQUEST_STATUS_MORE:
-    {
-        LOG_ERR("Unhandled COAP_REQUEST_STATUS_MORE\n");
-    } break;
-
     case COAP_REQUEST_STATUS_FINISHED:
     {
         // Not truely finished yet here, need to wait for signature verification
@@ -397,21 +394,10 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         }
     } break;
 
-    case COAP_REQUEST_STATUS_TIMEOUT:
-    {
-        LOG_ERR("Failed to send message due to timeout\n");
-        in_use = false;
-    } break;
-
-    case COAP_REQUEST_STATUS_BLOCK_ERROR:
-    {
-        LOG_ERR("Failed to send message due to block error\n");
-        in_use = false;
-    } break;
-
     default:
     {
-        LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
+        LOG_ERR("Failed to send message due to %s(%d)\n",
+            coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         in_use = false;
     } break;
     }

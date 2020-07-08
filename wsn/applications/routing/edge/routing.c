@@ -204,11 +204,6 @@ send_callback(coap_callback_request_state_t* callback_state)
         }
     } break;
 
-    case COAP_REQUEST_STATUS_MORE:
-    {
-        LOG_ERR("Unhandled COAP_REQUEST_STATUS_MORE\n");
-    } break;
-
     case COAP_REQUEST_STATUS_FINISHED:
     {
         coap_callback_in_use = false;
@@ -218,21 +213,10 @@ send_callback(coap_callback_request_state_t* callback_state)
         ack_serial_input();
     } break;
 
-    case COAP_REQUEST_STATUS_TIMEOUT:
-    {
-        LOG_ERR("Failed to send message with status %d (timeout)\n", callback_state->state.status);
-        coap_callback_in_use = false;
-    } break;
-
-    case COAP_REQUEST_STATUS_BLOCK_ERROR:
-    {
-        LOG_ERR("Failed to send message with status %d (block error)\n", callback_state->state.status);
-        coap_callback_in_use = false;
-    } break;
-
     default:
     {
-        LOG_ERR("Failed to send message with status %d\n", callback_state->state.status);
+        LOG_ERR("Failed to send message due to %s(%d)\n",
+            coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         coap_callback_in_use = false;
     } break;
     }

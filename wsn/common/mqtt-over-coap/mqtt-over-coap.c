@@ -250,31 +250,15 @@ publish_callback(coap_callback_request_state_t *callback_state)
             response->code, response->payload_len);
     } break;
 
-    case COAP_REQUEST_STATUS_MORE:
-    {
-        LOG_ERR("MQTT publish: Unhandled COAP_REQUEST_STATUS_MORE\n");
-    } break;
-
     case COAP_REQUEST_STATUS_FINISHED:
     {
         coap_callback_in_use = false;
     } break;
 
-    case COAP_REQUEST_STATUS_TIMEOUT:
-    {
-        LOG_ERR("MQTT publish: Failed to send message due to timeout\n");
-        coap_callback_in_use = false;
-    } break;
-
-    case COAP_REQUEST_STATUS_BLOCK_ERROR:
-    {
-        LOG_ERR("MQTT publish: Failed to send message due to block error\n");
-        coap_callback_in_use = false;
-    } break;
-
     default:
     {
-        LOG_ERR("MQTT publish: Failed to send message with status %d\n", callback_state->state.status);
+        LOG_ERR("MQTT publish: Failed to send message with status %s(%d)\n",
+            coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         coap_callback_in_use = false;
     } break;
     }
