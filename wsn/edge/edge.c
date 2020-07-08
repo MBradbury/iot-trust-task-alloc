@@ -7,6 +7,7 @@
 #include "application-serial.h"
 #include "capability/capability.h"
 #include "serial-helpers.h"
+#include "stereotype.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "edge"
@@ -22,6 +23,10 @@ PROCESS(edge, "edge");
 const char* const application_names[APPLICATION_NUM] = APPLICATION_NAMES;
 bool applications_available[APPLICATION_NUM];
 bool resource_rich_edge_started;
+/*-------------------------------------------------------------------------------------------------------------------*/
+const stereotype_tags_t stereotype_tags = {
+    .device_class = DEVICE_CLASS
+};
 /*-------------------------------------------------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process, &keystore_req, &keystore_unver, APPLICATION_PROCESSES);
 /*-------------------------------------------------------------------------------------------------------------------*/

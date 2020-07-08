@@ -32,7 +32,7 @@ endif
 #MODULES += os/services/shell
 
 # Include application modules
-MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust crypto}
+MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust trust/stereotypes crypto}
 MODULES_REL += ./trust
 MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 

@@ -8,6 +8,7 @@
 
 #include "trust-common.h"
 #include "trust-model.h"
+#include "stereotype.h"
 
 #include "coap-endpoint.h"
 
@@ -32,7 +33,7 @@ typedef struct edge_resource
 
     bool active;
 
-    uint8_t device_class;
+    stereotype_tags_t tags;
 
     edge_resource_tm_t tm;
 
@@ -42,7 +43,7 @@ typedef struct edge_resource
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_info_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident, uint8_t device_class);
+edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident, const stereotype_tags_t* tags);
 void edge_info_remove(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_find_addr(const uip_ipaddr_t* addr);

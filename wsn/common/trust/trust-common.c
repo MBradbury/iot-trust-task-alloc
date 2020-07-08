@@ -72,7 +72,7 @@ static bool is_our_ident(const char* ident)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
-parse_certificate(nanocbor_value_t* dec, const uip_ipaddr_t** ip_addr, uint32_t* device_class,
+parse_certificate(nanocbor_value_t* dec, const uip_ipaddr_t** ip_addr, stereotype_tags_t* tags,
                   const ecdsa_secp256r1_pubkey_t** pubkey, const ecdsa_secp256r1_sig_t** sig)
 {
     nanocbor_value_t arr;
@@ -80,12 +80,7 @@ parse_certificate(nanocbor_value_t* dec, const uip_ipaddr_t** ip_addr, uint32_t*
 
     NANOCBOR_CHECK(nanocbor_get_ipaddr(&arr, ip_addr));
 
-    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, device_class));
-    if (*device_class < DEVICE_CLASS_MINIMUM || *device_class > DEVICE_CLASS_MAXIMUM)
-    {
-        LOG_ERR("Invalid device class %"PRIi32"\n", *device_class);
-        return -1;
-    }
+    NANOCBOR_CHECK(deserialise_stereotype_tags(&arr, tags));
 
     NANOCBOR_GET_OBJECT(&arr, pubkey);
     NANOCBOR_GET_OBJECT(&arr, sig);
@@ -100,7 +95,7 @@ parse_certificate(nanocbor_value_t* dec, const uip_ipaddr_t** ip_addr, uint32_t*
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
-process_certificate(const char* topic_identity, const uip_ipaddr_t* ip_addr, uint32_t device_class,
+process_certificate(const char* topic_identity, const uip_ipaddr_t* ip_addr, const stereotype_tags_t* tags,
                     const ecdsa_secp256r1_pubkey_t* pubkey, const ecdsa_secp256r1_sig_t* sig)
 {
     // We should add a record of other edge resources, but not ourselves.
@@ -110,7 +105,7 @@ process_certificate(const char* topic_identity, const uip_ipaddr_t* ip_addr, uin
         return -1;
     }
 
-    edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity, device_class);
+    edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity, tags);
     if (edge_resource != NULL)
     {
         LOG_DBG("Received certificate for %s with address ", topic_identity);
@@ -156,12 +151,12 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     nanocbor_decoder_init(&dec, chunk, chunk_len);
 
     const uip_ipaddr_t* ip_addr;
-    uint32_t device_class;
+    stereotype_tags_t tags;
     const ecdsa_secp256r1_pubkey_t* pubkey;
     const ecdsa_secp256r1_sig_t* sig;
-    NANOCBOR_CHECK(parse_certificate(&dec, &ip_addr, &device_class, &pubkey, &sig));
+    NANOCBOR_CHECK(parse_certificate(&dec, &ip_addr, &tags, &pubkey, &sig));
 
-    return process_certificate(topic_identity, ip_addr, device_class, pubkey, sig);
+    return process_certificate(topic_identity, ip_addr, &tags, pubkey, sig);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
@@ -229,11 +224,11 @@ mqtt_publish_capability_add_handler(const char* topic_identity, const char* capa
     if (certificate_included)
     {
         const uip_ipaddr_t* ip_addr;
-        uint32_t device_class;
+        stereotype_tags_t tags;
         const ecdsa_secp256r1_pubkey_t* pubkey;
         const ecdsa_secp256r1_sig_t* sig;
-        NANOCBOR_CHECK(parse_certificate(&arr, &ip_addr, &device_class, &pubkey, &sig));
-        process_certificate(topic_identity, ip_addr, device_class, pubkey, sig);
+        NANOCBOR_CHECK(parse_certificate(&arr, &ip_addr, &tags, &pubkey, &sig));
+        process_certificate(topic_identity, ip_addr, &tags, pubkey, sig);
     }
     else
     {
@@ -296,11 +291,11 @@ mqtt_publish_capability_remove_handler(const char* topic_identity, const char* c
     if (certificate_included)
     {
         const uip_ipaddr_t* ip_addr;
-        uint32_t device_class;
+        stereotype_tags_t tags;
         const ecdsa_secp256r1_pubkey_t* pubkey;
         const ecdsa_secp256r1_sig_t* sig;
-        NANOCBOR_CHECK(parse_certificate(&arr, &ip_addr, &device_class, &pubkey, &sig));
-        process_certificate(topic_identity, ip_addr, device_class, pubkey, sig);
+        NANOCBOR_CHECK(parse_certificate(&arr, &ip_addr, &tags, &pubkey, &sig));
+        process_certificate(topic_identity, ip_addr, &tags, pubkey, sig);
     }
     else
     {

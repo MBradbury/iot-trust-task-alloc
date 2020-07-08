@@ -17,6 +17,7 @@
 #include "trust-common.h"
 #include "mqtt-over-coap.h"
 #include "keys.h"
+#include "stereotype.h"
 
 #include "monitoring.h"
 
@@ -46,6 +47,8 @@ static uint8_t announce_short_count;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static uint8_t application_capability_publish_idx;
 /*-------------------------------------------------------------------------------------------------------------------*/
+extern const stereotype_tags_t stereotype_tags;
+/*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 get_global_address(uip_ip6addr_t* addr)
 {
@@ -63,7 +66,8 @@ get_global_address(uip_ip6addr_t* addr)
   return false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define CERTIFICATE_MESSAGE_LENGTH ((1) + (1 + /*3 +*/ sizeof(uip_ip6addr_t)) + (1) + (2 + DTLS_EC_KEY_SIZE*2) + (2 + DTLS_EC_KEY_SIZE*2))
+#define CERTIFICATE_MESSAGE_LENGTH ((1) + (1 + /*3 +*/ sizeof(uip_ip6addr_t)) + STEREOTYPE_TAGS_CBOR_MAX_LEN + \
+                                    (2 + DTLS_EC_KEY_SIZE*2) + (2 + DTLS_EC_KEY_SIZE*2))
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
 format_certificate(nanocbor_encoder_t* enc)
@@ -78,7 +82,7 @@ format_certificate(nanocbor_encoder_t* enc)
 
     NANOCBOR_CHECK(nanocbor_fmt_array(enc, 4));
     NANOCBOR_CHECK(nanocbor_fmt_ipaddr(enc, &ip_addr));
-    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, DEVICE_CLASS));
+    NANOCBOR_CHECK(serialise_stereotype_tags(enc, &stereotype_tags));
     NANOCBOR_CHECK(nanocbor_put_bstr(enc, (const uint8_t *)&our_key.pub_key, sizeof(our_key.pub_key)));
     NANOCBOR_CHECK(nanocbor_put_bstr(enc, (const uint8_t *)&our_pubkey_sig, sizeof(our_pubkey_sig)));
 
