@@ -10,6 +10,7 @@ import pickle
 import os
 
 import asyncio_mqtt
+import asyncio_mqtt.error
 import paho.mqtt.client as mqtt
 
 import aiocoap
@@ -20,6 +21,10 @@ import aiocoap.resource as resource
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mqtt-coap-bridge")
 logger.setLevel(logging.DEBUG)
+
+class MQTTToCoAPError(error.ConstructionRenderableError):
+    def __init__(self, mqtt_error_code):
+        super().__init__(mqtt.error_string(mqtt_error_code))
 
 def mqtt_message_to_str(message):
     """__str__ impelementation for https://github.com/eclipse/paho.mqtt.python/blob/master/src/paho/mqtt/client.py#L355"""
@@ -116,15 +121,33 @@ class COAPConnector(resource.Resource):
 
     async def render_get(self, request):
         """An MQTT Subscribe request"""
-        return await self.bridge.coap_to_mqtt_subscribe(request)
+        try:
+            return await self.bridge.coap_to_mqtt_subscribe(request)
+
+        except asyncio_mqtt.error.MqttCodeError as ex:
+            raise MQTTToCoAPError(ex.rc)
+        except ValueError as ex:
+            raise error.BadRequest(str(ex))
 
     async def render_delete(self, request):
         """An MQTT unsubscribe request"""
-        return await self.bridge.coap_to_mqtt_unsubscribe(request)
+        try:
+            return await self.bridge.coap_to_mqtt_unsubscribe(request)
+
+        except asyncio_mqtt.error.MqttCodeError as ex:
+            raise MQTTToCoAPError(ex.rc)
+        except ValueError as ex:
+            raise error.BadRequest(str(ex))
 
     async def render_put(self, request):
         """An MQTT publish request"""
-        return await self.bridge.coap_to_mqtt_publish(request)
+        try:
+            return await self.bridge.coap_to_mqtt_publish(request)
+
+        except asyncio_mqtt.error.MqttCodeError as ex:
+            raise MQTTToCoAPError(ex.rc)
+        except ValueError as ex:
+            raise error.BadRequest(str(ex))
 
 
 class MQTTConnector:
@@ -159,11 +182,11 @@ class MQTTCOAPBridge:
         # Try and load saved subscriptions
         topics = self.manager.deserialise()
         for topic in topics:
-            result = await self.mqtt_connector.client.subscribe(topic)
-            if result[0] != mqtt.MQTT_ERR_SUCCESS:
-                logger.error(f"Failed to subscribe to {topic} due to {mqtt.error_string(result[0])}")
-            else:
+            try:
+                await self.mqtt_connector.client.subscribe(topic)
                 logger.info(f"Subscribe to saved topic {topic}")
+            except MqttCodeError as ex:
+                logger.error(f"Failed to subscribe to {topic} due to {mqtt.error_string(ex.rc)}")
 
     async def stop(self):
         await self.mqtt_connector.stop()
@@ -173,19 +196,11 @@ class MQTTCOAPBridge:
         host = self._coap_request_extract_host(request)
 
         if await self.manager.should_subscribe(topic, host):
-            try:
-                result = await self.mqtt_connector.client.subscribe(topic)
+            await self.mqtt_connector.client.subscribe(topic)
 
-                if result[0] == mqtt.MQTT_ERR_SUCCESS:
-                    result = aiocoap.Message(payload=b"", code=codes.CREATED)
-                else:
-                    result = aiocoap.Message(payload=mqtt.error_string(result[0]).encode("utf-8"), code=codes.INTERNAL_SERVER_ERROR)
-
-            except Exception as ex:
-                result = aiocoap.Message(payload=f"{ex}".encode("utf-8"), code=codes.BAD_REQUEST)
-        else:
-            # Already subscribed, so just say things were fine
-            result = aiocoap.Message(payload=b"", code=codes.CREATED)
+        # Subscribe succeeded, or
+        # Already subscribed, so just say things were fine.
+        result = aiocoap.Message(payload=b"", code=codes.CREATED)
 
         # Update local table of clients who are subscribed
         if result.code == codes.CREATED:
@@ -201,19 +216,11 @@ class MQTTCOAPBridge:
         host = self._coap_request_extract_host(request)
 
         if await self.manager.should_unsubscribe(topic, host):
-            try:
-                result = await self.mqtt_connector.client.unsubscribe(topic)
+            await self.mqtt_connector.client.unsubscribe(topic)
 
-                if result[0] == mqtt.MQTT_ERR_SUCCESS:
-                    result = aiocoap.Message(payload=b"", code=codes.DELETED)
-                else:
-                    result = aiocoap.Message(payload=mqtt.error_string(result[0]).encode("utf-8"), code=codes.INTERNAL_SERVER_ERROR)
-
-            except Exception as ex:
-                result = aiocoap.Message(payload=f"{ex}".encode("utf-8"), code=codes.BAD_REQUEST)
-        else:
-            # Not currently subscribed, so just say things were fine
-            result = aiocoap.Message(payload=b"", code=codes.DELETED)
+        # Ubsubscribe succeeded, or
+        # Not currently subscribed, so just say things were fine.
+        result = aiocoap.Message(payload=b"", code=codes.DELETED)
 
         # Update local table of clients who are subscribed
         if result.code == codes.DELETED:
@@ -228,14 +235,11 @@ class MQTTCOAPBridge:
         topic = self._coap_request_extract_mqtt_topic(request)
         host = self._coap_request_extract_host(request)
 
-        try:
-            await self.mqtt_connector.client.publish(topic, request.payload, qos=1)
+        await self.mqtt_connector.client.publish(topic, request.payload, qos=1)
 
-            logger.info(f"Published {request.payload} to {topic} from {host}")
+        logger.info(f"Published {request.payload} to {topic} from {host}")
 
-            result = aiocoap.Message(payload=b"", code=codes.CONTENT)
-        except Exception as ex:
-            result = aiocoap.Message(payload=f"{ex}".encode("utf-8"), code=codes.BAD_REQUEST)
+        result = aiocoap.Message(payload=b"", code=codes.CONTENT)
 
         return result
 
@@ -253,7 +257,8 @@ class MQTTCOAPBridge:
 
     async def forward_mqtt(self, payload, topic, target):
         """Forward an MQTT message to a coap target"""
-        message = aiocoap.Message(code=codes.POST, payload=payload, uri=f"coap://[{target}]:{self.coap_target_port}/mqtt?t={topic}")
+        message = aiocoap.Message(code=codes.POST, payload=payload,
+                                  uri=f"coap://[{target}]:{self.coap_target_port}/mqtt?t={topic}")
 
         logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
