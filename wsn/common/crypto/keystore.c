@@ -10,6 +10,7 @@
 #include "coap-callback-api.h"
 
 #include "crypto-support.h"
+#include "keystore-oscore.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "keystore"
@@ -289,6 +290,9 @@ bool request_public_key(const uip_ip6addr_t* addr)
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
     coap_set_header_uri_path(&msg, "key");
+    coap_set_header_content_format(&msg, APPLICATION_OCTET_STREAM);
+
+    coap_set_random_token(&msg);
 
     memcpy(key_req_payload, addr, sizeof(*addr));
 
@@ -320,8 +324,6 @@ static void request_public_key_continued(void* data)
         }
         else
         {
-            coap_set_header_content_format(&msg, APPLICATION_OCTET_STREAM);
-
             int ret = coap_send_request(&coap_callback, &server_ep, &msg, &request_public_key_callback);
             if (ret)
             {

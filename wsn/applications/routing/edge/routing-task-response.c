@@ -155,6 +155,8 @@ process_task_resp_send_status(pyroutelib3_status_t status)
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, nanocbor_encoded_len(&enc));
 
+    coap_set_random_token(&msg);
+
 #ifdef WITH_OSCORE
     keystore_protect_coap_with_oscore(&msg, &ep);
 #endif
@@ -189,6 +191,8 @@ process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
     coap_set_header_uri_path(&msg, ROUTING_APPLICATION_URI);
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, len);
+
+    coap_set_random_token(&msg);
 
     // i starts at 0
     const bool coap_block1_more = ((i + 1) != n);

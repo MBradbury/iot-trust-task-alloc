@@ -76,7 +76,7 @@ typedef struct {
 
 PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool
+bool
 crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
 {
     if (buffer == NULL)
@@ -85,13 +85,18 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
     }
 
     // random_rand return a uint16_t
-    assert((size_in_bytes % sizeof(uint16_t)) == 0);
 
     uint16_t* buffer_u16 = (uint16_t*)buffer;
 
-    for (int i = 0; i < size_in_bytes / sizeof(uint16_t); ++i)
+    for (size_t i = 0; i < size_in_bytes / sizeof(uint16_t); ++i)
     {
         buffer_u16[i] = random_rand();
+    }
+
+    // Handle leftover byte
+    if ((size_in_bytes % sizeof(uint16_t)) != 0)
+    {
+        buffer[size_in_bytes-1] = (uint8_t)random_rand();
     }
 
     return true;

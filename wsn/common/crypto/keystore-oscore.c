@@ -1,6 +1,7 @@
 #include "keystore-oscore.h"
 #include "keystore.h"
 #include "oscore.h"
+#include "crypto-support.h"
 
 #include "os/sys/log.h"
 
@@ -11,6 +12,14 @@
 #else
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+void coap_set_random_token(coap_message_t* request)
+{
+    // See: https://tools.ietf.org/html/rfc7252#section-5.3.1
+
+    crypto_fill_random(request->token, COAP_TOKEN_LEN);
+    request->token_len = COAP_TOKEN_LEN;
+}
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifdef WITH_OSCORE
 bool keystore_protect_coap_with_oscore(coap_message_t* request, const coap_endpoint_t* ep)

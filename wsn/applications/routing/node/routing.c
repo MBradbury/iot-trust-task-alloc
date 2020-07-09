@@ -316,6 +316,8 @@ event_triggered_action(const char* data)
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, len);
 
+    coap_set_random_token(&msg);
+
 #ifdef WITH_OSCORE
     keystore_protect_coap_with_oscore(&msg, &edge->ep);
 #endif

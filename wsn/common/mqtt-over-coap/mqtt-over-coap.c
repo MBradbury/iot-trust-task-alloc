@@ -11,6 +11,7 @@
 #include "coap-callback-api.h"
 
 #include "crypto-support.h"
+#include "keystore-oscore.h"
 
 #include <string.h>
 #include <strings.h>
@@ -187,6 +188,10 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
 
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, coap_payload, data_len);
+
+    // TODO: This prevents aiocoap from properly responding, disable for now.
+    // Will need to be enabled again in the future when enabling OSCORE for this message.
+    //coap_set_random_token(&msg);
 
     ret = coap_send_request(&coap_callback, &server_ep, &msg, publish_callback);
     if (ret)
@@ -376,35 +381,16 @@ subscribe_callback(coap_callback_request_state_t *callback_state)
         }
     } break;
 
-    case COAP_REQUEST_STATUS_MORE:
-    {
-        LOG_ERR("Unhandled COAP_REQUEST_STATUS_MORE\n");
-    } break;
-
     case COAP_REQUEST_STATUS_FINISHED:
     {
         subscribe_callback_end();
     } break;
 
-    case COAP_REQUEST_STATUS_TIMEOUT:
-    {
-        LOG_ERR("Failed to subscribe to topic %s due to timeout\n", topics_to_suscribe[i]);
-        
-        topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
-        subscribe_callback_end();
-    } break;
-
-    case COAP_REQUEST_STATUS_BLOCK_ERROR:
-    {
-        LOG_ERR("Failed to subscribe to topic %s due to block error\n", topics_to_suscribe[i]);
-
-        topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
-        subscribe_callback_end();
-    } break;
-
     default:
     {
-        LOG_ERR("Failed to subscribe to topic %s with status %d\n", topics_to_suscribe[i], callback_state->state.status);
+        LOG_ERR("Failed to subscribe to topic %s: Failed to send message with status %s(%d)\n",
+            topics_to_suscribe[i],
+            coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
 
         topic_subscribe_status[i] = TOPIC_STATE_NOT_SUBSCRIBED;
         subscribe_callback_end();

@@ -24,6 +24,7 @@
 #include "trust-common.h"
 #include "crypto-support.h"
 #include "keystore.h"
+#include "keystore-oscore.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust"
@@ -226,6 +227,7 @@ static bool periodic_action(void)
     coap_init_message(&item->msg, COAP_TYPE_NON, COAP_POST, 0);
     coap_set_header_content_format(&item->msg, APPLICATION_CBOR);
     coap_set_header_uri_path(&item->msg, TRUST_COAP_URI);
+    coap_set_random_token(&item->msg);
 
     int payload_len = serialise_trust(NULL, item->payload_buf, MAX_TRUST_PAYLOAD);
     if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
