@@ -40,7 +40,7 @@ void edge_capability_add_common(edge_resource_t* edge, const char* uri)
         keystore_pin(key);
 
 #ifdef WITH_OSCORE
-        oscore_ep_ctx_set_association(&edge->ep, uri, &key->context);
+        //oscore_ep_ctx_set_association(&edge->ep, uri, &key->context);
 #endif
     }
     else
@@ -62,7 +62,7 @@ void edge_capability_remove_common(edge_resource_t* edge, const char* uri)
     LOG_DBG("Removing context and unpinning %s's keys\n", edge->name);
 
 #ifdef WITH_OSCORE
-    oscore_remove_ep_ctx(&edge->ep, uri);
+    //oscore_remove_ep_ctx(&edge->ep, uri);
 #endif
 
     // unpin keys for this edge node

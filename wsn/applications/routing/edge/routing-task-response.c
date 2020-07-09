@@ -10,6 +10,7 @@
 
 #ifdef WITH_OSCORE
 #include "oscore.h"
+#include "keystore-oscore.h"
 #endif
 
 #include "nanocbor-helper.h"
@@ -153,6 +154,10 @@ process_task_resp_send_status(pyroutelib3_status_t status)
     coap_set_header_uri_path(&msg, ROUTING_APPLICATION_URI);
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, nanocbor_encoded_len(&enc));
+
+#ifdef WITH_OSCORE
+    keystore_protect_coap_with_oscore(&msg, &ep);
+#endif
 
     ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)

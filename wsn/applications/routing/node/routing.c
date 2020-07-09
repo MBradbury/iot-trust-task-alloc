@@ -25,6 +25,7 @@
 
 #ifdef WITH_OSCORE
 #include "oscore.h"
+#include "keystore-oscore.h"
 #endif
 
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -310,12 +311,14 @@ event_triggered_action(const char* data)
         //return;
     }
 
-    // TODO: encrypt and sign message
-
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
     coap_set_header_uri_path(&msg, ROUTING_APPLICATION_URI);
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, len);
+
+#ifdef WITH_OSCORE
+    keystore_protect_coap_with_oscore(&msg, &edge->ep);
+#endif
 
     // Save the edge that this task is being submitted to
     coap_callback.state.user_data = edge;
