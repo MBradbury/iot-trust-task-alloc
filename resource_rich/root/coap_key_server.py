@@ -98,7 +98,7 @@ class COAPKeyServer(resource.Resource):
                 if len(request.payload) == ipv6_byte_len + curve_byte_len*2:
                     self.verify_request(request)
             else:
-                raise InvalidAddressRequest()
+                raise error.UnsupportedContentFormat()
 
         except InvalidSignature:
             raise InvalidSignatureRequest()
@@ -169,7 +169,7 @@ def main(key_dir, coap_target_port):
         loop.run_forever()
     finally:
         loop.close()
-        logger.info("Successfully shutdown the mqtt-coap bridge.")
+        logger.info("Successfully shutdown the coap key server.")
 
 if __name__ == "__main__":
     import sys
