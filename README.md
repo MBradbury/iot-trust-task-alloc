@@ -130,6 +130,11 @@ cd ~/iot-trust-task-alloc/resource_rich/root
 ./root_server.py -k keystore
 ```
 
+You might want to consider running in developer mode with warnings on:
+```bash
+python3 -X dev -W default root_server.py -k keystore
+```
+
 3. On Observer for Sensor Nodes
 
 ```bash
