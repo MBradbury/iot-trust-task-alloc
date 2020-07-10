@@ -38,6 +38,11 @@ MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 
 include ../common/nanocbor/Makefile.include
 
+ifeq ($(MAKE_WITH_PCAP),1)
+    CFLAGS += -DMAKE_WITH_PCAP=1
+    MODULES_REL += ../common/pcap
+endif
+
 # MQTT configuration
 CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=4
 
