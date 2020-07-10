@@ -18,6 +18,7 @@ available_trust_models = list(os.listdir("wsn/common/trust/models"))
 
 parser = argparse.ArgumentParser(description='Setup')
 parser.add_argument('trust_model', type=str, choices=available_trust_models, help='The trust model to use')
+parser.add_argument('--with-pcap', action='store_true', help='Enable capturing and outputting pcap dumps from the nodes')
 args = parser.parse_args()
 
 print(f"Using trust model {args.trust_model}")
@@ -95,9 +96,19 @@ for (target, ip) in ips.items():
     create_static_keys(ip)
     shutil.move("setup/static-keys.c", "wsn/common/crypto/static-keys.c")
 
+    build_args = {
+        "BUILD_NUMBER": build_number,
+        "TRUST_MODEL": args.trust_model
+    }
+
+    if args.with_pcap:
+        build_args["MAKE_WITH_PCAP"] = "1"
+
+    build_args_str = " ".join(f"{k}={v}" for (k,v) in build_args.items())
+
     for binary in binaries:
-        print(f"Building {binary}")
-        subprocess.run(f"make -C wsn/{binary} BUILD_NUMBER={build_number} TRUST_MODEL={args.trust_model}", shell=True, check=True)
+        print(f"Building {binary} with '{build_args}'")
+        subprocess.run(f"make -C wsn/{binary} {build_args_str}", shell=True, check=True)
         shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
 
     shutil.move("wsn/common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
