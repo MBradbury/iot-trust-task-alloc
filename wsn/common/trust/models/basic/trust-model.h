@@ -7,9 +7,6 @@
 struct edge_resource;
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define HAS_TRUST_METRIC_TASK_SUBMISSION
-//#define HAS_TRUST_METRIC_TASK_RESULT
-//#define HAS_TRUST_METRIC_ANNOUNCE
 // Per-Edge interactions
 typedef struct edge_resource_tm {
     // When submitting a task, did the Edge accept it correctly?
@@ -28,8 +25,6 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm);
 /*-------------------------------------------------------------------------------------------------------------------*/
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-//#define HAS_TRUST_METRIC_RESULT_QUALITY
-//#define HAS_TRUST_METRIC_RESULT_LATENCY
 // Per-Application of Edge interactions
 typedef struct edge_capability_tm {
     // Was the result correct or not (nodes do not have the capability to evaluate response 'goodness')
@@ -45,7 +40,6 @@ void edge_capability_tm_print(const edge_capability_tm_t* tm);
 /*-------------------------------------------------------------------------------------------------------------------*/
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-//#define HAS_TRUST_METRIC_TASK_OBSERVATION
 typedef struct peer_tm {
     // Did the peer deliver a task observation when it was expected?
     //beta_dist_t task_observation;
