@@ -6,6 +6,7 @@ import signal
 
 from coap_key_server import COAPKeyServer
 from mqtt_coap_bridge import MQTTCOAPBridge
+from stereotype_server import StereotypeServer
 
 import aiocoap
 import aiocoap.resource as resource
@@ -13,6 +14,10 @@ import aiocoap.resource as resource
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("root-server")
 logger.setLevel(logging.DEBUG)
+
+# Get logging from aiocoap
+logging.getLogger("coap").setLevel(logging.DEBUG)
+logging.getLogger("coap-server").setLevel(logging.DEBUG)
 
 async def shutdown(signal, loop, bridge):
     """Cleanup tasks tied to the service's shutdown."""
@@ -22,6 +27,8 @@ async def shutdown(signal, loop, bridge):
 
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
     for task in tasks:
+        if task.done():
+            continue
         task.cancel()
 
     logger.info(f"Cancelling {len(tasks)} outstanding tasks...")
@@ -51,6 +58,9 @@ def main(coap_target_port,
 
     bridge = MQTTCOAPBridge(mqtt_database, coap_target_port)
     coap_site.add_resource(['mqtt'], bridge.coap_connector)
+
+    stereotype = StereotypeServer()
+    coap_site.add_resource(['stereotype'], stereotype)
 
     # May want to catch other signals too
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)

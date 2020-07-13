@@ -2,6 +2,7 @@
 #include "edge-info.h"
 #include "peer-info.h"
 #include "trust-models.h"
+#include "stereotypes.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -592,5 +593,7 @@ trust_common_init(void)
     pe_edge_capability_remove = process_alloc_event();
 
     trust_weights_init();
+
+    stereotypes_init();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

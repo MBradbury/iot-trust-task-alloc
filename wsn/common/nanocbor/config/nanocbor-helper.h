@@ -28,6 +28,7 @@
         } \
     } while (0)
 
-int nanocbor_fmt_ipaddr(nanocbor_encoder_t *enc, const uip_ip6addr_t *addr);
+#define IPV6ADDR_CBOR_MAX_LEN ((1) + (16))
 
+int nanocbor_fmt_ipaddr(nanocbor_encoder_t *enc, const uip_ip6addr_t *addr);
 int nanocbor_get_ipaddr(nanocbor_value_t *cvalue, const uip_ip6addr_t **addr);
