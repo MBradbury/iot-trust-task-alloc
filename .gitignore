@@ -1,12 +1,17 @@
-*.zoul
-wsn/*/build
+# Build artifacts
 Makefile.target
+setup
+wsn/*/build
+wsn/common/crypto/static-keys.c
+*.pem
+*.zoul
+
+# Project Editing
 *.sublime-project
 *.sublime-workspace
-resource_rich/root/mqtt_coap_bridge.pickle
-*.pem
-wsn/common/crypto/static-keys.c
-*/keystore
-setup
+
+# Application-specific temporary files and directories
 __pycache__
 tilescache
+*.pickle
+*.pcap
