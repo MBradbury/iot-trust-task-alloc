@@ -72,6 +72,7 @@ cd iot-trust-task-alloc && git submodule update --init
 
 ```bash
 sudo apt-get install git python3-pip python3-dev pipenv
+python3 -m pip install scapy pyserial
 ```
 
 ```bash
