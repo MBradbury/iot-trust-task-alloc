@@ -26,6 +26,9 @@ class MQTTToCoAPError(error.ConstructionRenderableError):
     def __init__(self, mqtt_error_code):
         super().__init__(mqtt.error_string(mqtt_error_code))
 
+class MissingMQTTTopic(error.BadRequest):
+    message = "Error: MQTT topic not provided"
+
 def mqtt_message_to_str(message):
     """__str__ impelementation for https://github.com/eclipse/paho.mqtt.python/blob/master/src/paho/mqtt/client.py#L355"""
     return ", ".join(f"{slot}={getattr(message, slot, None)}" for slot in type(message).__slots__)
@@ -92,9 +95,6 @@ class SubscriptionManager:
 
         return list(self._subscriptions.keys())
 
-class MissingMQTTTopic(error.ConstructionRenderableError):
-    code = codes.BAD_REQUEST
-    message = "Error: MQTT topic not provided"
 
 class COAPConnector(resource.Resource):
     def __init__(self, bridge):
@@ -235,9 +235,11 @@ class MQTTCOAPBridge:
         topic = self._coap_request_extract_mqtt_topic(request)
         host = self._coap_request_extract_host(request)
 
+        # TODO: the request content_format should be passed as a property
+        # and then set when the publish is received from the MQTT server
         await self.mqtt_connector.client.publish(topic, request.payload, qos=1)
 
-        logger.info(f"Published {request.payload} to {topic} from {host}")
+        logger.info(f"Published message of length {len(request.payload)} for {topic} from {host}")
 
         result = aiocoap.Message(payload=b"", code=codes.CONTENT)
 
@@ -249,7 +251,6 @@ class MQTTCOAPBridge:
         logger.info(f"MQTT pushed {mqtt_message_to_str(message)} forwarding to {subscribers}")
 
         # Push via CoAP to all subscribed clients
-        # TODO: need to handle error.RequestTimedOut from forward_mqtt
         await asyncio.gather(*[
             self.forward_mqtt(message.payload, message.topic, subscriber)
             for subscriber in subscribers
@@ -262,14 +263,14 @@ class MQTTCOAPBridge:
 
         logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
+        response = None
+
         try:
-            response = await self.context.request(message).response
+            response = await asyncio.wait_for(self.context.request(message).response, timeout=10)
 
             logger.info(f"Forwarding MQTT over CoAP to {target} response: {response}")
-        except error.RequestTimedOut as ex:
+        except (asyncio.TimeoutError, error.RequestTimedOut) as ex:
             logger.warning(f"Forwarding MQTT over CoAP to {target} timed out {ex}")
-
-            response = None
 
         return response
 
@@ -295,6 +296,8 @@ async def shutdown(signal, loop, bridge):
 
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
     for task in tasks:
+        if task.done():
+            continue
         task.cancel()
 
     logger.info(f"Cancelling {len(tasks)} outstanding tasks...")
