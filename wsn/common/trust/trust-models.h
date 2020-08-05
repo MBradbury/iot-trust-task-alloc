@@ -52,7 +52,6 @@ typedef struct {
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     bool good;
-
 } tm_task_result_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
@@ -61,12 +60,25 @@ typedef struct {
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     bool good;
-
 } tm_result_quality_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
 
 } tm_result_latency_info_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef enum {
+    TM_CHALLENGE_RESPONSE_ACK,
+    TM_CHALLENGE_RESPONSE_RESP
+} tm_challenge_response_type_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+    tm_challenge_response_type_t type;
+
+    coap_status_t coap_status;
+    coap_request_status_t coap_request_status;
+
+    bool challenge_successful;
+} tm_challenge_response_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
 
@@ -77,5 +89,6 @@ void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const 
 void tm_update_announce(edge_resource_t* edge, edge_capability_t* cap, const tm_announce_info_t* info);
 void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, const tm_result_quality_info_t* info);
 void tm_update_result_latency(edge_resource_t* edge, edge_capability_t* cap, const tm_result_latency_info_t* info);
+void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info);
 void tm_update_task_observation(peer_t* peer, const tm_task_observation_info_t* info);
 /*-------------------------------------------------------------------------------------------------------------------*/
