@@ -1,5 +1,5 @@
 #include "routing.h"
-#include "edge-routing.h"
+#include "routing-edge.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
