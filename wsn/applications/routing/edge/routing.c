@@ -1,5 +1,5 @@
-#include "routing.h"
 #include "routing-edge.h"
+#include "applications.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -15,7 +15,7 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-routing_stats_t routing_stats;
+application_stats_t routing_stats;
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(routing_process, ROUTING_APPLICATION_NAME);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -27,11 +27,7 @@ init(void)
 
     init_trust_weights_routing();
 
-    // Set to a default value
-    routing_stats.mean = 0;
-    routing_stats.minimum = 0;
-    routing_stats.maximum = 0;
-    routing_stats.variance = 0;
+    application_stats_init(&routing_stats);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(routing_process, ev, data)

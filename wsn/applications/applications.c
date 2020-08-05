@@ -4,6 +4,8 @@
 #include "os/sys/log.h"
 #include "os/lib/assert.h"
 
+#include "nanocbor-helper.h"
+
 #ifdef WITH_OSCORE
 #include "oscore.h"
 #endif
@@ -72,5 +74,58 @@ void edge_capability_remove_common(edge_resource_t* edge, const char* uri)
     assert(key != NULL);
 
     keystore_unpin(key);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void application_stats_init(application_stats_t* application_stats)
+{
+    application_stats->mean = 0;
+    application_stats->minimum = 0;
+    application_stats->maximum = 0;
+    application_stats->variance = 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int format_application_stats(const application_stats_t* application_stats, uint8_t* buffer, size_t len)
+{
+    nanocbor_encoder_t enc;
+    nanocbor_encoder_init(&enc, buffer, len);
+
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 4));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, application_stats->mean));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, application_stats->maximum));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, application_stats->minimum));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, application_stats->variance));
+
+    return nanocbor_encoded_len(&enc);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int format_nil_application_stats(uint8_t* buffer, size_t len)
+{
+    nanocbor_encoder_t enc;
+    nanocbor_encoder_init(&enc, buffer, len);
+
+    NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
+
+    return nanocbor_encoded_len(&enc);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int get_application_stats(nanocbor_value_t* dec, application_stats_t* application_stats)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &application_stats->mean));
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &application_stats->maximum));
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &application_stats->minimum));
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &application_stats->variance));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        LOG_ERR("!nanocbor_leave_container\n");
+        return -1;
+    }
+
+    nanocbor_leave_container(dec, &arr);
+
+    return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

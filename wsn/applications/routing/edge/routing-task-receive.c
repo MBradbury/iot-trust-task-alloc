@@ -1,4 +1,5 @@
-#include "edge-routing.h"
+#include "routing-edge.h"
+#include "applications.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -23,33 +24,7 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-extern routing_stats_t routing_stats;
-/*-------------------------------------------------------------------------------------------------------------------*/
-static int
-format_result_stats(uint8_t* buffer, size_t len)
-{
-    nanocbor_encoder_t enc;
-    nanocbor_encoder_init(&enc, buffer, len);
-
-    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 4));
-    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, routing_stats.mean));
-    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, routing_stats.maximum));
-    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, routing_stats.minimum));
-    NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, routing_stats.variance));
-
-    return nanocbor_encoded_len(&enc);
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static int
-format_nil_stats(uint8_t* buffer, size_t len)
-{
-    nanocbor_encoder_t enc;
-    nanocbor_encoder_init(&enc, buffer, len);
-
-    NANOCBOR_CHECK(nanocbor_fmt_null(&enc));
-
-    return nanocbor_encoded_len(&enc);
-}
+extern application_stats_t routing_stats;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
@@ -92,11 +67,11 @@ post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer,
     // TODO: need to implement some sort of ack feature
 
     // Set response - the stats of how long jobs might take
-    int len = format_result_stats(response_buffer, sizeof(response_buffer));
+    int len = format_application_stats(&routing_stats, response_buffer, sizeof(response_buffer));
     if (len <= 0)
     {
         LOG_ERR("Failed to include job stats in response\n");
-        len = format_nil_stats(response_buffer, sizeof(response_buffer));
+        len = format_nil_application_stats(response_buffer, sizeof(response_buffer));
     }
 
     if (len >= 0)

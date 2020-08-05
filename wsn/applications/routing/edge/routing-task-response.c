@@ -1,4 +1,5 @@
-#include "edge-routing.h"
+#include "routing-edge.h"
+#include "applications.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -26,12 +27,12 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-extern routing_stats_t routing_stats;
+extern application_stats_t routing_stats;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
 process_task_stats(const char* data, const char* data_end)
 {
-    routing_stats_t scn;
+    application_stats_t scn;
 
     uint8_t buffer[(1) + (1 + 4)*4];
     size_t buffer_len = sizeof(buffer);
@@ -44,25 +45,11 @@ process_task_stats(const char* data, const char* data_end)
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, buffer, buffer_len);
 
-    nanocbor_value_t arr;
-    NANOCBOR_CHECK(nanocbor_enter_array(&dec, &arr));
-
-    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &scn.mean));
-    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &scn.maximum));
-    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &scn.minimum));
-    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &scn.variance));
-
-    if (!nanocbor_at_end(&arr))
-    {
-        LOG_ERR("!nanocbor_leave_container 2\n");
-        return -1;
-    }
-
-    nanocbor_leave_container(&dec, &arr);
+    NANOCBOR_CHECK(get_application_stats(&dec, &scn));
 
     if (!nanocbor_at_end(&dec))
     {
-        LOG_ERR("!nanocbor_leave_container 3\n");
+        LOG_ERR("!nanocbor_leave_container\n");
         return -1;
     }
 
