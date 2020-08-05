@@ -15,7 +15,10 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 void coap_set_random_token(coap_message_t* request)
 {
-    // See: https://tools.ietf.org/html/rfc7252#section-5.3.1
+    // See: https://tools.ietf.org/html/rfc7252#section-5.3.
+    // Given this is a 64-bit random token and we are sending few messages
+    // the probability of a collision is fairly low (~10 in 18 quintillion),
+    // not taking into account bias in the PRNG.
 
     crypto_fill_random(request->token, COAP_TOKEN_LEN);
     request->token_len = COAP_TOKEN_LEN;

@@ -84,7 +84,7 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
         return false;
     }
 
-    // random_rand return a uint16_t
+    // random_rand returns a uint16_t
 
     uint16_t* buffer_u16 = (uint16_t*)buffer;
 
@@ -113,7 +113,6 @@ uint32_t dtls_uint8x4_to_uint32_left(const uint8_t* field)
 static void
 ec_uint8v_to_uint32v(const uint8_t* data, size_t size_in_bytes, uint32_t* result)
 {
-    // dtls_ec_key_to_uint32l
     // The data provided in key is expected to be encoded in big-endian
     /*
         x-: 2D98EA01 F754D34B BC3003DF 5050200A BF445EC7 28556D7E D7D5C54C 55552B6D // Orig
