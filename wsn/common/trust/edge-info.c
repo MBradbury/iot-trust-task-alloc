@@ -6,14 +6,6 @@
 #include "coap-constants.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#ifndef NUM_EDGE_RESOURCES
-#define NUM_EDGE_RESOURCES 4
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
-#ifndef NUM_EDGE_CAPABILITIES
-#define NUM_EDGE_CAPABILITIES 2
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL

@@ -13,6 +13,14 @@
 #include "coap-endpoint.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef NUM_EDGE_RESOURCES
+#define NUM_EDGE_RESOURCES 4
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef NUM_EDGE_CAPABILITIES
+#define NUM_EDGE_CAPABILITIES 2
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_capability
 {
     struct edge_capability *next;
