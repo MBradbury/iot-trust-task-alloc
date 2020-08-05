@@ -39,7 +39,7 @@ void edge_capability_tm_init(edge_capability_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
 {
-    printf("EdgeResourceTM(");
+    printf("EdgeCapTM(");
     printf("ResQual=");
     dist_print(&tm->result_quality);
     //printf(",Latency=");
@@ -54,7 +54,7 @@ void peer_tm_init(peer_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_tm_print(const peer_tm_t* tm)
 {
-    printf("EdgeResourceTM(");
+    printf("PeerTM(");
     //printf("TaskObserve=");
     //dist_print(&tm->task_observation);
     printf(")");

@@ -16,8 +16,7 @@ void edge_resource_tm_init(edge_resource_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_resource_tm_print(const edge_resource_tm_t* tm)
 {
-    printf("EdgeResourceTM(TaskSub=");
-    printf(")");
+    printf("EdgeResourceTM()");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_init(edge_capability_tm_t* tm)
@@ -26,8 +25,7 @@ void edge_capability_tm_init(edge_capability_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
 {
-    printf("EdgeResourceTM(ResQual=");
-    printf(")");
+    printf("EdgeCapTM()");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_tm_init(peer_tm_t* tm)
@@ -36,8 +34,7 @@ void peer_tm_init(peer_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_tm_print(const peer_tm_t* tm)
 {
-    printf("EdgeResourceTM(TaskObserve=");
-    printf(")");
+    printf("PeerTM()");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* choose_edge(const char* capability_name)
