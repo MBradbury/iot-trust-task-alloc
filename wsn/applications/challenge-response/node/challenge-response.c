@@ -153,8 +153,6 @@ send_callback(coap_callback_request_state_t* callback_state)
                 response->code, response->payload_len, response->payload, response->payload_len);
         }
 
-        // TODO: need to record with challenger ack status
-
         info.coap_status = response->code;
     } break;
 

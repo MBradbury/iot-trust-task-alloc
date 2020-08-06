@@ -75,15 +75,24 @@ typedef enum {
 typedef struct {
     tm_challenge_response_type_t type;
 
-    // TM_CHALLENGE_RESPONSE_ACK
-    coap_status_t coap_status;
-    coap_request_status_t coap_request_status;
+    union {
+        // TM_CHALLENGE_RESPONSE_ACK
+        struct {
+            coap_status_t coap_status;
+            coap_request_status_t coap_request_status;
+        };
 
-    // TM_CHALLENGE_RESPONSE_TIMEOUT
-    bool never_received, received_late;
+        // TM_CHALLENGE_RESPONSE_TIMEOUT
+        struct {
+            bool never_received;
+            bool received_late;
+        };
 
-    // TM_CHALLENGE_RESPONSE_RESP
-    bool challenge_successful;
+        // TM_CHALLENGE_RESPONSE_RESP
+        struct {
+            bool challenge_successful;
+        };
+    };
 } tm_challenge_response_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
