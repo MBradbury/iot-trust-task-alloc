@@ -83,7 +83,8 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
             (info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05);
 
         // Only update if we don't get an ack
-        should_update = !good;
+        // and this is not COAP_REQUEST_STATUS_FINISHED
+        should_update = !good && (info->coap_request_status != COAP_REQUEST_STATUS_FINISHED);
 
     } break;
 
