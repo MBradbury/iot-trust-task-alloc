@@ -118,12 +118,13 @@ send_callback(coap_callback_request_state_t* callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
+static void
 process_task_resp_send_result(size_t len)
 {
     if (coap_callback_in_use)
     {
-        return -1;
+        LOG_ERR("CoAP coallback in use so cannot send task response\n");
+        return;
     }
 
     int ret;
@@ -147,8 +148,6 @@ process_task_resp_send_result(size_t len)
     {
         LOG_ERR("Failed to send message with %d\n", ret);
     }
-
-    return 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
