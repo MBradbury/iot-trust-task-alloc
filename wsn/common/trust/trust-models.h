@@ -68,15 +68,21 @@ typedef struct {
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef enum {
     TM_CHALLENGE_RESPONSE_ACK,
+    TM_CHALLENGE_RESPONSE_TIMEOUT,
     TM_CHALLENGE_RESPONSE_RESP
 } tm_challenge_response_type_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     tm_challenge_response_type_t type;
 
+    // TM_CHALLENGE_RESPONSE_ACK
     coap_status_t coap_status;
     coap_request_status_t coap_request_status;
 
+    // TM_CHALLENGE_RESPONSE_TIMEOUT
+    bool never_received, received_late;
+
+    // TM_CHALLENGE_RESPONSE_RESP
     bool challenge_successful;
 } tm_challenge_response_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
