@@ -14,7 +14,10 @@ class Client:
         self.reader = None
         self.writer = None
 
+        # This comes from Contiki-NG's circular buffer
+        # Currently there is no way to increase this value
         self.max_serial_len = 128
+
         self.message_prefix = f"{application_edge_marker}{self.name}{serial_sep}"
 
     async def receive(self, message: str):
