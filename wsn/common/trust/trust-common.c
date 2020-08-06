@@ -258,7 +258,7 @@ mqtt_publish_capability_add_handler(const char* topic_identity, const char* capa
         return -1;
     }
 
-    LOG_DBG("Added capability (%s) for edge with identity %s\n", capability_name, edge->name);
+    LOG_INFO("Added capability (%s) for edge with identity %s\n", capability_name, edge->name);
 
     // We have at least one Edge resource to support this application, so we need to inform the process
     struct process* proc = find_process_with_name(capability_name);
@@ -333,7 +333,7 @@ mqtt_publish_capability_remove_handler(const char* topic_identity, const char* c
     bool result = edge_info_capability_remove(edge, capability);
     if (result)
     {
-        LOG_DBG("Removed capability %s from %s\n", capability_name, edge->name);
+        LOG_INFO("Removed capability %s from %s\n", capability_name, edge->name);
     }
     else
     {
