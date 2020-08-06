@@ -16,7 +16,7 @@ int nanocbor_fmt_challenge(uint8_t* buf, size_t buf_len, const challenge_t* c)
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, buf, buf_len);
 
-    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_array(&enc, 3));
     NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, c->difficulty));
     NANOCBOR_CHECK(nanocbor_put_bstr(&enc, c->data, sizeof(c->data)));
     NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, c->max_duration_secs));
