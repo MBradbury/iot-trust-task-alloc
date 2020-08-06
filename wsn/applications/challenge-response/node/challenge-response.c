@@ -30,15 +30,15 @@
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef CHALLENGE_DIFFICULTY
-#define CHALLENGE_DIFFICULTY 4
+#define CHALLENGE_DIFFICULTY 2
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef CHALLENGE_DURATION
-#define CHALLENGE_DURATION (2 * 60) // seconds
+#define CHALLENGE_DURATION (20) // seconds
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef CHALLENGE_PERIOD
-#define CHALLENGE_PERIOD (1 * 60 * CLOCK_SECOND)
+#define CHALLENGE_PERIOD (2 * 60 * CLOCK_SECOND)
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" CHALLENGE_RESPONSE_APPLICATION_NAME
