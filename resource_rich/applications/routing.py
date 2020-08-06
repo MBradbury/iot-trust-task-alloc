@@ -36,7 +36,9 @@ class RoutingClient(client_common.Client):
     def __init__(self):
         super().__init__("routing")
         self.stats = Statistics()
-        self.executor = ProcessPoolExecutor(max_workers=1)
+        self.executor = ProcessPoolExecutor(max_workers=2)
+
+        self.ack_cond = asyncio.Condition()
 
     async def stop(self):
         self.executor.shutdown()
@@ -44,6 +46,11 @@ class RoutingClient(client_common.Client):
         await super().stop()
 
     async def receive(self, message: str):
+        if message.endswith(f"{serial_sep}ack"):
+            async with self.ack_cond:
+                self.ack_cond.notify()
+            return
+
         try:
             dt, src, payload_len, payload = message.split(serial_sep, 3)
 
@@ -143,9 +150,8 @@ class RoutingClient(client_common.Client):
         await self._receive_ack()
 
     async def _receive_ack(self):
-        write_ack = (await self.reader.readline()).decode("utf-8")
-        if not write_ack.endswith(f"{serial_sep}ack\n"):
-            logger.error(f"Ack string was not in expected format {write_ack!r}")
+        async with self.ack_cond:
+            await self.ack_cond.wait()
 
     def _stats_string(self):
         try:

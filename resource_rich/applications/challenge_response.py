@@ -28,7 +28,9 @@ class ChallengeResponseClient(client_common.Client):
     def __init__(self):
         super().__init__("cr")
         self.stats = Statistics()
-        self.executor = ProcessPoolExecutor(max_workers=1)
+        self.executor = ProcessPoolExecutor(max_workers=2)
+
+        self.ack_cond = asyncio.Condition()
 
     async def stop(self):
         self.executor.shutdown()
@@ -36,6 +38,11 @@ class ChallengeResponseClient(client_common.Client):
         await super().stop()
 
     async def receive(self, message: str):
+        if message.endswith(f"{serial_sep}ack"):
+            async with self.ack_cond:
+                self.ack_cond.notify()
+            return
+
         try:
             dt, src, payload_len, payload = message.split(serial_sep, 3)
 
@@ -83,9 +90,8 @@ class ChallengeResponseClient(client_common.Client):
         await self._receive_ack()
 
     async def _receive_ack(self):
-        write_ack = (await self.reader.readline()).decode("utf-8")
-        if not write_ack.endswith(f"{serial_sep}ack\n"):
-            logger.error(f"Ack string was not in expected format {write_ack!r}")
+        async with self.ack_cond:
+            await self.ack_cond.wait()
 
     def _stats_string(self):
         try:
@@ -134,9 +140,9 @@ def _task_runner(task):
     duration = end_timer - start_timer
 
     if timeout:
-        logger.warning(f"Job {task} took {duration} seconds and failed to find prefix")
+        logger.warning(f"Job {task} took {duration} seconds and {prefix_int} iterations and failed to find prefix")
     else:
-        logger.info(f"Job {task} took {duration} seconds and found prefix {prefix}")
+        logger.info(f"Job {task} took {duration} seconds and {prefix_int} iterations and found prefix {prefix}")
 
     return (src, prefix if not timeout else b"", duration)
 

@@ -40,7 +40,9 @@ class Client:
 
             line = line.decode("utf-8").rstrip()
 
-            await self.receive(line)
+            # Create task here to allow multiple jobs from clients to be
+            # processed simultaneously (fi they wish)
+            asyncio.create_task(self.receive(line))
 
     async def stop(self):
         # When stopping, we need to inform the edge that this application is no longer available
@@ -94,9 +96,10 @@ async def shutdown(signal, loop, services):
     loop.stop()
 
 def exception_handler(loop, context, services):
-    #logger.info(f"Stopping services tasks...")
+    logger.info(f"Exception raised: {context}")
+
+    # TODO: Gracefully stop services and notify sensor node we have shutdown
     #loop.create_task(asyncio.gather(*[service.stop() for service in services], return_exceptions=True))
-    pass
 
 def main(name, main_service, services=None):
     if services is None:
