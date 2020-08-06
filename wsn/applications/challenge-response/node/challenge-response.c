@@ -186,12 +186,13 @@ check_response_received(void)
         const bool received_late = next_challenge->received > next_challenge->generated + duration;
 
         // Only check if we have previously sent a challenge
-        if ((next_challenge->generated != 0 && next_challenge->received) && (never_received || received_late))
+        if ((next_challenge->generated != 0 && next_challenge->received != 0) && (never_received || received_late))
         {
-            LOG_WARN("Failed to receive challenge response from %s in a suitable time (gen=%lu,recv=%lu,dur=%lu)",
+            LOG_WARN("Failed to receive challenge response from %s in a suitable time (gen=%lu,recv=%lu,diff=%lu,dur=%lu)\n",
                 next_challenge->edge->name,
                 next_challenge->generated,
                 next_challenge->received,
+                next_challenge->received - next_challenge->generated,
                 duration
             );
 
@@ -278,7 +279,7 @@ periodic_action(void)
 #endif
 
     // Save the edge that this task is being submitted to
-    coap_callback.state.user_data = next_challenge;
+    coap_callback.state.user_data = edge;
 
     // Regord when we sent this challenge
     next_challenge->generated = clock_time();
