@@ -140,7 +140,8 @@ bool stereotypes_request(const edge_resource_t* edge)
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, nanocbor_encoded_len(&enc));
 
-    coap_set_random_token(&msg);
+    // Not yet with aiocoap
+    //coap_set_random_token(&msg);
 
 /*#ifdef WITH_OSCORE
     keystore_protect_coap_with_oscore(&msg, &server_ep);
