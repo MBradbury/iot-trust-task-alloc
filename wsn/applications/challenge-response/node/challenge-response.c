@@ -38,7 +38,7 @@
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef CHALLENGE_PERIOD
-#define CHALLENGE_PERIOD (2 * 60 * CLOCK_SECOND)
+#define CHALLENGE_PERIOD (clock_time_t)(1 * 60 * CLOCK_SECOND)
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" CHALLENGE_RESPONSE_APPLICATION_NAME
@@ -53,6 +53,9 @@ typedef struct edge_challenger {
 
     edge_resource_t* edge;
     challenge_t ch;
+
+    clock_time_t generated;
+    clock_time_t received;
 
 } edge_challenger_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -85,17 +88,34 @@ find_edge_challenger(edge_resource_t* edge)
 static void
 move_to_next_challenge(void)
 {
-    // Ready to send to next head
-    next_challenge = list_item_next(next_challenge);
+    LOG_DBG("Moving to next challenge ");
+
+    // Move to next challenge, if there is one
+    if (next_challenge != NULL)
+    {
+        LOG_DBG_("currently %s ", next_challenge->edge->name);
+
+        next_challenge = list_item_next(next_challenge);
+
+        if (next_challenge != NULL)
+        {
+            LOG_DBG_("setting to %s ", next_challenge->edge->name);
+        }
+    }
+    else
+    {
+        LOG_DBG_("currently NULL ");
+    }
+    
+    // If there is no next challenge, move back to the list's head
     if (next_challenge == NULL)
     {
         next_challenge = list_head(challenge_timers);
+
+        LOG_DBG_("setting to %s ", next_challenge == NULL ? "NULL" : next_challenge->edge->name);
     }
 
-    if (next_challenge != NULL)
-    {
-        etimer_reset(&challenge_timer);
-    }
+    LOG_DBG_("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -157,9 +177,47 @@ send_callback(coap_callback_request_state_t* callback_state)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
+check_response_received(void)
+{
+    // Was there a previous challenge request and did we get a response?
+    if (next_challenge != NULL)
+    {
+        const clock_time_t duration = CHALLENGE_DURATION * CLOCK_SECOND;
+
+        const bool never_received = next_challenge->received <= next_challenge->generated;
+        const bool received_late = next_challenge->received > next_challenge->generated + duration;
+
+        // Only check if we have previously sent a challenge
+        if ((next_challenge->generated != 0 && next_challenge->received) && (never_received || received_late))
+        {
+            LOG_WARN("Failed to receive challenge response from %s in a suitable time (gen=%lu,recv=%lu,dur=%lu)",
+                next_challenge->edge->name,
+                next_challenge->generated,
+                next_challenge->received,
+                duration
+            );
+
+            const tm_challenge_response_info_t info = {
+                .type = TM_CHALLENGE_RESPONSE_TIMEOUT,
+                .never_received = never_received,
+                .received_late = received_late,
+            };
+
+            tm_update_challenge_response(next_challenge->edge, &info);
+
+            // Reset generation / receive counters
+            next_challenge->generated = 0;
+            next_challenge->received = 0;
+        }
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
 periodic_action(void)
 {
     int ret;
+
+    check_response_received();
 
     if (coap_callback_in_use)
     {
@@ -223,6 +281,9 @@ periodic_action(void)
 
     // Save the edge that this task is being submitted to
     coap_callback.state.user_data = next_challenge;
+
+    // Regord when we sent this challenge
+    next_challenge->generated = clock_time();
 
     ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);
     if (ret)
@@ -357,6 +418,9 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
         goto end;
     }
 
+    // Record when the response was received
+    challenger->received = clock_time();
+
     // Get the challenge response
     challenge_response_t cr;
     ret = nanocbor_get_challenge_response(payload, payload_len, &cr);
@@ -372,12 +436,14 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
     uint8_t digest[SHA256_DIGEST_LEN_BYTES];
     if (sha256_hash_challenge_response(&challenger->ch, &cr, digest) != CRYPTO_SUCCESS)
     {
-        LOG_ERR("Change response hash failed\n");
+        LOG_ERR("Challenge response hash failed\n");
         goto end;
     }
 
     // Check that digest meets the difficulty requirement
     info.challenge_successful = check_first_n_zeros(digest, sizeof(digest), challenger->ch.difficulty);
+
+    LOG_INFO("Challenge response from %s %s\n", edge->name, info.challenge_successful ? "succeeded" : "failed");
 
     // Update trust model
 end:
@@ -393,11 +459,6 @@ edge_capability_add(edge_resource_t* edge)
 
     edge_capability_add_common(edge, CHALLENGE_RESPONSE_APPLICATION_URI);
 
-    if (capability_count == 1)
-    {
-        etimer_set(&challenge_timer, CHALLENGE_PERIOD);
-    }
-
     edge_challenger_t* c = memb_alloc(&challenge_timer_memb);
     if (c == NULL)
     {
@@ -406,12 +467,14 @@ edge_capability_add(edge_resource_t* edge)
     else
     {
         c->edge = edge;
+        c->generated = 0;
+        c->received = 0;
 
         list_push(challenge_timers, c);
 
         if (next_challenge == NULL)
         {
-            next_challenge = c;
+            move_to_next_challenge();
         }
     }
 }
@@ -425,11 +488,6 @@ edge_capability_remove(edge_resource_t* edge)
 
     edge_capability_remove_common(edge, CHALLENGE_RESPONSE_APPLICATION_URI);
 
-    if (capability_count == 0)
-    {
-        etimer_stop(&challenge_timer);
-    }
-
     edge_challenger_t* c = find_edge_challenger(edge);
     if (c == NULL)
     {
@@ -439,7 +497,7 @@ edge_capability_remove(edge_resource_t* edge)
     {
         if (next_challenge == c)
         {
-            next_challenge = list_item_next(c);
+            move_to_next_challenge();
         }
 
         list_remove(challenge_timers, c);
@@ -465,6 +523,8 @@ init(void)
     list_init(challenge_timers);
 
     next_challenge = NULL;
+
+    etimer_set(&challenge_timer, CHALLENGE_PERIOD);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(challenge_response_process, ev, data)
@@ -479,6 +539,7 @@ PROCESS_THREAD(challenge_response_process, ev, data)
 
         if (ev == PROCESS_EVENT_TIMER && data == &challenge_timer) {
             periodic_action();
+            etimer_reset(&challenge_timer);
         }
 
         if (ev == pe_edge_capability_add) {
