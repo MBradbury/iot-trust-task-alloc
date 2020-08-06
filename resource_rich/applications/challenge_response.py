@@ -117,7 +117,7 @@ def _task_runner(task):
             timeout = True
             break
 
-        prefix = prefix_int.to_bytes((x.bit_length() + 7) // 8, byteorder='big')
+        prefix = prefix_int.to_bytes((prefix_int.bit_length() + 7) // 8, byteorder='big')
 
         m = hashlib.sha256()
         m.update(prefix)
