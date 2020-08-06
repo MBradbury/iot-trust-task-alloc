@@ -30,8 +30,8 @@ class MonitoringClient(client_common.Client):
 
             logger.debug(f"Received message at {dt} from {src} <time={time}, temp={temp}, vdd3={vdd3}>")
 
-        except:
-            logger.error(f"Failed to parse message '{message}'")
+        except Exception as ex:
+            logger.error(f"Failed to parse message '{message}' with {ex}")
             return
 
         # TODO: do something with this message

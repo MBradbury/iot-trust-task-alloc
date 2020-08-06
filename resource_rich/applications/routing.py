@@ -58,8 +58,8 @@ class RoutingClient(client_common.Client):
                 f"routing_source={routing_source}, "
                 f"routing_destination={routing_destination}>")
 
-        except:
-            logger.error(f"Failed to parse message '{message}'")
+        except Exception as ex:
+            logger.error(f"Failed to parse message '{message}' with {ex}")
             return
 
         task = (src, routing_source, routing_destination)

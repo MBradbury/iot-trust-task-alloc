@@ -7,7 +7,6 @@ import asyncio
 import logging
 from datetime import datetime
 import ipaddress
-import struct
 import time
 from concurrent.futures import ProcessPoolExecutor
 import math
@@ -20,12 +19,6 @@ import client_common
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-challenge-response")
 logger.setLevel(logging.DEBUG)
-
-# From: https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
 
 class ChallengeResponseClient(client_common.Client):
 
@@ -57,8 +50,8 @@ class ChallengeResponseClient(client_common.Client):
                 f"difficulty={difficulty}, "
                 f"data={data}>")
 
-        except:
-            logger.error(f"Failed to parse message '{message}'")
+        except Exception as ex:
+            logger.error(f"Failed to parse message '{message}' with {ex}")
             return
 
         task = (src, difficulty, data, max_duration)
