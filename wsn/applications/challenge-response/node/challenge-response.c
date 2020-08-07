@@ -59,8 +59,8 @@ typedef struct edge_challenger {
 
 } edge_challenger_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
-MEMB(challenge_timer_memb, edge_challenger_t, NUM_EDGE_RESOURCES);
-LIST(challenge_timers);
+MEMB(challengers_memb, edge_challenger_t, NUM_EDGE_RESOURCES);
+LIST(challengers);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
@@ -74,7 +74,7 @@ static struct etimer challenge_timer;
 static edge_challenger_t*
 find_edge_challenger(edge_resource_t* edge)
 {
-    for (edge_challenger_t* iter = list_head(challenge_timers); iter != NULL; iter = list_item_next(iter))
+    for (edge_challenger_t* iter = list_head(challengers); iter != NULL; iter = list_item_next(iter))
     {
         if (iter->edge == edge)
         {
@@ -110,7 +110,7 @@ move_to_next_challenge(void)
     // If there is no next challenge, move back to the list's head
     if (next_challenge == NULL)
     {
-        next_challenge = list_head(challenge_timers);
+        next_challenge = list_head(challengers);
 
         LOG_DBG_("setting to %s ", next_challenge == NULL ? "NULL" : next_challenge->edge->name);
     }
@@ -469,7 +469,7 @@ edge_capability_add(edge_resource_t* edge)
         etimer_set(&challenge_timer, CHALLENGE_PERIOD);
     }
 
-    edge_challenger_t* c = memb_alloc(&challenge_timer_memb);
+    edge_challenger_t* c = memb_alloc(&challengers_memb);
     if (c == NULL)
     {
         LOG_ERR("Failed to allocate edge_challenger\n");
@@ -480,7 +480,7 @@ edge_capability_add(edge_resource_t* edge)
         c->generated = 0;
         c->received = 0;
 
-        list_push(challenge_timers, c);
+        list_push(challengers, c);
 
         if (next_challenge == NULL)
         {
@@ -515,8 +515,8 @@ edge_capability_remove(edge_resource_t* edge)
             move_to_next_challenge();
         }
 
-        list_remove(challenge_timers, c);
-        memb_free(&challenge_timer_memb, c);
+        list_remove(challengers, c);
+        memb_free(&challengers_memb, c);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -534,8 +534,8 @@ init(void)
     capability_count = 0;
     coap_callback_in_use = false;
 
-    memb_init(&challenge_timer_memb);
-    list_init(challenge_timers);
+    memb_init(&challengers_memb);
+    list_init(challengers);
 
     next_challenge = NULL;
 }
