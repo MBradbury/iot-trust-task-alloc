@@ -305,11 +305,6 @@ sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t*
 {
     sha256_state_t sha256_state;
 
-    // Poll the watchdog to keep us alive
-    // A reset was seen later on in the execution (after res_coap_cr_post_handler returns)
-    // But as this is a potentially expensive operation let poll here
-    watchdog_periodic();
-
     bool enabled = CRYPTO_IS_ENABLED();
     if (!enabled)
     {
@@ -351,9 +346,6 @@ end:
     {
         crypto_disable();
     }
-
-    // Poll the watchdog to keep us alive
-    watchdog_periodic();
 
     return ret;
 }
