@@ -12,11 +12,11 @@
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef GENERATE_ROUTE_MIN_PERIOD
-#define GENERATE_ROUTE_MIN_PERIOD (2 * 60)
+#define GENERATE_ROUTE_MIN_PERIOD (5 * 60)
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef GENERATE_ROUTE_MAX_PERIOD
-#define GENERATE_ROUTE_MAX_PERIOD (5 * 60)
+#define GENERATE_ROUTE_MAX_PERIOD (15 * 60)
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" ROUTING_APPLICATION_NAME
@@ -31,7 +31,8 @@ static struct process* routing_application;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void init(void)
 {
-    etimer_set(&generate_route_timer, GENERATE_ROUTE_MIN_PERIOD * CLOCK_SECOND);
+    uint16_t rnd_period = random_in_range_unbiased(GENERATE_ROUTE_MIN_PERIOD, GENERATE_ROUTE_MAX_PERIOD);
+    etimer_set(&generate_route_timer, rnd_period * CLOCK_SECOND);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void periodic_event(void)
