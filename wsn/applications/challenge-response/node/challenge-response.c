@@ -387,6 +387,9 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
 {
     int ret;
 
+    // Record the time
+    const clock_time_t received = clock_time();
+
     const char* uri_path;
     int uri_len = coap_get_header_uri_path(request, &uri_path);
 
@@ -418,7 +421,7 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
     }
 
     // Record when the response was received
-    challenger->received = clock_time();
+    challenger->received = received;
 
     // Get the challenge response
     challenge_response_t cr;
@@ -442,6 +445,9 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
     // Check that digest meets the difficulty requirement
     info.challenge_successful = check_first_n_zeros(digest, sizeof(digest), challenger->ch.difficulty);
 
+    // Record if this was received late
+    info.challenge_late = (challenger->received - challenger->generated) > (CHALLENGE_DURATION * CLOCK_SECOND);
+
     LOG_INFO("Challenge response from %s %s\n", edge->name, info.challenge_successful ? "succeeded" : "failed");
 
     // Update trust model
@@ -457,6 +463,11 @@ edge_capability_add(edge_resource_t* edge)
     capability_count += 1;
 
     edge_capability_add_common(edge, CHALLENGE_RESPONSE_APPLICATION_URI);
+
+    if (capability_count == 1)
+    {
+        etimer_set(&challenge_timer, CHALLENGE_PERIOD);
+    }
 
     edge_challenger_t* c = memb_alloc(&challenge_timer_memb);
     if (c == NULL)
@@ -486,6 +497,11 @@ edge_capability_remove(edge_resource_t* edge)
     capability_count -= 1;
 
     edge_capability_remove_common(edge, CHALLENGE_RESPONSE_APPLICATION_URI);
+
+    if (capability_count == 0)
+    {
+        etimer_stop(&challenge_timer);
+    }
 
     edge_challenger_t* c = find_edge_challenger(edge);
     if (c == NULL)
@@ -522,8 +538,6 @@ init(void)
     list_init(challenge_timers);
 
     next_challenge = NULL;
-
-    etimer_set(&challenge_timer, CHALLENGE_PERIOD);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(challenge_response_process, ev, data)

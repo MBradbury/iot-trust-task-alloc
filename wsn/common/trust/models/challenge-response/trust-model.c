@@ -98,6 +98,10 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
     {
         // Always update when a response is received
         good = info->challenge_successful;
+
+        // If challenge_late is set, then we should have already handled TM_CHALLENGE_RESPONSE_TIMEOUT
+        // so should not attempt to update the state.
+        should_update = !info->challenge_late;
     } break;
 
     default:

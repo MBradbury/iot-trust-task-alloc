@@ -91,6 +91,7 @@ typedef struct {
         // TM_CHALLENGE_RESPONSE_RESP
         struct {
             bool challenge_successful;
+            bool challenge_late;
         };
     };
 } tm_challenge_response_info_t;
