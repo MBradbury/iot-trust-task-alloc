@@ -48,13 +48,14 @@ with open(flash_log_path, 'w') as flash_log:
     teed.add(flash, stdout=flash_log, stderr=flash_log)
     teed.wait()
     flash.wait()
+    print("Flashing finished!", flush=True)
 
 time.sleep(2)
 
 with open(pyterm_log_path, 'w') as pyterm_log:
     teed = Teed()
     pyterm = Popen(
-        f"sudo ./pyterm -b 115200 -p {args.mote}",
+        f"./pyterm -b 115200 -p {args.mote}",
         cwd=os.path.expanduser("~/pi-client/tools"),
         shell=True,
         stdout=subprocess.PIPE,
@@ -65,3 +66,4 @@ with open(pyterm_log_path, 'w') as pyterm_log:
     teed.add(pyterm, stdout=pyterm_log, stderr=pyterm_log)
     teed.wait()
     pyterm.wait()
+    print("pyterm finished!", flush=True)
