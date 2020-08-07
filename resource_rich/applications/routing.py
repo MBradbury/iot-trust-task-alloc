@@ -36,7 +36,7 @@ class RoutingClient(client_common.Client):
     def __init__(self):
         super().__init__("routing")
         self.stats = Statistics()
-        self.executor = ProcessPoolExecutor(max_workers=2)
+        self.executor = ProcessPoolExecutor(max_workers=1)
 
         self.ack_cond = asyncio.Condition()
 
