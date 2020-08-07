@@ -4,6 +4,7 @@ import logging
 import asyncio
 import signal
 import datetime
+import os
 
 from config import edge_marker, application_edge_marker, serial_sep, edge_server_port
 
@@ -89,7 +90,7 @@ class NodeSerialBridge:
 
             # Regular log
             else:
-                print(line)
+                print(line, flush=True)
 
     async def _run_applications(self):
         async with self.server:
