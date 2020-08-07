@@ -42,7 +42,7 @@ print(f"Logging edge_bridge to {edge_bridge_log_path}", flush=True)
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     p = subprocess.Popen(
-        f"./flash.py '{args.mote}' edge.bin {args.mote_type} {args.firmware_type}",
+        f"python3 flash.py '{args.mote}' edge.bin {args.mote_type} {args.firmware_type}",
         cwd=os.path.expanduser("~/pi-client"),
         shell=True,
         stdout=subprocess.PIPE,
@@ -60,7 +60,7 @@ with open(edge_bridge_log_path, 'w') as edge_bridge:
     teed = Teed()
 
     edge_bridge_proc = subprocess.Popen(
-        f"./edge_bridge.py",
+        f"python3 edge_bridge.py",
         cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/applications"),
         shell=True,
         stdout=subprocess.PIPE,

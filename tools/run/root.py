@@ -62,7 +62,7 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
     time.sleep(2)
 
     root_server = subprocess.Popen(
-        "./root_server.py -k keystore",
+        "python3 root_server.py -k keystore",
         cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/root"),
         shell=True,
         stdout=subprocess.PIPE,

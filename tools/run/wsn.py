@@ -37,7 +37,7 @@ print(f"Logging pyterm to {pyterm_log_path}", flush=True)
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     flash = Popen(
-        f"./flash.py '{args.mote}' node.bin {args.mote_type} {args.firmware_type}",
+        f"python3 flash.py '{args.mote}' node.bin {args.mote_type} {args.firmware_type}",
         cwd=os.path.expanduser("~/pi-client"),
         shell=True,
         stdout=subprocess.PIPE,
@@ -54,12 +54,16 @@ time.sleep(2)
 
 with open(pyterm_log_path, 'w') as pyterm_log:
     teed = Teed()
+
+    # stdin.PIPE is needed in order to ensure that a stdin handle exists
+    # As this script may be called under nohup in which case stdin won't exist
     pyterm = Popen(
-        f"./pyterm -b 115200 -p {args.mote}",
+        f"python3 pyterm -b 115200 -p {args.mote}",
         cwd=os.path.expanduser("~/pi-client/tools"),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        stdin=subprocess.PIPE,
         universal_newlines=True,
         encoding="utf-8",
     )
