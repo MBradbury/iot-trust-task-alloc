@@ -71,7 +71,7 @@ cd iot-trust-task-alloc && git submodule update --init
 ## Resource Rich Nodes (Edges) and Resource Constrained Nodes (Monitors)
 
 ```bash
-sudo apt-get install git python3-pip python3-dev pipenv
+sudo apt-get install git python3-pip python3-dev pipenv python3-serial
 python3 -m pip install scapy pyserial
 ```
 
@@ -186,6 +186,16 @@ Plus any applications that are desired:
 ```bash
 ./monitoring.py
 ./routing.py
+```
+
+# Simulation
+
+## Setup
+
+1. Install dependancies
+
+```bash
+python3 -m pip install hmmlearn
 ```
 
 
