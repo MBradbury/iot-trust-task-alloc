@@ -67,7 +67,7 @@ with open(edge_bridge_log_path, 'w') as edge_bridge:
     )
     teed.add(edge_bridge_proc, stdout=edge_bridge, stderr=edge_bridge)
 
-    time.sleep(1)
+    time.sleep(2)
 
     apps = []
 
@@ -86,6 +86,9 @@ with open(edge_bridge_log_path, 'w') as edge_bridge:
         teed.add(p, stdout=app_log, stderr=app_log)
 
         apps.append((p, app_log))
+
+        # Wait a bit between applications being started
+        time.sleep(2)
 
 
     teed.wait()
