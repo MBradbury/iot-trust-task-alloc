@@ -55,8 +55,8 @@ time.sleep(2)
 with open(pyterm_log_path, 'w') as pyterm_log:
     teed = Teed()
 
-    # stdin.PIPE is needed in order to ensure that a stdin handle exists
-    # As this script may be called under nohup in which case stdin won't exist
+    # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
+    # This is because this script may be called under nohup in which case stdin won't exist.
     pyterm = Popen(
         f"python3 pyterm -b 115200 -p {args.mote}",
         cwd=os.path.expanduser("~/pi-client/tools"),
