@@ -5,7 +5,7 @@ import subprocess
 import time
 import os
 
-from util import Teed
+from util import Teed, Popen
 
 DEFAULT_LOG_DIR="~/iot-trust-task-alloc/logs"
 
@@ -36,7 +36,7 @@ print(f"Logging pyterm to {pyterm_log_path}", flush=True)
 
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
-    p = subprocess.Popen(
+    flash = Popen(
         f"./flash.py '{args.mote}' node.bin {args.mote_type} {args.firmware_type}",
         cwd=os.path.expanduser("~/pi-client"),
         shell=True,
@@ -45,23 +45,23 @@ with open(flash_log_path, 'w') as flash_log:
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(p, stdout=flash_log, stderr=flash_log)
+    teed.add(flash, stdout=flash_log, stderr=flash_log)
     teed.wait()
-    p.wait()
+    flash.wait()
 
-time.sleep(1)
+time.sleep(2)
 
 with open(pyterm_log_path, 'w') as pyterm_log:
     teed = Teed()
-    p = subprocess.Popen(
-        f"./tools/pyterm -b 115200 -p '{args.mote}'",
-        cwd=os.path.expanduser("~/pi-client"),
+    pyterm = Popen(
+        f"sudo ./pyterm -b 115200 -p {args.mote}",
+        cwd=os.path.expanduser("~/pi-client/tools"),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(p, stdout=pyterm_log, stderr=pyterm_log)
+    teed.add(pyterm, stdout=pyterm_log, stderr=pyterm_log)
     teed.wait()
-    p.wait()
+    pyterm.wait()

@@ -1,5 +1,6 @@
 from datetime import datetime
 from threading  import Thread
+import subprocess
 import sys
 
 # From: https://stackoverflow.com/questions/4984428/python-subprocess-get-childrens-output-to-file-and-terminal
@@ -32,3 +33,7 @@ class Teed:
         t.daemon = True
         t.start()
         return t
+
+def Popen(*args, **kwargs):
+    print(args, kwargs, flush=True)
+    return subprocess.Popen(*args, **kwargs)
