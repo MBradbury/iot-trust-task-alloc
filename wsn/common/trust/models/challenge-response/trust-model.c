@@ -1,8 +1,10 @@
 #include "trust-model.h"
 #include "trust-models.h"
+#include "random-helpers.h"
 #include <stdio.h>
 #include "assert.h"
 #include "os/sys/log.h"
+#include "os/sys/cc.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
 #ifdef TRUST_MODEL_LOG_LEVEL
@@ -45,6 +47,9 @@ void peer_tm_print(const peer_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* choose_edge(const char* capability_name)
 {
+    edge_resource_t* candidates[NUM_EDGE_RESOURCES];
+    uint8_t candidates_len = 0;
+
     for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
     {
         // Make sure the edge has the desired capability
@@ -60,12 +65,26 @@ edge_resource_t* choose_edge(const char* capability_name)
             continue;
         }
 
-        // Can pick from remaining nodes
-        // For now, just use the first available edge node
-        return iter;
+        if (candidates_len == CC_ARRAY_SIZE(candidates))
+        {
+            LOG_WARN("Insufficient memory allocated to candidates\n");
+            continue;
+        }
+
+        // Record this as a potential candidate
+        candidates[candidates_len++] = iter;
     }
 
-    return NULL;
+    if (candidates_len == 0)
+    {
+        return NULL;
+    }
+    else
+    {
+        uint16_t idx = random_in_range_unbiased(0, candidates_len-1);
+
+        return candidates[idx];
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info)
