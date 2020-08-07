@@ -26,8 +26,8 @@ tunslip_log_path = os.path.join(args.log_dir, f"root.{hostname}.tunslip.log")
 service_log_path = os.path.join(args.log_dir, f"root.{hostname}.service.log")
 root_server_log_path = os.path.join(args.log_dir, f"root.{hostname}.root_server.log")
 
-print(f"Logging tunslip to {tunslip_log_path}")
-print(f"Logging root_server to {root_server_log_path}")
+print(f"Logging tunslip to {tunslip_log_path}", flush=True)
+print(f"Logging root_server to {root_server_log_path}", flush=True)
 
 with open(tunslip_log_path, 'w') as tunslip_log, \
      open(service_log_path, 'w') as service_log, \

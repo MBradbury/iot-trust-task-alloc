@@ -36,6 +36,9 @@ flash_log_path = os.path.join(args.log_dir, f"edge.{hostname}.flash.log")
 edge_bridge_log_path = os.path.join(args.log_dir, f"edge.{hostname}.edge_bridge.log")
 application_log_path = os.path.join(args.log_dir, f"edge.{hostname}.{{}}.log")
 
+print(f"Logging flash to {flash_log_path}", flush=True)
+print(f"Logging edge_bridge to {edge_bridge_log_path}", flush=True)
+
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     p = subprocess.Popen(
@@ -72,7 +75,11 @@ with open(edge_bridge_log_path, 'w') as edge_bridge:
     apps = []
 
     for application in args.applications:
-        app_log = open(application_log_path.format(application), 'w')
+        app_specific_log_path = application_log_path.format(application)
+
+        print(f"Logging application {application} to {app_specific_log_path}", flush=True)
+
+        app_log = open(app_specific_log_path, 'w')
 
         p = subprocess.Popen(
             f"./{application}.py",

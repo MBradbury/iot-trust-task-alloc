@@ -31,8 +31,8 @@ hostname = os.uname()[1]
 flash_log_path = os.path.join(args.log_dir, f"wsn.{hostname}.flash.log")
 pyterm_log_path = os.path.join(args.log_dir, f"wsn.{hostname}.pyterm.log")
 
-print(f"Logging flash to {flash_log_path}")
-print(f"Logging pyterm to {pyterm_log_path}")
+print(f"Logging flash to {flash_log_path}", flush=True)
+print(f"Logging pyterm to {pyterm_log_path}", flush=True)
 
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
