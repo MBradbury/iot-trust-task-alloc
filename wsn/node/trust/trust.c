@@ -215,8 +215,6 @@ static bool periodic_action(void)
         return false;
     }
 
-    etimer_reset(&periodic_timer);
-
     LOG_DBG("Generating a periodic trust info packet\n");
 
     uip_create_linklocal_allnodes_mcast(&item->ep.ipaddr);
@@ -259,7 +257,6 @@ static void trust_tx_continue(void* data)
         if (coap_payload_len < payload_len)
         {
             LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
-            // TODO: how to handle block-wise transfer?
         }
 
         // No callback is set, as no confirmation of the message being received will be sent to us
@@ -283,7 +280,7 @@ static void trust_tx_continue(void* data)
     memb_free(&trust_tx_memb, item);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool init(void)
+static void init(void)
 {
     trust_common_init();
     edge_info_init();
@@ -295,19 +292,13 @@ static bool init(void)
 
     memb_init(&trust_tx_memb);
     memb_init(&trust_rx_memb);
-
-    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(trust_model, ev, data)
 {
     PROCESS_BEGIN();
 
-    bool ret = init();
-    if (!ret)
-    {
-        PROCESS_EXIT();
-    }
+    init();
 
     while (1)
     {
@@ -315,6 +306,7 @@ PROCESS_THREAD(trust_model, ev, data)
 
         if (ev == PROCESS_EVENT_TIMER && data == &periodic_timer)
         {
+            etimer_reset(&periodic_timer);
             periodic_action();
         }
 
