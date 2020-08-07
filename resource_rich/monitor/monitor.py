@@ -4,6 +4,7 @@ import logging
 import asyncio
 import signal
 import datetime
+import os
 
 from scapy.all import UDP, IPv6, ICMP
 from scapy.layers.inet6 import *
@@ -38,7 +39,7 @@ class Monitor:
     async def start(self):
         # Start processing serial output from edge sensor node
         self.proc = await asyncio.create_subprocess_shell(
-            "~/pi-client/tools/pyterm -b 115200 -p /dev/ttyUSB0",
+            os.path.expanduser("~/pi-client/tools/pyterm") + " -b 115200 -p /dev/ttyUSB0",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
