@@ -12,7 +12,7 @@ typedef struct {
 } challenge_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
-    uint8_t data_prefix[32];
+    const uint8_t* data_prefix;
     uint8_t data_length;
     uint32_t duration_secs;
 } challenge_response_t;

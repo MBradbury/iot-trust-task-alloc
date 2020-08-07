@@ -42,7 +42,7 @@ int nanocbor_get_challenge_response(const uint8_t* buf, size_t buf_len, challeng
     }
 
     cr->data_length = len;
-    memcpy(cr->data_prefix, data, len);
+    cr->data_prefix = data;
 
     NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &cr->duration_secs));
 
