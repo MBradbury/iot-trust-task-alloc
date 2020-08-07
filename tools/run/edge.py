@@ -53,8 +53,9 @@ with open(flash_log_path, 'w') as flash_log:
     teed.add(p, stdout=flash_log, stderr=flash_log)
     teed.wait()
     p.wait()
+    print("Flashing finished!", flush=True)
 
-time.sleep(1)
+time.sleep(0.1)
 
 with open(edge_bridge_log_path, 'w') as edge_bridge:
     teed = Teed()

@@ -50,7 +50,7 @@ with open(flash_log_path, 'w') as flash_log:
     flash.wait()
     print("Flashing finished!", flush=True)
 
-time.sleep(2)
+time.sleep(0.1)
 
 with open(pyterm_log_path, 'w') as pyterm_log:
     teed = Teed()
