@@ -11,8 +11,8 @@ import matplotlib.dates as mdates
 from analysis.parser.challenge_response_tm import main as parse_cr
 
 edge_ids_to_names = {
-    "00124b0014d52bd6": "edge-wsn2",
-    "00124b0014d52f05": "edge-wsn6",
+    "00124b0014d52bd6": "rr2",
+    "00124b0014d52f05": "rr6",
 }
 
 def squash_true_false_seq(XY):
@@ -143,7 +143,7 @@ def main(log_dir):
             cys[cevent].append(y + 0.45)
 
         yticks.append(y)
-        ytick_labels.append(f"{hostname}")
+        ytick_labels.append(f"{hostname[0]}\neval {hostname[1]}")
         y += 1
 
     for cevent in cxs:
