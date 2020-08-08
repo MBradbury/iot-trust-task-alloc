@@ -14,7 +14,7 @@ from analysis.parser.common import parse_contiki
 class ChallengeResponseType(IntEnum):
     NO_ACK = 0
     TIMEOUT = 1
-    RESP = 2
+    RESPONSE = 2
 
 @dataclass(frozen=True)
 class ChallengeResponse:
