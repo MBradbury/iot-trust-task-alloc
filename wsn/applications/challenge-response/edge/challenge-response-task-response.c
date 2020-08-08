@@ -115,17 +115,18 @@ send_callback(coap_callback_request_state_t* callback_state)
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         timed_unlock_unlock(&coap_callback_in_use);
+        ack_serial_input();
     } break;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static bool
 process_task_resp_send_result(size_t len)
 {
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_ERR("CoAP coallback in use so cannot send task response\n");
-        return;
+        return false;
     }
 
     int ret;
@@ -149,9 +150,11 @@ process_task_resp_send_result(size_t len)
     {
         LOG_ERR("Failed to send message with %d\n", ret);
     }
+
+    return ret != 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static bool
 process_task_resp(const char* data, const char* data_end)
 {
     // <target>|<result>
@@ -160,7 +163,7 @@ process_task_resp(const char* data, const char* data_end)
     if (sep1 == NULL)
     {
         LOG_ERR("strchr 1\n");
-        return;
+        return false;
     }
 
     char uip_buffer[UIPLIB_IPV6_MAX_STR_LEN];
@@ -170,7 +173,7 @@ process_task_resp(const char* data, const char* data_end)
     if (!uiplib_ip6addrconv(uip_buffer, &ep.ipaddr))
     {
         LOG_ERR("uiplib_ip6addrconv 2\n");
-        return;
+        return false;
     }
 
     ep.secure = 0;
@@ -180,14 +183,14 @@ process_task_resp(const char* data, const char* data_end)
     if (!base64_decode(sep1+1, data_end - (sep1+1), msg_buf, &len))
     {
         LOG_ERR("base64_decode (ret=%d)\n", len);
-        return;
+        return false;
     }
 
     LOG_INFO("Task response: (len=%zu) target=", len);
     LOG_INFO_6ADDR(&ep.ipaddr);
     LOG_INFO_("\n");
 
-    process_task_resp_send_result(len);
+    return process_task_resp_send_result(len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
@@ -210,7 +213,14 @@ cr_taskresp_process_serial_input(const char* data)
     else if (match_action(data, data_end, "resp" SERIAL_SEP))
     {
         data += strlen("resp" SERIAL_SEP);
-        process_task_resp(data, data_end);
+        bool result = process_task_resp(data, data_end);
+
+        // Only send an ack if we failed to send a message.
+        // Do not ack here on success, as we need to do so after we are ready to send the next message.
+        if (!result)
+        {
+            ack_serial_input();
+        }
     }
     else
     {
