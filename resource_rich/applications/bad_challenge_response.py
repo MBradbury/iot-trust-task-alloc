@@ -4,7 +4,7 @@ import logging
 import random
 import asyncio
 
-import applications.challenge_response as good_cr
+from .challenge_response import ChallengeResponseClient as ChallengeResponseClientGood
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-challenge-response-bad")
@@ -12,7 +12,7 @@ logger.setLevel(logging.DEBUG)
 
 MISBEHAVE_CHOICES = ["bad-response", "no-response"]
 
-class ChallengeResponseClient(good_cr.ChallengeResponseClient):
+class ChallengeResponseClient(ChallengeResponseClientGood):
     def __init__(self, approach, duration):
         super().__init__()
 
