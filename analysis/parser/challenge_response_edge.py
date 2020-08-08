@@ -42,24 +42,27 @@ class ChallengeResponseAnalyser:
 
     def analyse(self, f):
         for line in f:
-            time, rest = line.strip().split(" # ", 1)
+            try:
+                time, rest = line.strip().split(" # ", 1)
 
-            time = datetime.fromisoformat(time)
+                time = datetime.fromisoformat(time)
 
-            level, app, rest = rest.split(":", 2)
+                level, app, rest = rest.split(":", 2)
 
-            if rest.startswith("Starting"):
-                self._process_starting(time, level, app, rest)
-            elif rest.startswith("Received challenge"):
-                self._process_received_challenge(time, level, app, rest)
-            elif rest.startswith("Job"):
-                self._process_job_complete(time, level, app, rest)
-            elif rest.startswith("Writing"):
-                self._process_writing(time, level, app, rest)
-            else:
-                print(f"Unknown line contents {rest}")
-
-            #print(rest)
+                if rest.startswith("Starting"):
+                    self._process_starting(time, level, app, rest)
+                elif rest.startswith("Received challenge"):
+                    self._process_received_challenge(time, level, app, rest)
+                elif rest.startswith("Job"):
+                    self._process_job_complete(time, level, app, rest)
+                elif rest.startswith("Writing"):
+                    self._process_writing(time, level, app, rest)
+                else:
+                    print(f"Unknown line contents {rest}")
+            except ValueError as ex:
+                print(ex)
+                print(line)
+                break
 
     def _process_starting(self, time, level, app, line):
         self.start_times.append(time)
