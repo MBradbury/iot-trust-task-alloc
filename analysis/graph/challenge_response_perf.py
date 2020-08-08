@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 from analysis.parser.challenge_response_edge import main as parse_cr
 
 def main(log_dir):
-    if not os.path.isdir("results/graphs"):
-        os.makedirs("results/graphs")
+    if not os.path.isdir(f"{log_dir}/graphs"):
+        os.makedirs(f"{log_dir}/graphs")
 
     results = parse_cr(log_dir)
 
@@ -27,7 +27,7 @@ def main(log_dir):
     fig = plt.figure()
     ax = fig.gca()
 
-    for (hostname, XY) in XYs.items():
+    for (hostname, XY) in sorted(XYs.items(), key=lambda x: x[0]):
         X, Y = zip(*XY)
         ax.scatter(X, Y, label=hostname)
 
@@ -36,7 +36,7 @@ def main(log_dir):
 
     ax.legend()
 
-    target = "results/graphs/cr_iterations_vs_timetaken.pdf"
+    target = f"{log_dir}/graphs/cr_iterations_vs_timetaken.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
 
@@ -47,7 +47,7 @@ def main(log_dir):
     Xs = []
     labels = []
 
-    for (hostname, XY) in XYs.items():
+    for (hostname, XY) in sorted(XYs.items(), key=lambda x: x[0]):
         X, Y = zip(*XY)
         Xs.append(X)
         labels.append(hostname)
@@ -58,7 +58,7 @@ def main(log_dir):
     ax.set_xlabel('Resource Rich Nodes')
     ax.set_ylabel('Iterations')
 
-    target = "results/graphs/cr_iterations_boxplot.pdf"
+    target = f"{log_dir}/graphs/cr_iterations_boxplot.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
 
