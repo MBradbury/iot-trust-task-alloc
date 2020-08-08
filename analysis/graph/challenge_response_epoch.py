@@ -6,6 +6,7 @@ from pprint import pprint
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 from analysis.parser.challenge_response_tm import main as parse_cr
 
@@ -85,6 +86,8 @@ def main(log_dir):
     ax.set_xlabel('Time')
     ax.set_ylabel('Epoch Number')
 
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+
     ax.legend()
 
     target = f"{log_dir}/graphs/cr_time_vs_epoch.pdf"
@@ -151,6 +154,8 @@ def main(log_dir):
 
     ax.set_xlabel('Time')
     ax.set_ylabel('Status')
+
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
 
     ax.legend()
 
