@@ -187,7 +187,7 @@ check_response_received(void)
         const bool received_late = next_challenge->received > next_challenge->generated + duration;
 
         // Only check if we have previously sent a challenge
-        if ((next_challenge->generated != 0 && next_challenge->received != 0) && (never_received || received_late))
+        if (next_challenge->generated != 0 && (never_received || received_late))
         {
             LOG_WARN("Failed to receive challenge response from %s in a suitable time (gen=%lu,recv=%lu,diff=%lu,dur=%lu)\n",
                 next_challenge->edge->name,
