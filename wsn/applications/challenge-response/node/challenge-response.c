@@ -181,7 +181,7 @@ check_response_received(void)
     // Was there a previous challenge request and did we get a response?
     if (next_challenge != NULL)
     {
-        const clock_time_t duration = CHALLENGE_DURATION * CLOCK_SECOND;
+        const clock_time_t duration = next_challenge->max_duration_secs * CLOCK_SECOND;
 
         const bool never_received = next_challenge->received <= next_challenge->generated;
         const bool received_late = next_challenge->received > next_challenge->generated + duration;
@@ -458,7 +458,7 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
     info.challenge_successful = check_first_n_zeros(digest, sizeof(digest), challenger->ch.difficulty);
 
     // Record if this was received late
-    info.challenge_late = (challenger->received - challenger->generated) > (CHALLENGE_DURATION * CLOCK_SECOND);
+    info.challenge_late = (challenger->received - challenger->generated) > (challenger->ch.max_duration_secs * CLOCK_SECOND);
 
     LOG_INFO("Challenge response from %s %s\n", edge->name, info.challenge_successful ? "succeeded" : "failed");
 
