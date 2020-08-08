@@ -12,6 +12,7 @@
 
 #include "crypto-support.h"
 #include "keystore-oscore.h"
+#include "timed-unlock.h"
 
 #include <string.h>
 #include <strings.h>
@@ -76,7 +77,7 @@ static coap_message_t msg;
 static char uri_query[MAX_QUERY_LEN];
 static uint8_t coap_payload[MAX_COAP_PAYLOAD];
 static coap_callback_request_state_t coap_callback;
-static bool coap_callback_in_use;
+static timed_unlock_t coap_callback_in_use;
 static uint16_t coap_callback_i;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer;
@@ -139,7 +140,7 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
 {
     int ret;
 
-    if (coap_callback_in_use)
+    if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_ERR("Cannot perform mqtt_over_coap_publish as we are busy\n");
         return false;
@@ -161,13 +162,13 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
         return false;
     }
 
-    coap_callback_in_use = true;
+    timed_unlock_lock(&coap_callback_in_use);
 
     ret = snprintf(uri_query, sizeof(uri_query), MQTT_TOPIC_QUERY_NAME "=%s", topic);
     if (ret <= 0 || ret >= sizeof(uri_query))
     {
         LOG_ERR("snprintf uri_query failed %d\n", ret);
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
         return false;
     }
     
@@ -180,7 +181,7 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
     /*if (!queue_message_to_sign(&mqtt_client_process, NULL, coap_payload, sizeof(coap_payload), data_len))
     {
         LOG_ERR("trust mqtt_over_coap_publish: Unable to sign message\n");
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
         return false;
     }
 
@@ -201,7 +202,7 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
     else
     {
         LOG_ERR("Failed to publish with %d\n", ret);
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     }
 
     return ret != 0;
@@ -230,13 +231,13 @@ mqtt_over_coap_publish_continue(void* data)
         else
         {
             LOG_ERR("coap_send_request mqtt failed %d\n", ret);
-            coap_callback_in_use = false;
+            timed_unlock_unlock(&coap_callback_in_use);
         }
     }
     else
     {
         LOG_ERR("Sign of mqtt information failed %d\n", entry->result);
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     }
 
     queue_message_to_sign_done(entry);
@@ -257,14 +258,14 @@ publish_callback(coap_callback_request_state_t *callback_state)
 
     case COAP_REQUEST_STATUS_FINISHED:
     {
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     } break;
 
     default:
     {
         LOG_ERR("MQTT publish: Failed to send message with status %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     } break;
     }
 }
@@ -307,13 +308,13 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
 {
     int ret;
 
-    if (coap_callback_in_use)
+    if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_DBG("Cannot subscribe again, waiting for existing subscribe to finish\n");
         return -1;
     }
 
-    coap_callback_in_use = true;
+    timed_unlock_lock(&coap_callback_in_use);
 
     ret = snprintf(uri_query, sizeof(uri_query), MQTT_TOPIC_QUERY_NAME "=%s", topic);
     if (ret <= 0 || ret >= sizeof(uri_query))
@@ -335,7 +336,7 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
     }
     else
     {
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     }
 
     return ret;
@@ -344,7 +345,7 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
 static void
 subscribe_callback_end(void)
 {
-    coap_callback_in_use = false;
+    timed_unlock_unlock(&coap_callback_in_use);
 
     // Poll the process to trigger subsequent subscribes
     process_post(&mqtt_client_process, pe_state_machine, NULL);
@@ -505,7 +506,7 @@ init(void)
         LOG_DBG("CoAP Endpoint set to %s\n", COAP_CLIENT_CONF_BROKER_IP_ADDR);
     }
 
-    coap_callback_in_use = false;
+    timed_unlock_init(&coap_callback_in_use, "mqtt-over-coap", (1 * 60 * CLOCK_SECOND));
 
     uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);
     etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);

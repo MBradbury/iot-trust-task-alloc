@@ -22,6 +22,7 @@
 #include "applications.h"
 #include "serial-helpers.h"
 #include "float-helpers.h"
+#include "timed-unlock.h"
 
 #ifdef WITH_OSCORE
 #include "oscore.h"
@@ -38,7 +39,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
-static bool coap_callback_in_use;
+static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + (1 + sizeof(float)) * 2) * 2];
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool task_in_use;
@@ -164,14 +165,14 @@ send_callback(coap_callback_request_state_t* callback_state)
 
     case COAP_REQUEST_STATUS_FINISHED:
     {
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     } break;
 
     default:
     {
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
         task_in_use = false;
     } break;
     }
@@ -253,7 +254,7 @@ event_triggered_action(const char* data)
 {
     int ret;
 
-    if (coap_callback_in_use)
+    if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_WARN("Cannot generate a new message, as in process of sending one\n");
         return;
@@ -329,7 +330,7 @@ event_triggered_action(const char* data)
     if (ret)
     {
         task_in_use = true;
-        coap_callback_in_use = true;
+        timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&edge->ep);
         LOG_DBG_("\n");
@@ -526,7 +527,7 @@ init(void)
     init_trust_weights_routing();
 
     capability_count = 0;
-    coap_callback_in_use = false;
+    timed_unlock_init(&coap_callback_in_use, "routing", (1 * 60 * CLOCK_SECOND));
     task_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

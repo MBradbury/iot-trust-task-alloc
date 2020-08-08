@@ -19,6 +19,7 @@
 #include "application-serial.h"
 #include "base64.h"
 #include "serial-helpers.h"
+#include "timed-unlock.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" CHALLENGE_RESPONSE_APPLICATION_NAME
 #ifdef APP_CHALLENGE_RESPONSE_LOG_LEVEL
@@ -77,7 +78,7 @@ ack_serial_input(void)
 static coap_message_t msg;
 static coap_endpoint_t ep;
 static coap_callback_request_state_t coap_callback;
-static bool coap_callback_in_use;
+static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[COAP_MAX_CHUNK_SIZE];
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -102,7 +103,7 @@ send_callback(coap_callback_request_state_t* callback_state)
 
     case COAP_REQUEST_STATUS_FINISHED:
     {
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
 
         // Once the send is finished we need to ack, so if there is more data to send the
         // resource rich application will now send this data to us.
@@ -113,7 +114,7 @@ send_callback(coap_callback_request_state_t* callback_state)
     {
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     } break;
     }
 }
@@ -121,7 +122,7 @@ send_callback(coap_callback_request_state_t* callback_state)
 static void
 process_task_resp_send_result(size_t len)
 {
-    if (coap_callback_in_use)
+    if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_ERR("CoAP coallback in use so cannot send task response\n");
         return;
@@ -139,7 +140,7 @@ process_task_resp_send_result(size_t len)
     ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)
     {
-        coap_callback_in_use = true;
+        timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&ep);
         LOG_DBG_("\n");
@@ -220,6 +221,6 @@ cr_taskresp_process_serial_input(const char* data)
 void
 cr_taskresp_init(void)
 {
-    coap_callback_in_use = false;
+    timed_unlock_init(&coap_callback_in_use, "challenge-response-task-response", (1 * 60 * CLOCK_SECOND));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

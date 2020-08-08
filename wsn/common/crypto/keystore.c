@@ -11,6 +11,7 @@
 
 #include "crypto-support.h"
 #include "keystore-oscore.h"
+#include "timed-unlock.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "keystore"
@@ -262,7 +263,7 @@ static uint8_t req_resp[sizeof(uip_ip6addr_t) + DTLS_EC_KEY_SIZE*2 + DTLS_EC_KEY
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
 static uint8_t key_req_payload[sizeof(uip_ip6addr_t) + DTLS_EC_KEY_SIZE*2];
-static bool in_use;
+static timed_unlock_t in_use;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void request_public_key_callback(coap_callback_request_state_t* callback_state);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -274,7 +275,7 @@ bool request_public_key(const uip_ip6addr_t* addr)
         return false;
     }
 
-    if (in_use)
+    if (timed_unlock_is_locked(&in_use))
     {
         LOG_WARN("Already requesting a public key for ");
         LOG_WARN_6ADDR((const uip_ip6addr_t*)key_req_payload);
@@ -302,7 +303,7 @@ bool request_public_key(const uip_ip6addr_t* addr)
         return false;
     }
 
-    in_use = true;
+    timed_unlock_lock(&in_use);
 
     return true;
 }
@@ -320,7 +321,7 @@ static void request_public_key_continued(void* data)
         if (coap_payload_len < payload_len)
         {
             LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
-            in_use = false;
+            timed_unlock_unlock(&in_use);
         }
         else
         {
@@ -332,14 +333,14 @@ static void request_public_key_continued(void* data)
             else
             {
                 LOG_ERR("coap_send_request req pk failed %d\n", ret);
-                in_use = false;
+                timed_unlock_unlock(&in_use);
             }
         }
     }
     else
     {
         LOG_ERR("Sign of pk req failed %d\n", entry->result);
-        in_use = false;
+        timed_unlock_unlock(&in_use);
     }
 
     queue_message_to_sign_done(entry);
@@ -364,7 +365,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         {
             LOG_ERR("Failed to request public key from key server '%.*s' (%d)\n",
                 req_resp_len, (const char*)payload, response->code);
-            in_use = false;
+            timed_unlock_unlock(&in_use);
         }
         else
         {
@@ -375,7 +376,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
             else
             {
                 LOG_ERR("req_resp is not the expected length %d != %d\n", req_resp_len, sizeof(req_resp));
-                in_use = false;
+                timed_unlock_unlock(&in_use);
             }
         }
     } break;
@@ -383,7 +384,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
     case COAP_REQUEST_STATUS_FINISHED:
     {
         // Not truely finished yet here, need to wait for signature verification
-        if (in_use)
+        if (timed_unlock_is_locked(&in_use))
         {
             LOG_DBG("Queuing public key request ");
             LOG_DBG_6ADDR((const uip_ip6addr_t*)req_resp);
@@ -391,7 +392,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
             if (!queue_message_to_verify(&keystore_req, NULL, req_resp, sizeof(req_resp), &root_key))
             {
                 LOG_ERR("request_public_key_callback: enqueue failed\n");
-                in_use = false;
+                timed_unlock_unlock(&in_use);
             }
         }
     } break;
@@ -400,7 +401,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
     {
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
-        in_use = false;
+        timed_unlock_unlock(&in_use);
     } break;
     }
 }
@@ -443,7 +444,7 @@ request_public_key_callback_continued(messages_to_verify_entry_t* entry)
 
     queue_message_to_verify_done(entry);
 
-    in_use = false;
+    timed_unlock_unlock(&in_use);
 
     return item;
 }
@@ -495,13 +496,14 @@ generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
 
 #ifdef WITH_OSCORE
     // Take the lower OSCORE_ID_LEN bytes as the ids
+    // The linkaddr contains the EUI-64
     const uint8_t* sender_id = &linkaddr_node_addr.u8[LINKADDR_SIZE - OSCORE_ID_LEN];
     const uint8_t* receiver_id = &item->addr.u8[16 - OSCORE_ID_LEN];
 
     oscore_derive_ctx(&item->context,
         shared_secret, DTLS_EC_KEY_SIZE,
         NULL, 0, //master_salt, sizeof(master_salt), // optional master salt
-        COSE_Algorithm_AES_CCM_16_64_128,
+        COSE_Algorithm_AES_CCM_16_64_128, //COSE_ALGO_AESCCM_16_64_128,
         sender_id, OSCORE_ID_LEN, // Sender ID
         receiver_id, OSCORE_ID_LEN, // Receiver ID
         NULL, 0, // optional ID context
@@ -528,7 +530,7 @@ keystore_init(void)
     memb_init(&public_keys_memb);
     list_init(public_keys);
 
-    in_use = false;
+    timed_unlock_init(&in_use, "keystore", (1 * 60 * CLOCK_SECOND));
     add_unverified_buffer_in_use = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

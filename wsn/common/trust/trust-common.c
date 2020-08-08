@@ -483,7 +483,7 @@ int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len
     // Can provide addr to request trust on specific nodes, when NULL is provided
     // Then details on all edges are sent
 
-    const size_t num_edges = (addr == NULL) ? edge_info_count(): 1;
+    const size_t num_edges = (addr == NULL) ? edge_info_count() : 1;
 
     uint32_t time_secs = clock_seconds();
 

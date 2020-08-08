@@ -5,6 +5,7 @@
 #include "coap-callback-api.h"
 #include "coap-log.h"
 #include "keystore-oscore.h"
+#include "timed-unlock.h"
 
 #include "nanocbor-helper.h"
 
@@ -25,7 +26,7 @@ extern coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
-static bool coap_callback_in_use;
+static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1) + IPV6ADDR_CBOR_MAX_LEN + STEREOTYPE_TAGS_CBOR_MAX_LEN];
 
 _Static_assert(TRUST_MODEL_TAG >= NANOCBOR_MIN_TINY_INTEGER, "TRUST_MODEL_TAG too small");
@@ -105,21 +106,21 @@ send_callback(coap_callback_request_state_t* callback_state)
 
     case COAP_REQUEST_STATUS_FINISHED:
     {
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     } break;
 
     default:
     {
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
-        coap_callback_in_use = false;
+        timed_unlock_unlock(&coap_callback_in_use);
     } break;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool stereotypes_request(const edge_resource_t* edge)
 {
-    if (!coap_callback_in_use)
+    if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_WARN("Cannot generate a new message, as in process of sending one\n");
         return false;
@@ -150,7 +151,7 @@ bool stereotypes_request(const edge_resource_t* edge)
     int ret = coap_send_request(&coap_callback, &server_ep, &msg, send_callback);
     if (ret)
     {
-        coap_callback_in_use = true;
+        timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&server_ep);
         LOG_DBG_("\n");
@@ -160,11 +161,11 @@ bool stereotypes_request(const edge_resource_t* edge)
         LOG_ERR("Failed to send message with %d\n", ret);
     }
 
-    return coap_callback_in_use;
+    return timed_unlock_is_locked(&coap_callback_in_use);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void stereotypes_init(void)
 {
-    coap_callback_in_use = false;
+    timed_unlock_init(&coap_callback_in_use, "stereotypes", (1 * 60 * CLOCK_SECOND));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
