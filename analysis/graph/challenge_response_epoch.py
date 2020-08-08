@@ -67,8 +67,7 @@ def main(log_dir):
     XYs = {
         (hostname, edge_ids_to_names[edge_label]): [
             (up.time, up.tm_to.epoch)
-            for up
-            in result.tm_updates
+            for up in result.tm_updates
             if up.edge_id == edge_label
         ]
         for (hostname, result) in results.items()
@@ -94,15 +93,10 @@ def main(log_dir):
 
 
     # Show when the edge nodes were thought to be good or not
-
-    #up.tm_from.blacklisted != up.tm_to.blacklisted
-
-    #up.cr.kind, up.cr.good
     event_types = {
         (hostname, edge_ids_to_names[edge_label]): [
             (up.time, not up.tm_to.blacklisted)
-            for up
-            in result.tm_updates
+            for up in result.tm_updates
             if up.edge_id == edge_label
         ]
         for (hostname, result) in results.items()
@@ -112,11 +106,10 @@ def main(log_dir):
     event_cause = {
         (hostname, edge_ids_to_names[edge_label]): [
             (up.time, up.cr.kind)
-            for up
-            in result.tm_updates
+            for up in result.tm_updates
             if up.edge_id == edge_label
             if not up.cr.good
-            if up.tm_to.blacklisted != up.tm_from.blacklisted
+            if up.tm_to.blacklisted
         ]
         for (hostname, result) in results.items()
         for edge_label in edge_labels
