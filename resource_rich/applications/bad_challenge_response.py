@@ -58,7 +58,7 @@ class ChallengeResponseClientBad(ChallengeResponseClientGood):
             # 1. Send a bad response
             # 2. Don't send any response
 
-            if self.approach == "bad-response":
+            if selected_approach == "bad-response":
                 # A bad message response
                 message_response = (b'', 0)
                 await self._write_task_result(dest, message_response)
