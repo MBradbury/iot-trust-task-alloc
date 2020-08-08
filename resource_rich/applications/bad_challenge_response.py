@@ -5,6 +5,7 @@ import random
 import asyncio
 
 from challenge_response import ChallengeResponseClient as ChallengeResponseClientGood
+import client_common
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-challenge-response-bad")
@@ -12,7 +13,7 @@ logger.setLevel(logging.DEBUG)
 
 MISBEHAVE_CHOICES = ["bad-response", "no-response"]
 
-class ChallengeResponseClient(ChallengeResponseClientGood):
+class ChallengeResponseClientBad(ChallengeResponseClientGood):
     def __init__(self, approach, duration):
         super().__init__()
 
@@ -77,10 +78,10 @@ class ChallengeResponseClient(ChallengeResponseClientGood):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='challenge-reponse always bad')
-    parser.add_argument('--approach', type=str, choices=MISBEHAVE_CHOICES + ["random"], help='How will this application misbehave')
-    parser.add_argument('--duration', type=float, help='How long will this application misbehave for in seconds')
+    parser.add_argument('--approach', type=str, choices=MISBEHAVE_CHOICES + ["random"], required=True, help='How will this application misbehave')
+    parser.add_argument('--duration', type=float, required=True, help='How long will this application misbehave for in seconds')
     args = parser.parse_args()
 
-    client = ChallengeResponseClient(args.approach, args.duration)
+    client = ChallengeResponseClientBad(args.approach, args.duration)
 
     client_common.main("cr", client)
