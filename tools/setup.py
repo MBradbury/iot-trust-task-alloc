@@ -9,7 +9,7 @@ import getpass
 import os
 import sys
 
-import  fabric
+import fabric
 import patchwork.transfers
 
 import eckeygen

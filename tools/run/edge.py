@@ -5,7 +5,7 @@ import subprocess
 import time
 import os
 
-from util import Teed
+from util import Teed, Popen
 
 DEFAULT_LOG_DIR="~/iot-trust-task-alloc/logs"
 
@@ -17,8 +17,31 @@ parser.add_argument("--mote", default="/dev/ttyUSB0", help="The mote to flash.")
 parser.add_argument("--mote_type", choices=["zolertia", "telosb"], default="zolertia", help="The type of mote.")
 parser.add_argument("--firmware_type", choices=["contiki", "riot"], default="contiki", help="The OS that was used to create the firmware.")
 
-parser.add_argument("--applications", nargs="+", type=str,
-                    choices=["challenge_response", "monitoring", "routing"],
+# From: https://stackoverflow.com/questions/8526675/python-argparse-optional-append-argument-with-choices
+class ApplicationAction(argparse.Action):
+    CHOICES = ["challenge_response", "monitoring", "routing", "bad_challenge_response"]
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values:
+            value = values[0]
+
+            if value not in self.CHOICES:
+                message = f"invalid choice: {value!r} (choose from {', '.join(self.CHOICES)})"
+                raise argparse.ArgumentError(self, message)
+
+            if len(values) == 1:
+                values.append("")
+
+            if len(values) > 2:
+                raise argparse.ArgumentError(self, f"too many application arguments {values}")
+
+            attr = getattr(namespace, self.dest)
+            if attr is None:
+                setattr(namespace, self.dest, [values])
+            else:
+                setattr(namespace, self.dest, attr + [values])
+
+parser.add_argument("--application", nargs='*', metavar=('application-name', 'application-params'),
+                    action=ApplicationAction,
                     help="The applications to start")
 
 args = parser.parse_args()
@@ -41,7 +64,7 @@ print(f"Logging edge_bridge to {edge_bridge_log_path}", flush=True)
 
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
-    p = subprocess.Popen(
+    p = Popen(
         f"python3 flash.py '{args.mote}' edge.bin {args.mote_type} {args.firmware_type}",
         cwd=os.path.expanduser("~/pi-client"),
         shell=True,
@@ -60,7 +83,7 @@ time.sleep(0.1)
 with open(edge_bridge_log_path, 'w') as edge_bridge:
     teed = Teed()
 
-    edge_bridge_proc = subprocess.Popen(
+    edge_bridge_proc = Popen(
         f"python3 edge_bridge.py",
         cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/applications"),
         shell=True,
@@ -75,15 +98,15 @@ with open(edge_bridge_log_path, 'w') as edge_bridge:
 
     apps = []
 
-    for application in args.applications:
+    for (application, params) in args.application:
         app_specific_log_path = application_log_path.format(application)
 
         print(f"Logging application {application} to {app_specific_log_path}", flush=True)
 
         app_log = open(app_specific_log_path, 'w')
 
-        p = subprocess.Popen(
-            f"./{application}.py",
+        p = Popen(
+            f"./{application}.py {params}",
             cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/applications"),
             shell=True,
             stdout=subprocess.PIPE,

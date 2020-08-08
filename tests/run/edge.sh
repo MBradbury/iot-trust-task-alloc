@@ -8,7 +8,7 @@ rm -rf ~/iot-trust-task-alloc/logs
 
 rm -f nohup.out
 
-nohup ~/iot-trust-task-alloc/tools/run/edge.py --applications challenge_response monitoring routing &
+nohup ~/iot-trust-task-alloc/tools/run/edge.py --application monitoring --application routing --application challenge_response &
 
 # Wait for nohup.out to be created
 sleep 1
