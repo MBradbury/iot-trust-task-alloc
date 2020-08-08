@@ -237,18 +237,17 @@ periodic_action(void)
         return;
     }
 
-    challenge_t ch;
-    generate_challenge(&ch, CHALLENGE_DIFFICULTY, CHALLENGE_DURATION);
+    generate_challenge(&next_challenge->ch, CHALLENGE_DIFFICULTY, CHALLENGE_DURATION);
 
-    int len = nanocbor_fmt_challenge(msg_buf, sizeof(msg_buf), &ch);
+    int len = nanocbor_fmt_challenge(msg_buf, sizeof(msg_buf), &next_challenge->ch);
     if (len <= 0 || len > sizeof(msg_buf))
     {
         LOG_ERR("Failed to generated message (%d)\n", len);
         return;
     }
 
-    LOG_DBG("Generated message (len=%d) for challenge difficulty=%d and ", len, ch.difficulty);
-    LOG_DBG_BYTES(ch.data, sizeof(ch.data));
+    LOG_DBG("Generated message (len=%d) for challenge difficulty=%d and ", len, next_challenge->ch.difficulty);
+    LOG_DBG_BYTES(next_challenge->ch.data, sizeof(next_challenge->ch.data));
     LOG_DBG_("\n");
 
     // Choose an Edge node to send information to
@@ -304,6 +303,14 @@ periodic_action(void)
 static uint8_t
 sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t* cr, uint8_t* hash)
 {
+    LOG_DBG("Challenge prefix: ");
+    LOG_DBG_BYTES(cr->data_prefix, cr->data_length);
+    LOG_DBG_("\n");
+
+    LOG_DBG("Challenge data: ");
+    LOG_DBG_BYTES(c->data, sizeof(c->data));
+    LOG_DBG_("\n");
+
     sha256_state_t sha256_state;
 
     bool enabled = CRYPTO_IS_ENABLED();
@@ -341,6 +348,10 @@ sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t*
         LOG_ERR("sha256_done failed with %u\n", ret);
         goto end;
     }
+
+    LOG_DBG("Challenge hash: ");
+    LOG_DBG_BYTES(hash, SHA256_DIGEST_LEN_BYTES);
+    LOG_DBG_("\n");
 
 end:
     if (!enabled)
