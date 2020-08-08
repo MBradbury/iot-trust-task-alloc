@@ -4,7 +4,7 @@ import logging
 import random
 import asyncio
 
-from .challenge_response import ChallengeResponseClient as ChallengeResponseClientGood
+from challenge_response import ChallengeResponseClient as ChallengeResponseClientGood
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app-challenge-response-bad")
@@ -21,6 +21,9 @@ class ChallengeResponseClient(ChallengeResponseClientGood):
 
         # Start off being good
         self.is_bad = False
+
+    async def start(self):
+        await super().start()
 
         if self.duration == float('inf'):
             # Always bad
