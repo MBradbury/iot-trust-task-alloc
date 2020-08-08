@@ -119,16 +119,18 @@ send_callback(coap_callback_request_state_t* callback_state)
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         timed_unlock_unlock(&coap_callback_in_use);
+        ack_serial_input();
     } break;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
+static bool
 process_task_resp_send_status(pyroutelib3_status_t status)
 {
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
-        return -1;
+        LOG_ERR("CoAP coallback in use so cannot send task response\n");
+        return false;
     }
 
     nanocbor_encoder_t enc;
@@ -162,15 +164,16 @@ process_task_resp_send_status(pyroutelib3_status_t status)
         LOG_ERR("Failed to send message with %d\n", ret);
     }
 
-    return 0;
+    return ret != 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
+static bool
 process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
 {
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
-        return -1;
+        LOG_ERR("CoAP coallback in use so cannot send task response\n");
+        return false;
     }
 
     int ret;
@@ -205,10 +208,10 @@ process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
         LOG_ERR("Failed to send message with %d\n", ret);
     }
 
-    return 0;
+    return ret != 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static bool
 process_task_resp1(const char* data, const char* data_end)
 {
     // <target>|<n>|<status>
@@ -217,14 +220,14 @@ process_task_resp1(const char* data, const char* data_end)
     if (sep1 == NULL)
     {
         LOG_ERR("strchr 1\n");
-        return;
+        return false;
     }
 
     const char* sep2 = strchr(sep1+1, '|');
     if (sep2 == NULL)
     {
         LOG_ERR("strchr 2\n");
-        return;
+        return false;
     }
 
     char uip_buffer[UIPLIB_IPV6_MAX_STR_LEN];
@@ -234,7 +237,7 @@ process_task_resp1(const char* data, const char* data_end)
     if (!uiplib_ip6addrconv(uip_buffer, &ep.ipaddr))
     {
         LOG_ERR("uiplib_ip6addrconv 2\n");
-        return;
+        return false;
     }
 
     ep.secure = 0;
@@ -248,31 +251,26 @@ process_task_resp1(const char* data, const char* data_end)
     LOG_INFO_6ADDR(&ep.ipaddr);
     LOG_INFO_("\n");
 
-    process_task_resp_send_status(status);
+    return process_task_resp_send_status(status);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int
+static bool
 process_task_resp2(const char* data, const char* data_end)
 {
-    if (timed_unlock_is_locked(&coap_callback_in_use))
-    {
-        return -1;
-    }
-
     // <i>/<n>|<message>
 
     const char* slashpos = strchr(data, '/');
     if (slashpos == NULL)
     {
         LOG_ERR("strchr 1\n");
-        return -1;
+        return false;
     }
 
     const char* seppos = strchr(data, '|');
     if (seppos == NULL)
     {
         LOG_ERR("strchr 2\n");
-        return -1;
+        return false;
     }
 
     unsigned long i = strtoul(data, NULL, 10);
@@ -282,16 +280,14 @@ process_task_resp2(const char* data, const char* data_end)
     if (!base64_decode(seppos+1, data_end - (seppos+1), msg_buf, &len))
     {
         LOG_ERR("base64_decode 3 (ret=%d)\n", len);
-        return -1;
+        return false;
     }
 
     LOG_DBG("Sending task response %lu/%lu of length %zu\n", i, n, len);
 
     // Send the buffer back to the target node
     // Use block1 to send the data in multiple packets
-    process_task_resp_send_success(i, n, len);
-
-    return 0;
+    return process_task_resp_send_success(i, n, len);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
@@ -314,12 +310,26 @@ routing_taskresp_process_serial_input(const char* data)
     else if (match_action(data, data_end, "resp1" SERIAL_SEP))
     {
         data += strlen("resp1" SERIAL_SEP);
-        process_task_resp1(data, data_end);
+        bool result = process_task_resp1(data, data_end);
+
+        // Only send an ack if we failed to send a message.
+        // Do not ack here on success, as we need to do so after we are ready to send the next message.
+        if (!result)
+        {
+            ack_serial_input();
+        }
     }
     else if (match_action(data, data_end, "resp2" SERIAL_SEP))
     {
         data += strlen("resp2" SERIAL_SEP);
-        process_task_resp2(data, data_end);
+        bool result = process_task_resp2(data, data_end);
+
+        // Only send an ack if we failed to send a message.
+        // Do not ack here on success, as we need to do so after we are ready to send the next message.
+        if (!result)
+        {
+            ack_serial_input();
+        }
     }
     else
     {
