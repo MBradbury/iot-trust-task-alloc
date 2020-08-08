@@ -12,7 +12,7 @@ from enum import IntEnum
 from analysis.parser.common import parse_contiki
 
 class ChallengeResponseType(IntEnum):
-    ACK = 0
+    NO_ACK = 0
     TIMEOUT = 1
     RESP = 2
 
