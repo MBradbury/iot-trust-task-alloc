@@ -32,15 +32,15 @@ class ChallengeResponseClientBad(ChallengeResponseClientGood):
         else:
             asyncio.create_task(self._periodic())
 
-        logger.debug(f"Currently is_bad={not self.is_bad} changing to opposite")
+        logger.info(f"Becoming {'bad' if self.is_bad else 'good'}")
 
     async def _periodic(self):
         while True:
             await asyncio.sleep(self.duration)
 
-            logger.debug(f"Currently is_bad={self.is_bad} changing to opposite")
-
             self.is_bad = not self.is_bad
+
+            logger.info(f"Becoming {'bad' if self.is_bad else 'good'}")
 
 
     async def _send_result(self, dest, message_response):
@@ -52,7 +52,7 @@ class ChallengeResponseClientBad(ChallengeResponseClientGood):
             else:
                 selected_approach = self.approach
 
-            logger.debug(f"Currently good, so behaving incorrectly with {selected_approach}")
+            logger.debug(f"Currently bad, so behaving incorrectly with {selected_approach}")
 
             # Instead of sending a result, we pick one of two options
             # 1. Send a bad response
