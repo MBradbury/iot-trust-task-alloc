@@ -7,7 +7,7 @@
 1. Install dependancies
 
 ```bash
-sudo apt-get install git build-essential gcc-arm-none-eabi python3
+sudo apt-get install git build-essential gcc-arm-none-eabi python3 texlive-extra-utils
 ```
 
 2. Download Contiki-NG
