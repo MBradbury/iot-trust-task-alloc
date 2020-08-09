@@ -86,7 +86,7 @@ def main(log_dir):
     ax.set_xlabel('Time')
     ax.set_ylabel('Epoch Number')
 
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
     ax.legend()
 
@@ -155,7 +155,7 @@ def main(log_dir):
     ax.set_xlabel('Time')
     ax.set_ylabel('Status')
 
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
     ax.legend()
 
