@@ -27,17 +27,25 @@ def main(log_dir):
     results = parse_cr(log_dir)
     pyterm_results = parse_pyterm(log_dir)
 
+    print([r.behaviour_changes for r in results.values()])
+
     earliest = min(t for r in results.values() for (t, v) in r.behaviour_changes)
     latest = max(t for r in results.values() for (t, v) in r.behaviour_changes)
 
-    # TODO: Stacked bar graph showing how many tasks were offloaded to each node
+    # Find the latest time a task was submitted
+    # Some times we might not have much behaviour changing to go on
+    latest_task = max(t.time for r in pyterm_results.values() for t in r.tasks)
+
+    latest = max(latest, latest_task)
+
+    # Stacked bar graph showing how many tasks were offloaded to each node
     # over the time periods in which no changes occur
 
     # Create a graph showing when tasks where offloaded to nodes and that node was bad
 
     # Need to create some data ranges for well-behaved nodes, as they don't say when they are being bad
     event_types = {
-        edge_ids_to_names[hostname]: result.behaviour_changes if result.behaviour_changes else [(earliest, True), (latest, True)]
+        edge_ids_to_names[hostname]: result.behaviour_changes + [(latest, result.behaviour_changes[-1][1])] if result.behaviour_changes else [(earliest, True), (latest, True)]
         for (hostname, result) in results.items()
     }
 
@@ -51,6 +59,7 @@ def main(log_dir):
             task.time
             for result in pyterm_results.values()
             for task in result.tasks
+            if task.target == target
         ]
         for target in targets
     }

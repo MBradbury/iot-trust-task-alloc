@@ -41,7 +41,7 @@ def main(log_dir):
 
     for (hostname, XY) in sorted(XYs.items(), key=lambda x: x[0]):
         X, Y = zip(*XY)
-        ax.step(X, Y, label=hostname)
+        ax.step(X, Y, label=f"{hostname[0]} evaludating {hostname[1]}")
 
     ax.set_xlabel('Time')
     ax.set_ylabel('Epoch Number')
