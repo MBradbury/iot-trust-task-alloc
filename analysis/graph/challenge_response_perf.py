@@ -5,7 +5,7 @@ import subprocess
 
 import matplotlib.pyplot as plt
 
-from analysis.parser.challenge_response_edge import main as parse_cr
+from analysis.parser.edge_challenge_response import main as parse_cr
 
 def main(log_dir):
     if not os.path.isdir(f"{log_dir}/graphs"):

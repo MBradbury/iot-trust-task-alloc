@@ -8,6 +8,7 @@ import ipaddress
 import ast
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Union
 
 from analysis.parser.common import parse_contiki
 
@@ -34,13 +35,43 @@ class TrustModelUpdate:
     tm_from: EdgeResourceTM
     tm_to: EdgeResourceTM
 
+
+@dataclass(frozen=True)
+class Coordinate:
+    latitude: float
+    longitude: float
+
+@dataclass(frozen=True)
+class MonitoringTask:
+    length: int
+
+@dataclass(frozen=True)
+class RoutingTask:
+    length: int
+    source: Coordinate
+    destination: Coordinate
+
+@dataclass(frozen=True)
+class Task:
+    target: ipaddress.IPv6Address
+    time: datetime
+    details: Union[MonitoringTask, RoutingTask]
+
 class ChallengeResponseAnalyser:
     RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),blacklisted=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),blacklisted=([01])\)')
+
+    RE_ROUTING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\) for path from \(([0-9.-]+),([0-9.-]+)\) to \(([0-9.-]+),([0-9.-]+)\)')
+    RE_MONITORING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\)')
+
+    RE_TASK_SENT = re.compile(r'Message sent to coap://\[(.+)\]:5683')
 
     def __init__(self, hostname):
         self.hostname = hostname
 
         self.tm_updates = []
+
+        self.tasks = []
+        self._pending_tasks = {}
 
     def analyse(self, f):
         for (time, log_level, module, line) in parse_contiki(f):
@@ -53,6 +84,47 @@ class ChallengeResponseAnalyser:
 
             elif module == "A-cr":
                 pass
+
+            elif module == "A-routing":
+                if line.startswith("Generated message"):
+                    m = self.RE_ROUTING_GENERATED.match(line)
+                    m_len = int(m.group(1))
+                    m_source_lat = float(m.group(2))
+                    m_source_lon = float(m.group(3))
+                    m_dest_lat = float(m.group(4))
+                    m_dest_lon = float(m.group(5))
+
+                    source = Coordinate(m_source_lat, m_source_lon)
+                    destination = Coordinate(m_dest_lat, m_dest_lon)
+
+                    self._pending_tasks[module] = RoutingTask(m_len, source, destination)
+
+                elif line.startswith("Message sent to"):
+                    task_details = self._pending_tasks[module]
+                    del self._pending_tasks[module]
+
+                    m = self.RE_TASK_SENT.match(line)
+                    m_target = ipaddress.ip_address(m.group(1))
+
+                    t = Task(m_target, time, task_details)
+                    self.tasks.append(t)
+
+            elif module == "A-envmon":
+                if line.startswith("Generated message"):
+                    m = self.RE_MONITORING_GENERATED.match(line)
+                    m_len = int(m.group(1))
+
+                    self._pending_tasks[module] = MonitoringTask(m_len)
+
+                elif line.startswith("Message sent to"):
+                    task_details = self._pending_tasks[module]
+                    del self._pending_tasks[module]
+
+                    m = self.RE_TASK_SENT.match(line)
+                    m_target = ipaddress.ip_address(m.group(1))
+
+                    t = Task(m_target, time, task_details)
+                    self.tasks.append(t)
 
             #if module not in ("A-cr", "trust-comm"):
             #    continue
