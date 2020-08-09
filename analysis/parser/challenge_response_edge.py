@@ -32,6 +32,8 @@ class ChallengeResponse:
 class ChallengeResponseAnalyser:
     RE_RECEIVE_CHALLENGE = re.compile(r"Received challenge at (.+) from (.+) <difficulty=([0-9]+), data=(b[\"'].+[\"'])>")
     RE_CHALLENGE_RESPONSE = re.compile(r"Job \(IPv6Address\('(.+)'\), ([0-9]+), (b[\"'].+[\"']), ([0-9]+)\) took ([0-9\.]+) seconds and ([0-9]+) iterations and found prefix (b[\"'].+[\"'])")
+    RE_BECOMING = re.compile(r"Becoming (good|bad)")
+    RE_CURRENTLY = re.compile(r"Currently (good|bad), so behaving (correctly|incorrectly with ([A-Za-z-]+))")
 
     def __init__(self, hostname):
         self.hostname = hostname
@@ -39,6 +41,10 @@ class ChallengeResponseAnalyser:
         self.start_times = []
         self.challenges = []
         self.challenge_responses = []
+
+        # For bad_challenge_response, there will be times at which the system misbehaves
+        self.behaviour_changes = []
+        self.task_actions = []
 
     def analyse(self, f):
         for line in f:
@@ -57,11 +63,15 @@ class ChallengeResponseAnalyser:
                     self._process_job_complete(time, level, app, rest)
                 elif rest.startswith("Writing"):
                     self._process_writing(time, level, app, rest)
+                elif rest.startswith("Becoming"):
+                    self._process_becoming(time, level, app, rest)
+                elif rest.startswith("Currently"):
+                    self._process_currently(time, level, app, rest)
                 else:
-                    print(f"Unknown line contents {rest}")
+                    print(f"Unknown line contents {rest} at {time}")
             except ValueError as ex:
                 print(ex)
-                print(line)
+                print(time, line)
                 break
 
     def _process_starting(self, time, level, app, line):
@@ -105,10 +115,26 @@ class ChallengeResponseAnalyser:
     def _process_writing(self, time, level, app, line):
         pass
 
+    def _process_becoming(self, time, level, app, line):
+        """When changing from behaving well or not"""
+        m = self.RE_BECOMING.match(line)
+        m_behaviour = m.group(1) == "good"
+
+        self.behaviour_changes.append((time, m_behaviour))
+
+    def _process_currently(self, time, level, app, line):
+        """How the application misbehaves"""
+        m = self.RE_CURRENTLY.match(line)
+        m_behaviour = m.group(1) == "good"
+        m_action = m.group(2) == "correctly"
+        m_action_type = m.group(3)
+
+        self.task_actions.append((time, m_behaviour, m_action, m_action_type))
+
 def main(log_dir):
     print(f"Looking for results in {log_dir}")
 
-    gs = glob.glob(f"{log_dir}/*.challenge_response.log")
+    gs = glob.glob(f"{log_dir}/*challenge_response.log")
 
     results = {}
 
