@@ -22,6 +22,7 @@ class ChallengeResponseClientBad(ChallengeResponseClientGood):
 
         # Start off being good
         self.is_bad = False
+        self.periodic_task = None
 
     async def start(self):
         await super().start()
@@ -30,18 +31,26 @@ class ChallengeResponseClientBad(ChallengeResponseClientGood):
             # Always bad
             self.is_bad = True
         else:
-            asyncio.create_task(self._periodic())
+            self.periodic_task = asyncio.create_task(self._periodic())
 
         logger.info(f"Becoming {'bad' if self.is_bad else 'good'}")
 
+    async def shutdown(self):
+        if self.periodic_task is not None:
+            self.periodic_task.cancel()
+
+        await super().shutdown()
+
     async def _periodic(self):
-        while True:
-            await asyncio.sleep(self.duration)
+        try:
+            while True:
+                await asyncio.sleep(self.duration)
 
-            self.is_bad = not self.is_bad
+                self.is_bad = not self.is_bad
 
-            logger.info(f"Becoming {'bad' if self.is_bad else 'good'}")
-
+                logger.info(f"Becoming {'bad' if self.is_bad else 'good'}")
+        except asyncio.CancelledError:
+            pass
 
     async def _send_result(self, dest, message_response):
         if self.is_bad:
