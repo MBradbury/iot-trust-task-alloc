@@ -8,7 +8,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-from analysis.parser.challenge_response_tm import main as parse_cr
+from analysis.parser.challenge_response_wsn import main as parse_cr
 
 edge_ids_to_names = {
     "00124b0014d52bd6": "rr2",
