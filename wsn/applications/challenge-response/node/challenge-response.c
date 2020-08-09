@@ -30,10 +30,14 @@
 #include "keystore-oscore.h"
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+// The number of bytes that will be checked for being 0 at the start of the hash
+// Note this differs from blockchain mining difficulty, which checks the number of '0' characters at the start of the
+// hex representation of the hash. So our difficulty is actually twice as hard as the same blockchain difficulty.
 #ifndef CHALLENGE_DIFFICULTY
 #define CHALLENGE_DIFFICULTY 2
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+// Must be in actual seconds and not in ticks for this sensor node, as we will send this duration to the edge node
 #ifndef CHALLENGE_DURATION
 #define CHALLENGE_DURATION (40) // seconds
 #endif
@@ -41,6 +45,9 @@
 #ifndef CHALLENGE_PERIOD
 #define CHALLENGE_PERIOD (clock_time_t)(2 * 60 * CLOCK_SECOND)
 #endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(CHALLENGE_DURATION * CLOCK_SECOND < CHALLENGE_PERIOD,
+    "Challenge duration must be less than the challenge period");
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" CHALLENGE_RESPONSE_APPLICATION_NAME
 #ifdef APP_CHALLENGE_RESPONSE_LOG_LEVEL
@@ -60,6 +67,8 @@ typedef struct edge_challenger {
 
 } edge_challenger_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS(challenge_response_process, CHALLENGE_RESPONSE_APPLICATION_NAME);
+/*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(challengers_memb, edge_challenger_t, NUM_EDGE_RESOURCES);
 LIST(challengers);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -71,6 +80,7 @@ static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + 32)];
 static uint8_t capability_count;
 static edge_challenger_t* next_challenge;
 static struct etimer challenge_timer;
+static struct etimer challenge_response_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static edge_challenger_t*
 find_edge_challenger(edge_resource_t* edge)
@@ -116,6 +126,12 @@ move_to_next_challenge(void)
         LOG_DBG_("setting to %s ", next_challenge == NULL ? "NULL" : next_challenge->edge->name);
     }
 
+    // The final challenge might have been removed, if so we need to stop the timeout timer
+    if (next_challenge == NULL)
+    {
+        etimer_stop(&challenge_response_timer);
+    }
+
     LOG_DBG_("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -147,6 +163,11 @@ send_callback(coap_callback_request_state_t* callback_state)
         if (response->code == CONTENT_2_05)
         {
             LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
+
+            // Set a timer for when we expect a response by
+            PROCESS_CONTEXT_BEGIN(&challenge_response_process);
+            etimer_set(&challenge_response_timer, next_challenge->ch.max_duration_secs * CLOCK_SECOND);
+            PROCESS_CONTEXT_END(&challenge_response_process);
         }
         else
         {
@@ -160,7 +181,6 @@ send_callback(coap_callback_request_state_t* callback_state)
     case COAP_REQUEST_STATUS_FINISHED:
     {
         timed_unlock_unlock(&coap_callback_in_use);
-        move_to_next_challenge();
     } break;
 
     default:
@@ -168,7 +188,6 @@ send_callback(coap_callback_request_state_t* callback_state)
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         timed_unlock_unlock(&coap_callback_in_use);
-        move_to_next_challenge();
     } break;
     }
 
@@ -176,7 +195,7 @@ send_callback(coap_callback_request_state_t* callback_state)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-check_response_received(void)
+challenge_response_timed_out(void)
 {
     // Was there a previous challenge request and did we get a response?
     if (next_challenge != NULL)
@@ -217,8 +236,6 @@ periodic_action(void)
 {
     int ret;
 
-    check_response_received();
-
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_WARN("Cannot generate a new message, as in process of sending one\n");
@@ -231,9 +248,11 @@ periodic_action(void)
         return;
     }
 
+    move_to_next_challenge();
+
     if (next_challenge == NULL)
     {
-        LOG_ERR("No challenges possible\n");
+        LOG_WARN("No challenges possible\n");
         return;
     }
 
@@ -295,21 +314,19 @@ periodic_action(void)
     else
     {
         LOG_ERR("Failed to send message with %d\n", ret);
-
-        move_to_next_challenge();
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static uint8_t
 sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t* cr, uint8_t* hash)
 {
-    LOG_DBG("Challenge prefix: ");
-    LOG_DBG_BYTES(cr->data_prefix, cr->data_length);
-    LOG_DBG_("\n");
+    //LOG_DBG("Challenge prefix: ");
+    //LOG_DBG_BYTES(cr->data_prefix, cr->data_length);
+    //LOG_DBG_("\n");
 
-    LOG_DBG("Challenge data: ");
-    LOG_DBG_BYTES(c->data, sizeof(c->data));
-    LOG_DBG_("\n");
+    //LOG_DBG("Challenge data: ");
+    //LOG_DBG_BYTES(c->data, sizeof(c->data));
+    //LOG_DBG_("\n");
 
     sha256_state_t sha256_state;
 
@@ -349,9 +366,9 @@ sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t*
         goto end;
     }
 
-    LOG_DBG("Challenge hash: ");
-    LOG_DBG_BYTES(hash, SHA256_DIGEST_LEN_BYTES);
-    LOG_DBG_("\n");
+    //LOG_DBG("Challenge hash: ");
+    //LOG_DBG_BYTES(hash, SHA256_DIGEST_LEN_BYTES);
+    //LOG_DBG_("\n");
 
 end:
     if (!enabled)
@@ -384,8 +401,6 @@ check_first_n_zeros(const uint8_t* data, size_t data_len, size_t n)
 static void
 res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 
-// TODO: See RFC6690 Section 3.1 for what to set rt to
-// https://tools.ietf.org/html/rfc6690#section-3.1
 static
 RESOURCE(res_coap,
          "title=\"Challenge Response\";rt=\"" CHALLENGE_RESPONSE_APPLICATION_NAME "\"",
@@ -422,7 +437,7 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
     if (edge == NULL)
     {
         LOG_ERR("Challenge response from unknown edge\n");
-        goto end;
+        return;
     }
 
     edge_challenger_t* challenger = find_edge_challenger(edge);
@@ -431,6 +446,9 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
         LOG_ERR("Unable to find challenge sent to edge\n");
         goto end;
     }
+
+    // Received a response, so do not want to timeout now
+    etimer_stop(&challenge_response_timer);
 
     // Record when the response was received
     challenger->received = received;
@@ -532,8 +550,6 @@ edge_capability_remove(edge_resource_t* edge)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(challenge_response_process, CHALLENGE_RESPONSE_APPLICATION_NAME);
-/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 init(void)
 {
@@ -565,6 +581,10 @@ PROCESS_THREAD(challenge_response_process, ev, data)
         if (ev == PROCESS_EVENT_TIMER && data == &challenge_timer) {
             periodic_action();
             etimer_reset(&challenge_timer);
+        }
+
+        if (ev == PROCESS_EVENT_TIMER && data == &challenge_response_timer) {
+            challenge_response_timed_out();
         }
 
         if (ev == pe_edge_capability_add) {
