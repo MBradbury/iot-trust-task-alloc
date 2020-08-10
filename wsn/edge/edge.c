@@ -8,6 +8,7 @@
 #include "capability/capability.h"
 #include "serial-helpers.h"
 #include "stereotype-tags.h"
+#include "timed-unlock.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "edge"
@@ -178,6 +179,8 @@ process_event_t pe_data_from_resource_rich_node;
 PROCESS_THREAD(edge, ev, data)
 {
     PROCESS_BEGIN();
+
+    timed_unlock_global_init();
 
     memset(applications_available, 0, sizeof(applications_available));
 

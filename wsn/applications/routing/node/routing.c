@@ -42,7 +42,7 @@ static coap_callback_request_state_t coap_callback;
 static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + (1 + sizeof(float)) * 2) * 2];
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool task_in_use;
+static timed_unlock_t task_in_use;
 static coordinate_t task_src, task_dest;
 static bool first_src_isclose;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -125,13 +125,6 @@ nanocbor_get_coordinate_from_payload(nanocbor_value_t* dec, coordinate_t* coord,
 static uint8_t capability_count;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-process_task_ack(edge_resource_t* edge, edge_capability_t* cap, coap_message_t* response)
-{
-    // Do anything that needs to be done with the ack
-    // e.g., record the estimated time until the task response is sent
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
     edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
@@ -151,13 +144,12 @@ send_callback(coap_callback_request_state_t* callback_state)
         if (response->code == CONTENT_2_05)
         {
             LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
-            process_task_ack(edge, cap, response);
         }
         else
         {
             LOG_WARN("Message send failed with code (%u) '%.*s' (len=%d)\n",
                 response->code, response->payload_len, response->payload, response->payload_len);
-            task_in_use = false;
+            timed_unlock_unlock(&task_in_use);
         }
 
         info.coap_status = response->code;
@@ -173,7 +165,7 @@ send_callback(coap_callback_request_state_t* callback_state)
         LOG_ERR("Failed to send message due to %s(%d)\n",
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         timed_unlock_unlock(&coap_callback_in_use);
-        task_in_use = false;
+        timed_unlock_unlock(&task_in_use);
     } break;
     }
 
@@ -260,7 +252,7 @@ event_triggered_action(const char* data)
         return;
     }
 
-    if (task_in_use)
+    if (timed_unlock_is_locked(&task_in_use))
     {
         LOG_WARN("Cannot generate a new task, as in process of processing one\n");
         return;
@@ -329,7 +321,7 @@ event_triggered_action(const char* data)
     ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);
     if (ret)
     {
-        task_in_use = true;
+        timed_unlock_lock(&task_in_use);
         timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&edge->ep);
@@ -486,7 +478,7 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
 
             tm_update_result_quality(edge, cap, &info);
 
-            task_in_use = false;
+            timed_unlock_unlock(&task_in_use);
         }
 
         // TODO: output this information for the client
@@ -527,8 +519,8 @@ init(void)
     init_trust_weights_routing();
 
     capability_count = 0;
-    timed_unlock_init(&coap_callback_in_use, "routing", (1 * 60 * CLOCK_SECOND));
-    task_in_use = false;
+    timed_unlock_init(&coap_callback_in_use, "routing-coap", (1 * 60 * CLOCK_SECOND));
+    timed_unlock_init(&task_in_use, "routing-task", (4 * 60 * CLOCK_SECOND));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(routing_process, ev, data)
@@ -551,6 +543,10 @@ PROCESS_THREAD(routing_process, ev, data)
 
         if (ev == pe_edge_capability_remove) {
             edge_capability_remove((edge_resource_t*)data);
+        }
+
+        if (ev == pe_timed_unlock_unlocked && data == &task_in_use) {
+            // TODO: Need to consider how to handle giving up on receiving a task response
         }
     }
 
