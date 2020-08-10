@@ -37,3 +37,43 @@ def squash_true_false_seq(XY):
         false_start = None
 
     return true_list, false_list
+
+def squash_generic_seq(XY, kinds):
+    """Return two lists containing a sequence of pairs of datetimes for which the value was true and false"""
+
+    start = {kind: None for kind in kinds}
+    result = {kind: list() for kind in kinds}
+
+    #true_start = None
+    #false_start = None
+
+    #true_list = []
+    #false_list = []
+
+    for (time, v) in XY:
+        # Transition from false to true
+        # Find only other kind that is not none
+        other_starts = [kind for (kind, s) in start.items() if s is not None]
+        if len(other_starts) == 1:
+            (k,) = other_starts
+
+            result[k].append((start[k], time - start[k]))
+            start[k] = None
+
+        elif len(other_starts) > 1:
+            raise RuntimeError("Logic error")
+
+        if start[v] is None:
+            start[v] = time
+
+    other_starts = [kind for (kind, s) in start.items() if s is not None]
+    if len(other_starts) == 1:
+        (k,) = other_starts
+
+        result[k].append((start[k], time - start[k]))
+        start[k] = None
+
+    elif len(other_starts) > 1:
+        raise RuntimeError("Logic error")
+
+    return result
