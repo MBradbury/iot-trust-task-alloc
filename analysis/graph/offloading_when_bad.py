@@ -82,7 +82,7 @@ def main(log_dir):
         y += 1
 
     ax2 = ax.twinx()
-    hlabels, hdata = zip(*data.items())
+    hlabels, hdata = zip(*list(sorted(data.items(), key=lambda x: x[0])))
     hlabels = [ips_to_names[l] for l in hlabels]
     ax2.hist(hdata, bins, stacked=True, histtype='bar', label=hlabels, rwidth=0.4)
 
