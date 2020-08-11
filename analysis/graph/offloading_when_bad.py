@@ -29,6 +29,10 @@ def main(log_dir):
 
     print([r.behaviour_changes for r in results.values()])
 
+    if all(len(r.behaviour_changes) == 0 for r in results.values()):
+        print("This graph type does not make sense for this result")
+        return
+
     earliest = min(t for r in results.values() for (t, v) in r.behaviour_changes)
     latest = max(t for r in results.values() for (t, v) in r.behaviour_changes)
 
@@ -101,14 +105,17 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_offload_vs_behaviour.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
+    print("Producted:", target)
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Offloading when bad')
-    parser.add_argument('--log-dir', type=str, default="results", help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=str, default="results", nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 
-    main(args.log_dir)
+    for log_dir in args.log_dir:
+        print(f"Graphing for {log_dir}")
+        main(log_dir)

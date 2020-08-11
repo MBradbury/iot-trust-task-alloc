@@ -83,14 +83,17 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_iterations_boxplot.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
+    print("Producted:", target)
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Challenge Response')
-    parser.add_argument('--log-dir', type=str, default="results", help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=str, default="results", nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 
-    main(args.log_dir)
+    for log_dir in args.log_dir:
+        print(f"Graphing for {log_dir}")
+        main(log_dir)

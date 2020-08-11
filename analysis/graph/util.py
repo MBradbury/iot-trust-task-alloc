@@ -1,4 +1,6 @@
 
+from analysis.parser.wsn_pyterm import ChallengeResponseType
+
 def squash_true_false_seq(XY):
     """Return two lists containing a sequence of pairs of datetimes for which the value was true and false"""
 
@@ -77,3 +79,16 @@ def squash_generic_seq(XY, kinds):
         raise RuntimeError("Logic error")
 
     return result
+
+def ChallengeResponseType_to_shape_and_color(c: ChallengeResponseType):
+    if c == ChallengeResponseType.NO_ACK:
+        return ("X", "#1f77b4")
+
+    elif c == ChallengeResponseType.TIMEOUT:
+        return ("o", "#ff7f0e")
+
+    elif c == ChallengeResponseType.RESPONSE:
+        return ("*", "#2ca02c")
+
+    else:
+        raise RuntimeError(f"Unknown value {c}")
