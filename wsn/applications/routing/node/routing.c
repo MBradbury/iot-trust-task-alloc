@@ -29,6 +29,10 @@
 #include "keystore-oscore.h"
 #endif
 
+#ifdef ROUTING_PERIODIC_TEST
+#include "routing-periodic-test.h"
+#endif
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" ROUTING_APPLICATION_NAME
 #ifdef APP_ROUTING_LOG_LEVEL
@@ -521,6 +525,10 @@ init(void)
     capability_count = 0;
     timed_unlock_init(&coap_callback_in_use, "routing-coap", (1 * 60 * CLOCK_SECOND));
     timed_unlock_init(&task_in_use, "routing-task", (4 * 60 * CLOCK_SECOND));
+
+#ifdef ROUTING_PERIODIC_TEST
+    routing_periodic_test_init();
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(routing_process, ev, data)

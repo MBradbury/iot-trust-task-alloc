@@ -1,6 +1,8 @@
 // When testing we may be unable to manually provide input requesting a route calculation
 // So this file can be compiled in to automatically generate routes.
 /*-------------------------------------------------------------------------------------------------------------------*/
+#include "routing-periodic-test.h"
+
 #include "contiki.h"
 #include "os/dev/serial-line.h"
 #include "os/sys/log.h"
@@ -9,6 +11,10 @@
 #include "applications.h"
 #include "application-serial.h"
 #include "random-helpers.h"
+
+#ifndef ROUTING_PERIODIC_TEST
+#error "Must define ROUTING_PERIODIC_TEST to use"
+#endif
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef GENERATE_ROUTE_MIN_PERIOD
@@ -29,10 +35,26 @@
 static struct etimer generate_route_timer;
 static struct process* routing_application;
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void init(void)
+PROCESS(routing_test_process, "Routing test process");
+/*-------------------------------------------------------------------------------------------------------------------*/
+void routing_periodic_test_init(void)
+{
+    process_start(&routing_test_process, NULL);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static bool init(void)
 {
     uint16_t rnd_period = random_in_range_unbiased(GENERATE_ROUTE_MIN_PERIOD, GENERATE_ROUTE_MAX_PERIOD);
     etimer_set(&generate_route_timer, rnd_period * CLOCK_SECOND);
+
+    routing_application = find_process_with_name(ROUTING_APPLICATION_NAME);
+    if (routing_application == NULL)
+    {
+        LOG_ERR("Failed to find " ROUTING_APPLICATION_NAME " application process\n");
+        return false;
+    }
+
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void periodic_event(void)
@@ -48,17 +70,12 @@ static void periodic_event(void)
     etimer_reset_with_new_interval(&generate_route_timer, rnd_period * CLOCK_SECOND);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(routing_test_process, "Routing test process");
 PROCESS_THREAD(routing_test_process, ev, data)
 {
     PROCESS_BEGIN();
 
-    init();
-
-    routing_application = find_process_with_name(ROUTING_APPLICATION_NAME);
-    if (routing_application == NULL)
+    if (!init())
     {
-        LOG_ERR("Failed to find " ROUTING_APPLICATION_NAME " application process\n");
         PROCESS_EXIT();
     }
 

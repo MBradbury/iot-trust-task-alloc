@@ -65,5 +65,9 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
 APPLICATIONS = monitoring routing challenge-response
 include ../applications/Makefile.include
 
+# Enable when automatic job submission for routing is required
+#MODULES_REL += ../applications/routing/node/test
+#CFLAGS += -DROUTING_PERIODIC_TEST
+
 # Main Contiki-NG compile
 include $(CONTIKI)/Makefile.include
