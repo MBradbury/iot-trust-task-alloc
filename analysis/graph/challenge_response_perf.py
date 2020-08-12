@@ -10,6 +10,10 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 
 from analysis.parser.edge_challenge_response import main as parse_cr
+from analysis.graph.util import check_fonts
+
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.size'] = 12
 
 def print_mean_ci(name, x, confidence=0.95):
     mean, sem, n = np.mean(x), stats.sem(x), len(x)
@@ -61,7 +65,8 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_iterations_vs_timetaken.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-
+    print("Produced:", target)
+    check_fonts(target)
 
     fig = plt.figure()
     ax = fig.gca()
@@ -83,7 +88,8 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_iterations_boxplot.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Producted:", target)
+    print("Produced:", target)
+    check_fonts(target)
 
 
 if __name__ == "__main__":

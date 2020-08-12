@@ -11,7 +11,10 @@ import matplotlib.dates as mdates
 
 from analysis.parser.edge_challenge_response import main as parse_cr
 from analysis.parser.wsn_pyterm import main as parse_pyterm
-from analysis.graph.util import squash_generic_seq
+from analysis.graph.util import squash_generic_seq, check_fonts
+
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.size'] = 12
 
 edge_ids_to_names = {
     "wsn2": "rr2",
@@ -173,7 +176,7 @@ def main(log_dir):
         #ax.broken_barh(result[None], (y,0.9), color=u_colour, label="U" if legend else None)
 
         yticks.append(y)
-        ytick_labels.append(f"{hostname[0]}\neval {hostname[1]}")
+        ytick_labels.append(f"{hostname[0]}\\newline eval {hostname[1]}")
         y += 1
 
         legend = False
@@ -191,7 +194,8 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_correctly_evaluated.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Producted:", target)
+    print("Produced:", target)
+    check_fonts(target)
 
 
     print("\\begin{table}[H]")

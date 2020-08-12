@@ -1,4 +1,7 @@
 
+import re
+import subprocess
+
 from analysis.parser.wsn_pyterm import ChallengeResponseType
 
 def squash_true_false_seq(XY):
@@ -92,3 +95,42 @@ def ChallengeResponseType_to_shape_and_color(c: ChallengeResponseType):
 
     else:
         raise RuntimeError(f"Unknown value {c}")
+
+def latex_escape(text: str):
+    """
+        :param text: a plain text message
+        :return: the message escaped to appear correctly in LaTeX
+        :from: http://stackoverflow.com/questions/16259923/how-can-i-escape-latex-special-characters-inside-django-templates/25875504#25875504
+    """
+    conv = {
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\^{}',
+        '\\': r'\textbackslash{}',
+        '<': r'\textless{}',
+        '>': r'\textgreater{}',
+    }
+
+    regex = re.compile('|'.join(re.escape(key)
+                                for key
+                                in sorted(conv.keys(), key=lambda item: - len(item))))
+
+    return regex.sub(lambda match: conv[match.group()], str(text))
+
+def check_fonts(path: str):
+    r = subprocess.run(f"pdffonts {path}",
+        shell=True,
+        check=True,
+        capture_output=True,
+        universal_newlines=True,
+        encoding="utf-8",
+    )
+
+    if "Type 3" in r.stdout:
+        raise RuntimeError(f"Type 3 font in {path}")

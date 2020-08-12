@@ -9,7 +9,10 @@ import matplotlib.dates as mdates
 
 from analysis.parser.edge_challenge_response import main as parse_cr
 from analysis.parser.wsn_pyterm import main as parse_pyterm
-from analysis.graph.util import squash_true_false_seq
+from analysis.graph.util import squash_true_false_seq, check_fonts
+
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.size'] = 12
 
 edge_ids_to_names = {
     "wsn2": "rr2",
@@ -105,7 +108,9 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_offload_vs_behaviour.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Producted:", target)
+    print("Produced:", target)
+    check_fonts(target)
+
 
 
 if __name__ == "__main__":

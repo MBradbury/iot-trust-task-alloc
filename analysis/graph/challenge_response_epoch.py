@@ -9,7 +9,10 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from analysis.parser.wsn_pyterm import main as parse_cr
-from analysis.graph.util import squash_true_false_seq, ChallengeResponseType_to_shape_and_color
+from analysis.graph.util import squash_true_false_seq, ChallengeResponseType_to_shape_and_color, latex_escape, check_fonts
+
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.size'] = 12
 
 edge_ids_to_names = {
     "00124b0014d52bd6": "rr2",
@@ -53,7 +56,8 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_time_vs_epoch.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Producted:", target)
+    print("Produced:", target)
+    check_fonts(target)
 
 
     # Show when the edge nodes were thought to be good or not
@@ -110,7 +114,7 @@ def main(log_dir):
     for cevent in sorted(cxs):
         (shape, colour) = ChallengeResponseType_to_shape_and_color(cevent)
 
-        ax.scatter(cxs[cevent], cys[cevent], label=cevent, c=colour, marker=shape)
+        ax.scatter(cxs[cevent], cys[cevent], label=latex_escape(cevent), c=colour, marker=shape)
 
     ax.set_yticks([x+0.45 for x in yticks])
     ax.set_yticklabels(ytick_labels)
@@ -125,7 +129,8 @@ def main(log_dir):
     target = f"{log_dir}/graphs/cr_time_vs_good.pdf"
     fig.savefig(target, bbox_inches='tight')
     #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Producted:", target)
+    print("Produced:", target)
+    check_fonts(target)
 
 
 if __name__ == "__main__":
