@@ -59,7 +59,7 @@ def main(log_dir):
     # Show when the edge nodes were thought to be good or not
     event_types = {
         (hostname, edge_ids_to_names[edge_label]): [
-            (up.time, not up.tm_to.blacklisted)
+            (up.time, not up.tm_to.bad)
             for up in result.tm_updates
             if up.edge_id == edge_label
         ]
@@ -73,7 +73,7 @@ def main(log_dir):
             for up in result.tm_updates
             if up.edge_id == edge_label
             if not up.cr.good
-            if up.tm_to.blacklisted
+            if up.tm_to.bad
         ]
         for (hostname, result) in results.items()
         for edge_label in edge_labels

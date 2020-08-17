@@ -13,7 +13,7 @@ struct edge_resource;
 typedef struct edge_resource_tm {
 
     uint32_t epoch_number;
-    bool blacklisted;
+    bool bad;
 
 } edge_resource_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -16,14 +16,14 @@
 void edge_resource_tm_init(edge_resource_tm_t* tm)
 {
     tm->epoch_number = 0;
-    tm->blacklisted = false;
+    tm->bad = false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_resource_tm_print(const edge_resource_tm_t* tm)
 {
     printf("EdgeResourceTM(");
     printf("epoch=%" PRIu32 ",", tm->epoch_number);
-    printf("blacklisted=%d", tm->blacklisted);
+    printf("bad=%d", tm->bad);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -66,10 +66,10 @@ edge_resource_t* choose_edge(const char* capability_name)
             continue;
         }
 
-        // Can't use this node if it has been blacklisted
-        if (iter->tm.blacklisted)
+        // Can't use this node if it is bad
+        if (iter->tm.bad)
         {
-            //LOG_DBG("Excluding edge %s because it is blacklisted\n", iter->name);
+            //LOG_DBG("Excluding edge %s because it is bad\n", iter->name);
             continue;
         }
 
@@ -152,18 +152,18 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
 
         if (good)
         {
-            if (edge->tm.blacklisted)
+            if (edge->tm.bad)
             {
                 edge->tm.epoch_number += 1;
-                edge->tm.blacklisted = false;
+                edge->tm.bad = false;
             }
         }
         else
         {
-            if (!edge->tm.blacklisted)
+            if (!edge->tm.bad)
             {
                 edge->tm.epoch_number += 1;
-                edge->tm.blacklisted = true;
+                edge->tm.bad = true;
             }
         }
 

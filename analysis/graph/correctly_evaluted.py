@@ -104,7 +104,7 @@ def main(log_dir):
     edge_labels = {up.edge_id for result in pyterm_results.values() for up in result.tm_updates}
     belived = {
         (hostname, edge_ids_to_names[edge_label]): [
-            (up.time, not up.tm_to.blacklisted)
+            (up.time, not up.tm_to.bad)
             for up in result.tm_updates
             if up.edge_id == edge_label
         ]

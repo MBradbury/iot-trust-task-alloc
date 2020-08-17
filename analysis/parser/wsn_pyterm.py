@@ -25,7 +25,7 @@ class ChallengeResponse:
 @dataclass(frozen=True)
 class EdgeResourceTM:
     epoch: int
-    blacklisted: bool
+    bad: bool
 
 @dataclass(frozen=True)
 class TrustModelUpdate:
@@ -58,7 +58,7 @@ class Task:
     details: Union[MonitoringTask, RoutingTask]
 
 class ChallengeResponseAnalyser:
-    RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),blacklisted=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),blacklisted=([01])\)')
+    RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(?blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(?blacklisted|bad)=([01])\)')
 
     RE_ROUTING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\) for path from \(([0-9.-]+),([0-9.-]+)\) to \(([0-9.-]+),([0-9.-]+)\)')
     RE_MONITORING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\)')
@@ -140,14 +140,14 @@ class ChallengeResponseAnalyser:
         m_cr_type = ChallengeResponseType(int(m.group(2)))
         m_cr_good = True if int(m.group(3)) == 1 else False
         m_tm_from_epoch = int(m.group(4))
-        m_tm_from_blacklisted = True if int(m.group(5)) == 1 else False
+        m_tm_from_bad = True if int(m.group(5)) == 1 else False
         m_tm_to_epoch = int(m.group(6))
-        m_tm_to_blacklisted = True if int(m.group(7)) == 1 else False
+        m_tm_to_bad = True if int(m.group(7)) == 1 else False
 
         cr = ChallengeResponse(m_cr_type, m_cr_good)
 
-        tm_from = EdgeResourceTM(m_tm_from_epoch, m_tm_from_blacklisted)
-        tm_to = EdgeResourceTM(m_tm_to_epoch, m_tm_to_blacklisted)
+        tm_from = EdgeResourceTM(m_tm_from_epoch, m_tm_from_bad)
+        tm_to = EdgeResourceTM(m_tm_to_epoch, m_tm_to_bad)
 
         u = TrustModelUpdate(time, m_edge_id, cr, tm_from, tm_to)
 
