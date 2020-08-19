@@ -37,6 +37,7 @@ float find_trust_weight(const char* application_name, uint16_t id);
 #define TRUST_METRIC_TASK_SUBMISSION  1001
 #define TRUST_METRIC_TASK_RESULT      1002
 #define TRUST_METRIC_ANNOUNCE         1003
+#define TRUST_METRIC_CHALLENGE_RESP   1004
 /*-------------------------------------------------------------------------------------------------------------------*/
 // Edge capability metrics
 #define TRUST_METRIC_RESULT_QUALITY   2001
@@ -107,4 +108,7 @@ void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, con
 void tm_update_result_latency(edge_resource_t* edge, edge_capability_t* cap, const tm_result_latency_info_t* info);
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info);
 void tm_update_task_observation(peer_t* peer, const tm_task_observation_info_t* info);
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool tm_task_submission_good(const tm_task_submission_info_t* info, bool* should_update);
+bool tm_challenge_response_good(const tm_challenge_response_info_t* info, bool* should_update);
 /*-------------------------------------------------------------------------------------------------------------------*/

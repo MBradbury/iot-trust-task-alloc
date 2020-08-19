@@ -1,6 +1,7 @@
 #include "trust-models.h"
 #include "os/sys/log.h"
 #include "list.h"
+#include "assert.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
 #ifdef TRUST_MODEL_LOG_LEVEL
@@ -53,7 +54,62 @@ float find_trust_weight(const char* application_name, uint16_t id)
         }
     }
 
+    // No weight specified for this trust component
     return 0.0f;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool tm_task_submission_good(const tm_task_submission_info_t* info, bool* should_update)
+{
+    *should_update = (info->coap_request_status != COAP_REQUEST_STATUS_FINISHED);
+
+    // Good if this was a response with a valid status code
+    return info->coap_request_status == COAP_REQUEST_STATUS_RESPONSE &&
+           info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool tm_challenge_response_good(const tm_challenge_response_info_t* info, bool* should_update)
+{
+    bool good;
+    *should_update = true;
+
+    switch (info->type)
+    {
+    case TM_CHALLENGE_RESPONSE_ACK:
+    {
+        // info->coap_status and info->coap_request_status
+        good =
+            (info->coap_request_status == COAP_REQUEST_STATUS_RESPONSE) &&
+            (info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05);
+
+        // Only update if we don't get an ack
+        // and this is not COAP_REQUEST_STATUS_FINISHED
+        *should_update = !good && (info->coap_request_status != COAP_REQUEST_STATUS_FINISHED);
+
+    } break;
+
+    case TM_CHALLENGE_RESPONSE_TIMEOUT:
+    {
+        // Always update on a timeout
+        good = !info->never_received && !info->received_late;
+    } break;
+
+    case TM_CHALLENGE_RESPONSE_RESP:
+    {
+        // Always update when a response is received
+        good = info->challenge_successful;
+
+        // If challenge_late is set, then we should have already handled TM_CHALLENGE_RESPONSE_TIMEOUT
+        // so should not attempt to update the state.
+        *should_update = !info->challenge_late;
+    } break;
+
+    default:
+    {
+        assert(false);
+    } break;
+    }
+
+    return good;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 __attribute__((__weak__)) void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, const tm_task_submission_info_t* info)

@@ -103,45 +103,8 @@ edge_resource_t* choose_edge(const char* capability_name)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info)
 {
-    bool should_update = true;
-    bool good;
-
-    switch (info->type)
-    {
-    case TM_CHALLENGE_RESPONSE_ACK:
-    {
-        // info->coap_status and info->coap_request_status
-        good =
-            (info->coap_request_status == COAP_REQUEST_STATUS_RESPONSE) &&
-            (info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05);
-
-        // Only update if we don't get an ack
-        // and this is not COAP_REQUEST_STATUS_FINISHED
-        should_update = !good && (info->coap_request_status != COAP_REQUEST_STATUS_FINISHED);
-
-    } break;
-
-    case TM_CHALLENGE_RESPONSE_TIMEOUT:
-    {
-        // Always update on a timeout
-        good = !info->never_received && !info->received_late;
-    } break;
-
-    case TM_CHALLENGE_RESPONSE_RESP:
-    {
-        // Always update when a response is received
-        good = info->challenge_successful;
-
-        // If challenge_late is set, then we should have already handled TM_CHALLENGE_RESPONSE_TIMEOUT
-        // so should not attempt to update the state.
-        should_update = !info->challenge_late;
-    } break;
-
-    default:
-    {
-        assert(false);
-    } break;
-    }
+    bool should_update;
+    const bool good = tm_challenge_response_good(info, &should_update);
 
     if (should_update)
     {

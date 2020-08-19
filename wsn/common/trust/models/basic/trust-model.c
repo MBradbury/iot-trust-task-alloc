@@ -15,8 +15,7 @@ void edge_resource_tm_init(edge_resource_tm_t* tm)
 {
     beta_dist_init(&tm->task_submission, 1, 1);
     beta_dist_init(&tm->task_result, 1, 1);
-
-    //poisson_observation_init(&tm->announce);
+    beta_dist_init(&tm->cr, 1, 1);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_resource_tm_print(const edge_resource_tm_t* tm)
@@ -26,15 +25,14 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm)
     dist_print(&tm->task_submission);
     printf(",TaskRes=");
     dist_print(&tm->task_result);
-    //printf(",Announce=");
-    //dist_print(&tm->announce);
+    printf(",CR=");
+    dist_print(&tm->cr);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_init(edge_capability_tm_t* tm)
 {
     beta_dist_init(&tm->result_quality, 1, 1);
-    //beta_dist_init(&tm->latency, 1, 1);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
@@ -42,21 +40,16 @@ void edge_capability_tm_print(const edge_capability_tm_t* tm)
     printf("EdgeCapTM(");
     printf("ResQual=");
     dist_print(&tm->result_quality);
-    //printf(",Latency=");
-    //dist_print(&tm->latency);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_tm_init(peer_tm_t* tm)
 {
-    //beta_dist_init(&tm->task_observation, 1, 1);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_tm_print(const peer_tm_t* tm)
 {
     printf("PeerTM(");
-    //printf("TaskObserve=");
-    //dist_print(&tm->task_observation);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -73,6 +66,11 @@ static float calculate_trust_value(edge_resource_t* edge, edge_capability_t* cap
 
     w = find_trust_weight(capability->name, TRUST_METRIC_TASK_RESULT);
     e = beta_dist_expected(&edge->tm.task_result);
+    trust += w * e;
+    w_total += w;
+
+    w = find_trust_weight(capability->name, TRUST_METRIC_CHALLENGE_RESP);
+    e = beta_dist_expected(&edge->tm.cr);
     trust += w * e;
     w_total += w;
 
@@ -122,8 +120,10 @@ edge_resource_t* choose_edge(const char* capability_name)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, const tm_task_submission_info_t* info)
 {
-    // Do not update on COAP_REQUEST_STATUS_FINISHED
-    if (info->coap_request_status == COAP_REQUEST_STATUS_FINISHED)
+    bool should_update;
+    const bool good = tm_task_submission_good(info, &should_update);
+
+    if (!should_update)
     {
         return;
     }
@@ -133,8 +133,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
     beta_dist_print(&edge->tm.task_submission);
     LOG_INFO_(" -> ");
 
-    if (info->coap_request_status == COAP_REQUEST_STATUS_RESPONSE &&
-        (info->coap_status >= CREATED_2_01 && info->coap_status <= CONTENT_2_05))
+    if (good)
     {
         beta_dist_add_good(&edge->tm.task_submission);
     }
@@ -185,18 +184,47 @@ void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, con
     LOG_INFO_("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info)
+{
+    bool should_update;
+    const bool good = tm_challenge_response_good(info, &should_update);
+
+    if (!should_update)
+    {
+        return;
+    }
+
+    LOG_INFO("Updating Edge %s TM cr (type=%d,good=%d): ",
+        edge->name, info->type, good);
+    beta_dist_print(&edge->tm.cr);
+    LOG_INFO_(" -> ");
+
+    if (good)
+    {
+        beta_dist_add_good(&edge->tm.cr);
+    }
+    else
+    {
+        beta_dist_add_bad(&edge->tm.cr);
+    }
+
+    beta_dist_print(&edge->tm.cr);
+    LOG_INFO_("\n");
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
 {
-    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 3));
     NANOCBOR_CHECK(dist_serialise(enc, &edge->task_submission));
     NANOCBOR_CHECK(dist_serialise(enc, &edge->task_result));
+    NANOCBOR_CHECK(dist_serialise(enc, &edge->cr));
 
     return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capability_tm_t* cap)
 {
-    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 1));
     NANOCBOR_CHECK(dist_serialise(enc, &cap->result_quality));
 
     return NANOCBOR_OK;
@@ -208,6 +236,7 @@ int deserialise_trust_edge_resource(nanocbor_value_t* dec, edge_resource_tm_t* e
     NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
     NANOCBOR_CHECK(dist_deserialise(&arr, &edge->task_submission));
     NANOCBOR_CHECK(dist_deserialise(&arr, &edge->task_result));
+    NANOCBOR_CHECK(dist_deserialise(&arr, &edge->cr));
 
     if (!nanocbor_at_end(&arr))
     {
