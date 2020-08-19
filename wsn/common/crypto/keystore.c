@@ -483,7 +483,7 @@ keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
 #define OSCORE_ID_LEN 6
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
+generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret)
 {
     LOG_INFO("Generated shared secret with ");
     LOG_INFO_6ADDR(&item->addr);
@@ -498,7 +498,7 @@ generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
     // Take the lower OSCORE_ID_LEN bytes as the ids
     // The linkaddr contains the EUI-64
     const uint8_t* sender_id = &linkaddr_node_addr.u8[LINKADDR_SIZE - OSCORE_ID_LEN];
-    const uint8_t* receiver_id = &item->addr.u8[16 - OSCORE_ID_LEN];
+    const uint8_t* receiver_id = &item->addr.u8[sizeof(item->addr.u8) - OSCORE_ID_LEN];
 
     oscore_derive_ctx(&item->context,
         shared_secret, DTLS_EC_KEY_SIZE,
@@ -506,8 +506,7 @@ generate_shared_secret(public_key_item_t* item, uint8_t* shared_secret)
         COSE_Algorithm_AES_CCM_16_64_128, //COSE_ALGO_AESCCM_16_64_128,
         sender_id, OSCORE_ID_LEN, // Sender ID
         receiver_id, OSCORE_ID_LEN, // Receiver ID
-        NULL, 0, // optional ID context
-        OSCORE_DEFAULT_REPLAY_WINDOW);
+        NULL, 0); // optional ID context
 
     LOG_DBG("Created oscore context with: ");
     LOG_DBG_("\n\tSender ID   : ");
