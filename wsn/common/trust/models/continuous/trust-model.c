@@ -1,6 +1,7 @@
 #include "trust-model.h"
 #include "trust-models.h"
 #include "float-helpers.h"
+#include "applications.h"
 #include <stdio.h>
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -15,7 +16,6 @@ void edge_resource_tm_init(edge_resource_tm_t* tm)
 {
     beta_dist_init(&tm->task_submission, 1, 1);
     beta_dist_init(&tm->task_result, 1, 1);
-    beta_dist_init(&tm->cr, 1, 1);
 
     poisson_observation_init(&tm->announce);
 }
@@ -27,8 +27,6 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm)
     dist_print(&tm->task_submission);
     printf(",TaskRes=");
     dist_print(&tm->task_result);
-    printf(",CR=");
-    dist_print(&tm->cr);
     printf(",Announce=");
     dist_print(&tm->announce);
     printf(")");
@@ -79,15 +77,23 @@ static float calculate_trust_value(edge_resource_t* edge, edge_capability_t* cap
     trust += w * e;
     w_total += w;
 
-    w = find_trust_weight(capability->name, TRUST_METRIC_CHALLENGE_RESP);
-    e = beta_dist_expected(&edge->tm.cr);
-    trust += w * e;
-    w_total += w;
-
     w = find_trust_weight(capability->name, TRUST_METRIC_RESULT_QUALITY);
     e = beta_dist_expected(&capability->tm.result_quality);
     trust += w * e;
     w_total += w;
+
+#ifdef APPLICATION_CHALLENGE_RESPONSE
+    // This application is special, as its result quality applies to
+    // other applications too (as long as they specify a weight for it).
+    edge_capability_t* cr = edge_info_capability_find(edge, CHALLENGE_RESPONSE_APPLICATION_NAME);
+    if (cr != NULL)
+    {
+        w = find_trust_weight(capability->name, TRUST_METRIC_CHALLENGE_RESP);
+        e = beta_dist_expected(&cr->tm.result_quality);
+        trust += w * e;
+        w_total += w;
+    }
+#endif
 
     // The weights should add up to be 1, check this
     if (!isclose(w_total, 1.0f))
@@ -194,6 +200,7 @@ void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, con
     LOG_INFO_("\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifdef APPLICATION_CHALLENGE_RESPONSE
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info)
 {
     bool should_update;
@@ -204,30 +211,23 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
         return;
     }
 
-    LOG_INFO("Updating Edge %s TM cr (type=%d,good=%d): ",
-        edge->name, info->type, good);
-    beta_dist_print(&edge->tm.cr);
-    LOG_INFO_(" -> ");
-
-    if (good)
+    edge_capability_t* cap = edge_info_capability_find(edge, CHALLENGE_RESPONSE_APPLICATION_NAME);
+    if (cap == NULL)
     {
-        beta_dist_add_good(&edge->tm.cr);
-    }
-    else
-    {
-        beta_dist_add_bad(&edge->tm.cr);
+        LOG_ERR("Failed to find cr application\n");
+        return;
     }
 
-    beta_dist_print(&edge->tm.cr);
-    LOG_INFO_("\n");
+    const tm_result_quality_info_t info2 = { .good = good };
+    tm_update_result_quality(edge, cap, &info2);
 }
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
 {
-    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 4));
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 3));
     NANOCBOR_CHECK(dist_serialise(enc, &edge->task_submission));
     NANOCBOR_CHECK(dist_serialise(enc, &edge->task_result));
-    NANOCBOR_CHECK(dist_serialise(enc, &edge->cr));
     NANOCBOR_CHECK(dist_serialise(enc, &edge->announce));
 
     return NANOCBOR_OK;
@@ -248,7 +248,6 @@ int deserialise_trust_edge_resource(nanocbor_value_t* dec, edge_resource_tm_t* e
     NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
     NANOCBOR_CHECK(dist_deserialise(&arr, &edge->task_submission));
     NANOCBOR_CHECK(dist_deserialise(&arr, &edge->task_result));
-    NANOCBOR_CHECK(dist_deserialise(&arr, &edge->cr));
     NANOCBOR_CHECK(dist_deserialise(&arr, &edge->announce));
 
     if (!nanocbor_at_end(&arr))

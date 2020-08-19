@@ -17,9 +17,6 @@ typedef struct edge_resource_tm {
     // Was a task result received when it was expected
     beta_dist_t task_result;
 
-    // Number of times a challenge-response failed or succeeded
-    beta_dist_t cr;
-
     // Are periodic announces being sent as often as expected
     poisson_observation_t announce;
 

@@ -17,9 +17,6 @@ typedef struct edge_resource_tm {
     // Was a task result received when it was expected
     beta_dist_t task_result;
 
-    // Number of times a challenge-response failed or succeeded
-    beta_dist_t cr;
-
 } edge_resource_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_resource_tm_init(edge_resource_tm_t* tm);
