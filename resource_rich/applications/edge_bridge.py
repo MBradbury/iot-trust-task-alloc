@@ -3,7 +3,7 @@
 import logging
 import asyncio
 import signal
-import datetime
+from datetime import datetime, timezone
 import os
 
 from config import edge_marker, application_edge_marker, serial_sep, edge_server_port
@@ -52,7 +52,7 @@ class NodeSerialBridge:
             await self.proc.wait()
             self.proc = None
 
-    async def _process_serial_output(self, now, line: str):
+    async def _process_serial_output(self, now: datetime, line: str):
         logger.debug(f"process_edge_output: {line}")
         application_name, payload = line.split(serial_sep, 1)
 
@@ -75,13 +75,11 @@ class NodeSerialBridge:
             if not loop.is_running():
                 break
 
-            # Timestamp this line
-            now = datetime.datetime.now(datetime.timezone.utc)
-
             line = output.decode('utf-8').rstrip()
 
             # Application message
             if line.startswith(application_edge_marker):
+                now = datetime.now(timezone.utc)
                 await self._process_serial_output(now, line[len(application_edge_marker):])
 
             # Edge message

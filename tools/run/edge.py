@@ -4,8 +4,11 @@ import argparse
 import subprocess
 import time
 import os
+import sys
 
-from util import Teed, Popen
+from resource_rich.monitor.monitor_impl import MonitorBase
+
+from tools.run.util import Teed, Popen
 
 DEFAULT_LOG_DIR="~/iot-trust-task-alloc/logs"
 
@@ -73,14 +76,17 @@ with open(flash_log_path, 'w') as flash_log:
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(p, stdout=flash_log, stderr=flash_log)
+    teed.add(p,
+             stdout=[flash_log, sys.stdout],
+             stderr=[flash_log, sys.stderr])
     teed.wait()
     p.wait()
     print("Flashing finished!", flush=True)
 
 time.sleep(0.1)
 
-with open(edge_bridge_log_path, 'w') as edge_bridge:
+with open(edge_bridge_log_path, 'w') as edge_bridge, \
+     MonitorBase(f"edge.{hostname}", log_dir=args.log_dir) as pcap_monitor:
     teed = Teed()
 
     edge_bridge_proc = Popen(
@@ -92,7 +98,9 @@ with open(edge_bridge_log_path, 'w') as edge_bridge:
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(edge_bridge_proc, stdout=edge_bridge, stderr=edge_bridge)
+    teed.add(edge_bridge_proc,
+             stdout=[pcap_monitor, edge_bridge, sys.stdout],
+             stderr=[pcap_monitor, edge_bridge, sys.stderr])
 
     time.sleep(2)
 
@@ -114,7 +122,9 @@ with open(edge_bridge_log_path, 'w') as edge_bridge:
             universal_newlines=True,
             encoding="utf-8",
         )
-        teed.add(p, stdout=app_log, stderr=app_log)
+        teed.add(p,
+             stdout=[app_log, sys.stdout],
+             stderr=[app_log, sys.stderr])
 
         apps.append((p, app_log))
 

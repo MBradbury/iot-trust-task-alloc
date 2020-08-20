@@ -4,8 +4,9 @@ import argparse
 import subprocess
 import time
 import os
+import sys
 
-from util import Teed
+from tools.run.util import Teed
 
 DEFAULT_LOG_DIR = "~/iot-trust-task-alloc/logs"
 
@@ -44,7 +45,9 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(tunslip, stdout=tunslip_log, stderr=tunslip_log)
+    teed.add(tunslip,
+             stdout=[tunslip_log, sys.stdout],
+             stderr=[tunslip_log, sys.stderr])
 
     time.sleep(2)
 
@@ -56,7 +59,9 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(service, stdout=service_log, stderr=service_log)
+    teed.add(service,
+             stdout=[service_log, sys.stdout],
+             stderr=[service_log, sys.stderr])
     service.wait()
 
     time.sleep(2)
@@ -70,7 +75,9 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(root_server, stdout=root_server_log, stderr=root_server_log)
+    teed.add(root_server,
+             stdout=[root_server_log, sys.stdout],
+             stderr=[root_server_log, sys.stderr])
 
     teed.wait()
     root_server.wait()

@@ -4,11 +4,11 @@
 pkill -9 python3
 
 # Remove logs
-rm -rf ~/iot-trust-task-alloc/logs
+rm -rf logs
 
 rm -f nohup.out
 
-nohup ~/iot-trust-task-alloc/tools/run/wsn.py &
+nohup python3 -m tools.run.wsn.py &
 
 # Wait for nohup.out to be created
 sleep 1

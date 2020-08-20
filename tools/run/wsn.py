@@ -4,8 +4,11 @@ import argparse
 import subprocess
 import time
 import os
+import sys
 
-from util import Teed, Popen
+from resource_rich.monitor.monitor_impl import MonitorBase
+
+from tools.run.util import Teed, Popen
 
 DEFAULT_LOG_DIR="~/iot-trust-task-alloc/logs"
 
@@ -45,14 +48,17 @@ with open(flash_log_path, 'w') as flash_log:
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(flash, stdout=flash_log, stderr=flash_log)
+    teed.add(flash,
+             stdout=[flash_log, sys.stdout],
+             stderr=[flash_log, sys.stderr])
     teed.wait()
     flash.wait()
     print("Flashing finished!", flush=True)
 
 time.sleep(0.1)
 
-with open(pyterm_log_path, 'w') as pyterm_log:
+with open(pyterm_log_path, 'w') as pyterm_log, \
+     MonitorBase(f"wsn.{hostname}", log_dir=args.log_dir) as pcap_monitor:
     teed = Teed()
 
     # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
@@ -67,7 +73,9 @@ with open(pyterm_log_path, 'w') as pyterm_log:
         universal_newlines=True,
         encoding="utf-8",
     )
-    teed.add(pyterm, stdout=pyterm_log, stderr=pyterm_log)
+    teed.add(pyterm,
+             stdout=[pcap_monitor, pyterm_log, sys.stdout],
+             stderr=[pcap_monitor, pyterm_log, sys.stderr])
     teed.wait()
     pyterm.wait()
     print("pyterm finished!", flush=True)

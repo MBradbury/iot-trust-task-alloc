@@ -5,11 +5,11 @@ pkill -9 python3
 pkill -9 tunslip6
 
 # Remove logs
-rm -rf ~/iot-trust-task-alloc/logs
+rm -rf logs
 
 rm -f nohup.out
 
-nohup ~/iot-trust-task-alloc/tools/run/root.py &
+nohup nohup python3 -m tools.run.root &
 
 # Wait for nohup.out to be created
 sleep 1

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from threading  import Thread
 import subprocess
 import sys
@@ -10,10 +10,10 @@ class Teed:
 
     def add(self, p, stdout=None, stderr=None):
         if stdout is not None:
-            self._tee(p.stdout, [sys.stdout, stdout])
+            self._tee(p.stdout, stdout)
 
         if stderr is not None:
-            self._tee(p.stderr, [sys.stderr, stderr])
+            self._tee(p.stderr, stderr)
 
     def wait(self):
         for t in self.threads:
@@ -23,16 +23,19 @@ class Teed:
         """Print `infile` to `files` in a separate thread."""
         def fanout(infile, files):
             for line in iter(infile.readline, ''):
-                now = datetime.now().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
 
                 for f in files:
                     f.write(now + " # " + line)
                     f.flush()
 
+                    if getattr(f, "stop_further_processing", False):
+                        break
+
         t = Thread(target=fanout, args=(infile, files))
         t.daemon = True
         t.start()
-        return t
+        self.threads.append(t)
 
 def Popen(*args, **kwargs):
     print(args, kwargs, flush=True)
