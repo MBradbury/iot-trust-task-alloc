@@ -72,8 +72,11 @@ cd iot-trust-task-alloc && git submodule update --init
 
 ```bash
 sudo apt-get install git python3-pip python3-dev pipenv python3-serial
-python3 -m pip install scapy pyserial
+python3 -m pip install pyserial
+python3 -m pip install git+https://github.com/secdev/scapy.git -U
 ```
+
+Note: scapy needs to be installed from git in order to get access to their RPL implementation. On the release of 2.4.4 it should be okay to install scapy from pip.
 
 ```bash
 cd  ~
