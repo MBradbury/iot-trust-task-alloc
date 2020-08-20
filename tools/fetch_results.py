@@ -24,5 +24,5 @@ if not os.path.isdir("results"):
 for hostname in ips.keys():
     print(f"Fetching results for {hostname}...")
     subprocess.run(
-        f'rsync pi@{hostname}:/home/pi/iot-trust-task-alloc/logs/*.log ./results',
+        f'rsync pi@{hostname}:/home/pi/iot-trust-task-alloc/logs/* ./results',
         shell=True)
