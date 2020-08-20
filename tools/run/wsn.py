@@ -8,7 +8,7 @@ import sys
 
 from resource_rich.monitor.monitor_impl import MonitorBase
 
-from tools.run.util import Teed, Popen
+from tools.run.util import Teed, Popen, StreamNoTimestamp
 
 DEFAULT_LOG_DIR="~/iot-trust-task-alloc/logs"
 
@@ -49,8 +49,8 @@ with open(flash_log_path, 'w') as flash_log:
         encoding="utf-8",
     )
     teed.add(flash,
-             stdout=[flash_log, sys.stdout],
-             stderr=[flash_log, sys.stderr])
+             stdout=[flash_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
     teed.wait()
     flash.wait()
     print("Flashing finished!", flush=True)
@@ -74,8 +74,8 @@ with open(pyterm_log_path, 'w') as pyterm_log, \
         encoding="utf-8",
     )
     teed.add(pyterm,
-             stdout=[pcap_monitor, pyterm_log, sys.stdout],
-             stderr=[pcap_monitor, pyterm_log, sys.stderr])
+             stdout=[pcap_monitor, pyterm_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[pcap_monitor, pyterm_log, StreamNoTimestamp(sys.stderr)])
     teed.wait()
     pyterm.wait()
     print("pyterm finished!", flush=True)

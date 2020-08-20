@@ -8,7 +8,7 @@ import sys
 
 from resource_rich.monitor.monitor_impl import MonitorBase
 
-from tools.run.util import Teed, Popen
+from tools.run.util import Teed, Popen, StreamNoTimestamp
 
 DEFAULT_LOG_DIR="~/iot-trust-task-alloc/logs"
 
@@ -77,8 +77,8 @@ with open(flash_log_path, 'w') as flash_log:
         encoding="utf-8",
     )
     teed.add(p,
-             stdout=[flash_log, sys.stdout],
-             stderr=[flash_log, sys.stderr])
+             stdout=[flash_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
     teed.wait()
     p.wait()
     print("Flashing finished!", flush=True)
@@ -99,8 +99,8 @@ with open(edge_bridge_log_path, 'w') as edge_bridge, \
         encoding="utf-8",
     )
     teed.add(edge_bridge_proc,
-             stdout=[pcap_monitor, edge_bridge, sys.stdout],
-             stderr=[pcap_monitor, edge_bridge, sys.stderr])
+             stdout=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stdout)],
+             stderr=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stderr)])
 
     time.sleep(2)
 
@@ -123,8 +123,8 @@ with open(edge_bridge_log_path, 'w') as edge_bridge, \
             encoding="utf-8",
         )
         teed.add(p,
-             stdout=[app_log, sys.stdout],
-             stderr=[app_log, sys.stderr])
+             stdout=[app_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[app_log, StreamNoTimestamp(sys.stderr)])
 
         apps.append((p, app_log))
 

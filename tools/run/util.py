@@ -37,6 +37,21 @@ class Teed:
         t.start()
         self.threads.append(t)
 
+class StreamNoTimestamp:
+    def __init__(self, stream):
+        self.stream = stream
+
+    def write(self, line: str):
+        ts, line = line.split(" # ", 1)
+
+        self.stream.write(line)
+
+    def flush(self):
+        self.stream.flush()
+
+    def close(self):
+        pass
+
 def Popen(*args, **kwargs):
     print(args, kwargs, flush=True)
     return subprocess.Popen(*args, **kwargs)

@@ -6,7 +6,7 @@ import time
 import os
 import sys
 
-from tools.run.util import Teed
+from tools.run.util import Teed, StreamNoTimestamp
 
 DEFAULT_LOG_DIR = "~/iot-trust-task-alloc/logs"
 
@@ -46,8 +46,8 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
         encoding="utf-8",
     )
     teed.add(tunslip,
-             stdout=[tunslip_log, sys.stdout],
-             stderr=[tunslip_log, sys.stderr])
+             stdout=[tunslip_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[tunslip_log, StreamNoTimestamp(sys.stderr)])
 
     time.sleep(2)
 
@@ -60,8 +60,8 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
         encoding="utf-8",
     )
     teed.add(service,
-             stdout=[service_log, sys.stdout],
-             stderr=[service_log, sys.stderr])
+             stdout=[service_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[service_log, StreamNoTimestamp(sys.stderr)])
     service.wait()
 
     time.sleep(2)
@@ -76,8 +76,8 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
         encoding="utf-8",
     )
     teed.add(root_server,
-             stdout=[root_server_log, sys.stdout],
-             stderr=[root_server_log, sys.stderr])
+             stdout=[root_server_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[root_server_log, StreamNoTimestamp(sys.stderr)])
 
     teed.wait()
     root_server.wait()
