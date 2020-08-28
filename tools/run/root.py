@@ -12,6 +12,12 @@ DEFAULT_LOG_DIR = "~/iot-trust-task-alloc/logs"
 
 parser = argparse.ArgumentParser(description='Root runner')
 parser.add_argument('--log-dir', type=str, default=DEFAULT_LOG_DIR, help='The directory to store log output')
+
+# Flash.py
+parser.add_argument("--mote", default="/dev/ttyUSB0", help="The mote to flash.")
+parser.add_argument("--mote_type", choices=["zolertia", "telosb"], default="zolertia", help="The type of mote.")
+parser.add_argument("--firmware_type", choices=["contiki", "riot"], default="contiki", help="The OS that was used to create the firmware.")
+
 args = parser.parse_args()
 
 if args.log_dir.startswith("~"):
