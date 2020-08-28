@@ -9,7 +9,7 @@ import matplotlib.dates as mdates
 
 from analysis.parser.edge_challenge_response import main as parse_cr
 from analysis.parser.wsn_pyterm import main as parse_pyterm
-from analysis.graph.util import squash_true_false_seq, check_fonts
+from analysis.graph.util import squash_true_false_seq, savefig
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
@@ -105,11 +105,7 @@ def main(log_dir):
 
     ax2.legend()
 
-    target = f"{log_dir}/graphs/cr_offload_vs_behaviour.pdf"
-    fig.savefig(target, bbox_inches='tight')
-    #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Produced:", target)
-    check_fonts(target)
+    savefig(fig, f"{log_dir}/graphs/cr_offload_vs_behaviour.pdf")
 
 
 

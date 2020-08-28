@@ -11,7 +11,7 @@ import matplotlib.dates as mdates
 
 from analysis.parser.edge_challenge_response import main as parse_cr
 from analysis.parser.wsn_pyterm import main as parse_pyterm
-from analysis.graph.util import squash_generic_seq, check_fonts
+from analysis.graph.util import squash_generic_seq, savefig
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
@@ -191,11 +191,7 @@ def main(log_dir):
 
     ax.legend()
 
-    target = f"{log_dir}/graphs/cr_correctly_evaluated.pdf"
-    fig.savefig(target, bbox_inches='tight')
-    #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Produced:", target)
-    check_fonts(target)
+    savefig(fig, f"{log_dir}/graphs/cr_correctly_evaluated.pdf")
 
 
     print("\\begin{table}[H]")

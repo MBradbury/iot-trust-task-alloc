@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from analysis.parser.wsn_pyterm import main as parse_cr
-from analysis.graph.util import squash_true_false_seq, ChallengeResponseType_to_shape_and_color, latex_escape, check_fonts
+from analysis.graph.util import squash_true_false_seq, ChallengeResponseType_to_shape_and_color, latex_escape, savefig
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
@@ -53,11 +53,7 @@ def main(log_dir):
 
     ax.legend()
 
-    target = f"{log_dir}/graphs/cr_time_vs_epoch.pdf"
-    fig.savefig(target, bbox_inches='tight')
-    #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Produced:", target)
-    check_fonts(target)
+    savefig(fig, f"{log_dir}/graphs/cr_time_vs_epoch.pdf")
 
 
     # Show when the edge nodes were thought to be good or not
@@ -126,11 +122,7 @@ def main(log_dir):
 
     ax.legend()
 
-    target = f"{log_dir}/graphs/cr_time_vs_good.pdf"
-    fig.savefig(target, bbox_inches='tight')
-    #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Produced:", target)
-    check_fonts(target)
+    savefig(fig, f"{log_dir}/graphs/cr_time_vs_good.pdf")
 
 
 if __name__ == "__main__":
