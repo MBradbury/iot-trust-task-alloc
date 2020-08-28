@@ -23,12 +23,33 @@ if not os.path.isdir(args.log_dir):
 
 hostname = os.uname()[1]
 
+flash_log_path = os.path.join(args.log_dir, f"root.{hostname}.flash.log")
 tunslip_log_path = os.path.join(args.log_dir, f"root.{hostname}.tunslip.log")
 service_log_path = os.path.join(args.log_dir, f"root.{hostname}.service.log")
 root_server_log_path = os.path.join(args.log_dir, f"root.{hostname}.root_server.log")
 
 print(f"Logging tunslip to {tunslip_log_path}", flush=True)
 print(f"Logging root_server to {root_server_log_path}", flush=True)
+
+with open(flash_log_path, 'w') as flash_log:
+    teed = Teed()
+    flash = Popen(
+        f"python3 flash.py '{args.mote}' border-router.bin {args.mote_type} {args.firmware_type}",
+        cwd=os.path.expanduser("~/pi-client"),
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        encoding="utf-8",
+    )
+    teed.add(flash,
+             stdout=[flash_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
+    teed.wait()
+    flash.wait()
+    print("Flashing finished!", flush=True)
+
+time.sleep(0.1)
 
 with open(tunslip_log_path, 'w') as tunslip_log, \
      open(service_log_path, 'w') as service_log, \
