@@ -7,7 +7,7 @@
 1. Install dependancies
 
 ```bash
-sudo apt-get install git build-essential gcc-arm-none-eabi python3 texlive-extra-utils cm-super texlive-latex-extra dvipng
+sudo apt-get install git build-essential gcc-arm-none-eabi python3 texlive-extra-utils cm-super texlive-latex-extra dvipng poppler-utils
 ```
 
 2. Download Contiki-NG
