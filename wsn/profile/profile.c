@@ -52,6 +52,12 @@ PROCESS_THREAD(profile_ecc_sign_verify, ev, data)
         PROCESS_WAIT_EVENT_UNTIL(ev == pe_message_verified);
 
         queue_message_to_verify_done((messages_to_verify_entry_t*)data);
+
+
+        static ecdh2_state_t state;
+        state.process = &profile_ecc_sign_verify;
+        PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &our_key.pub_key));
+        assert(state.ecc_multiply_state.result == PKA_STATUS_SUCCESS);
     }
 
     process_poll(&profile);
