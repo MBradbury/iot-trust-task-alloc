@@ -15,6 +15,7 @@
 #include "edge-info.h"
 #include "trust.h"
 #include "trust-models.h"
+#include "trust-choose.h"
 #include "applications.h"
 #include "keystore-oscore.h"
 #include "timed-unlock.h"

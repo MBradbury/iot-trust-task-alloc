@@ -28,7 +28,7 @@ CFLAGS += -DKEYSTORE_LOG_LEVEL=LOG_LEVEL_DBG
 ifeq ($(TRUST_MODEL),)
     $(error "TRUST_MODEL not set")
 else
-    CFLAGS += -DTRUST_MODEL=TRUST_MODEL_$(shell echo $(TRUST_MODEL) | tr '[:lower:]' '[:upper:]')
+    CFLAGS += -DTRUST_MODEL=TRUST_MODEL_$(shell echo $(TRUST_MODEL) | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 endif
 
 # Include Contiki-NG system modules

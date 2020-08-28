@@ -19,6 +19,7 @@
 #include "edge-info.h"
 #include "trust.h"
 #include "trust-models.h"
+#include "trust-choose.h"
 #include "applications.h"
 #include "serial-helpers.h"
 #include "float-helpers.h"

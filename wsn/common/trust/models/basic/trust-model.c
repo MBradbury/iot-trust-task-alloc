@@ -51,7 +51,7 @@ void peer_tm_print(const peer_tm_t* tm)
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability)
+float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability)
 {
     float trust = 0;
     float w_total = 0;
@@ -92,36 +92,6 @@ static float calculate_trust_value(edge_resource_t* edge, edge_capability_t* cap
     }
 
     return trust;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* choose_edge(const char* capability_name)
-{
-    edge_resource_t* best_edge = NULL;
-
-    // Start trust at -1, so even edges with 0 trust will be considered
-    float best_trust = -1.0f;
-
-    for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
-    {
-        edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
-        if (capability == NULL)
-        {
-            LOG_WARN("Cannot find capability %s for edge %s\n", capability_name, iter->name);
-            continue;
-        }
-
-        float trust_value = calculate_trust_value(iter, capability);
-
-        LOG_INFO("Trust value for edge %s and capability %s=%f\n", iter->name, capability_name, trust_value);
-
-        if (trust_value > best_trust)
-        {
-            best_edge = iter;
-            best_trust = trust_value;
-        }
-    }
-
-    return best_edge;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, const tm_task_submission_info_t* info)

@@ -8,9 +8,6 @@
 #include "coap-constants.h"
 #include "coap-request-state.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define TRUST_MODEL_BASIC 1
-#define TRUST_MODEL_CONTINUOUS 2
-/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     uint16_t id;
     float weight;

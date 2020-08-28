@@ -14,10 +14,12 @@ import patchwork.transfers
 
 import eckeygen
 
-available_trust_models = list(os.listdir("wsn/common/trust/models"))
+available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
+available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]
 
 parser = argparse.ArgumentParser(description='Setup')
 parser.add_argument('trust_model', type=str, choices=available_trust_models, help='The trust model to use')
+parser.add_argument('trust_choose', type=str, choices=available_trust_chooses, help='The trust choose to use')
 parser.add_argument('--with-pcap', action='store_true', help='Enable capturing and outputting pcap dumps from the nodes')
 args = parser.parse_args()
 
@@ -54,7 +56,7 @@ with open("setup/build_number", "w") as build_number_file:
 
 print("Cleaning directories")
 for binary in binaries:
-    subprocess.run(f"make distclean -C wsn/{binary} TRUST_MODEL={args.trust_model}", shell=True, check=True, capture_output=True)
+    subprocess.run(f"make distclean -C wsn/{binary} TRUST_MODEL={args.trust_model} TRUST_CHOOSE={args.trust_choose}", shell=True, check=True, capture_output=True)
 
 print("Building keystore")
 keys = {
@@ -98,7 +100,8 @@ for (target, ip) in ips.items():
 
     build_args = {
         "BUILD_NUMBER": build_number,
-        "TRUST_MODEL": args.trust_model
+        "TRUST_MODEL": args.trust_model,
+        "TRUST_CHOOSE": args.trust_choose,
     }
 
     if args.with_pcap:

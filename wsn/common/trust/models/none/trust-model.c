@@ -37,21 +37,6 @@ void peer_tm_print(const peer_tm_t* tm)
     printf("PeerTM()");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* choose_edge(const char* capability_name)
-{
-    // For now FCFS
-    for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
-    {
-        edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
-        if (capability != NULL)
-        {
-            return iter;
-        }
-    }
-
-    return NULL;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
 {
     NANOCBOR_CHECK(nanocbor_fmt_null(enc));

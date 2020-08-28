@@ -1,6 +1,5 @@
 #include "trust-model.h"
 #include "trust-models.h"
-#include "random-helpers.h"
 #include <stdio.h>
 #include "assert.h"
 #include "os/sys/log.h"
@@ -45,60 +44,9 @@ void peer_tm_print(const peer_tm_t* tm)
     printf("PeerTM()");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* choose_edge(const char* capability_name)
+bool edge_is_good(edge_resource_t* edge)
 {
-    edge_resource_t* candidates[NUM_EDGE_RESOURCES];
-    uint8_t candidates_len = 0;
-
-    //LOG_DBG("Choosing an edge to submit task for %s\n", capability_name);
-
-    for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
-    {
-        //LOG_DBG("Considering edge %s with ", iter->name);
-        //edge_resource_tm_print(&iter->tm);
-        //LOG_DBG_("\n");
-
-        // Make sure the edge has the desired capability
-        edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
-        if (capability == NULL)
-        {
-            //LOG_DBG("Excluding edge %s because it lacks the capability\n", iter->name);
-            continue;
-        }
-
-        // Can't use this node if it is bad
-        if (iter->tm.bad)
-        {
-            //LOG_DBG("Excluding edge %s because it is bad\n", iter->name);
-            continue;
-        }
-
-        if (candidates_len == CC_ARRAY_SIZE(candidates))
-        {
-            LOG_WARN("Insufficient memory allocated to candidates\n");
-            continue;
-        }
-
-        // Record this as a potential candidate
-        candidates[candidates_len++] = iter;
-    }
-
-    //LOG_DBG("There are %u candidates\n", candidates_len);
-
-    if (candidates_len == 0)
-    {
-        return NULL;
-    }
-    else
-    {
-        uint16_t idx = random_in_range_unbiased(0, candidates_len-1);
-
-        edge_resource_t* chosen = candidates[idx];
-
-        //LOG_DBG("Choosing candidate at index %u of %u candidates_lenwhich is %s\n", idx, candidates_len, chosen->name);
-
-        return chosen;
-    }
+    return !edge->tm.bad;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info)
