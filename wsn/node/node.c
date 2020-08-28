@@ -1,5 +1,6 @@
 #include "contiki.h"
 #include "timed-unlock.h"
+#include "root-endpoint.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
 PROCESS_NAME(trust_model);
@@ -15,6 +16,7 @@ PROCESS_THREAD(node, ev, data)
     PROCESS_BEGIN();
 
     timed_unlock_global_init();
+    root_endpoint_init();
 
     PROCESS_END();
 }

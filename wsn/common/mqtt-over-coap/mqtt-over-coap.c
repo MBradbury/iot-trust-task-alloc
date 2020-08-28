@@ -13,6 +13,7 @@
 #include "crypto-support.h"
 #include "keystore-oscore.h"
 #include "timed-unlock.h"
+#include "root-endpoint.h"
 
 #include <string.h>
 #include <strings.h>
@@ -24,13 +25,6 @@
 #define LOG_LEVEL MQTT_CLIENT_CONF_LOG_LEVEL
 #else
 #define LOG_LEVEL LOG_LEVEL_NONE
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
-/* MQTT broker address */
-#ifdef MQTT_CLIENT_CONF_BROKER_IP_ADDR
-#define MQTT_CLIENT_BROKER_IP_ADDR MQTT_CLIENT_CONF_BROKER_IP_ADDR
-#else
-#define MQTT_CLIENT_BROKER_IP_ADDR "fd00::1"
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef TOPICS_TO_SUBSCRIBE_LEN
@@ -51,8 +45,6 @@ PROCESS_NAME(mqtt_client_process);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static process_event_t pe_state_machine;
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define COAP_CLIENT_CONF_BROKER_IP_ADDR "coap://[" MQTT_CLIENT_CONF_BROKER_IP_ADDR "]"
-/*-------------------------------------------------------------------------------------------------------------------*/
 #define MQTT_URI_PATH "mqtt"
 #define MQTT_TOPIC_QUERY_NAME "t"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -70,8 +62,6 @@ static process_event_t pe_state_machine;
 #define MAX_COAP_PAYLOAD            COAP_MAX_CHUNK_SIZE
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char client_id[12 + 1];
-/*-------------------------------------------------------------------------------------------------------------------*/
-coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static char uri_query[MAX_QUERY_LEN];
@@ -156,7 +146,7 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
     }
 #endif
 
-    if (!coap_endpoint_is_connected(&server_ep))
+    if (!coap_endpoint_is_connected(&root_ep))
     {
         LOG_ERR("Cannot perform mqtt_over_coap_publish as the coap endpoint is not connected\n");
         return false;
@@ -194,7 +184,7 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
     // Will need to be enabled again in the future when enabling OSCORE for this message.
     //coap_set_random_token(&msg);
 
-    ret = coap_send_request(&coap_callback, &server_ep, &msg, publish_callback);
+    ret = coap_send_request(&coap_callback, &root_ep, &msg, publish_callback);
     if (ret)
     {
         LOG_DBG("Publish (%s) sent\n", topic);
@@ -223,7 +213,7 @@ mqtt_over_coap_publish_continue(void* data)
             // TODO: how to handle block-wise transfer?
         }
 
-        int ret = coap_send_request(&coap_callback, &server_ep, &msg, publish_callback);
+        int ret = coap_send_request(&coap_callback, &root_ep, &msg, publish_callback);
         if (ret)
         {
             LOG_DBG("coap_send_request mqtt done\n");
@@ -329,7 +319,7 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
     coap_set_header_uri_path(&msg, MQTT_URI_PATH);
     coap_set_header_uri_query(&msg, uri_query);
 
-    ret = coap_send_request(&coap_callback, &server_ep, &msg, &subscribe_callback);
+    ret = coap_send_request(&coap_callback, &root_ep, &msg, &subscribe_callback);
     if (ret)
     {
         coap_callback_i = msg_id;
@@ -464,10 +454,10 @@ state_machine(void)
 {
     if (have_connectivity())
     {
-        if (!coap_endpoint_is_connected(&server_ep))
+        if (!coap_endpoint_is_connected(&root_ep))
         {
             LOG_DBG("Have connectivity, but coap endpoint not connected, connecting...\n");
-            coap_endpoint_connect(&server_ep);
+            coap_endpoint_connect(&root_ep);
             etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
         }
         else
@@ -486,25 +476,12 @@ state_machine(void)
 static bool
 init(void)
 {
-    int ret;
-
     if (!construct_client_id())
     {
         return false;
     }
 
     topic_init();
-
-    ret = coap_endpoint_parse(COAP_CLIENT_CONF_BROKER_IP_ADDR, strlen(COAP_CLIENT_CONF_BROKER_IP_ADDR), &server_ep);
-    if (!ret)
-    {
-        LOG_ERR("CoAP Endpoint failed to be set to %s\n", COAP_CLIENT_CONF_BROKER_IP_ADDR);
-        return false;
-    }
-    else
-    {
-        LOG_DBG("CoAP Endpoint set to %s\n", COAP_CLIENT_CONF_BROKER_IP_ADDR);
-    }
 
     timed_unlock_init(&coap_callback_in_use, "mqtt-over-coap", (1 * 60 * CLOCK_SECOND));
 

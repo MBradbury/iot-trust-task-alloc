@@ -9,6 +9,7 @@
 #include "serial-helpers.h"
 #include "stereotype-tags.h"
 #include "timed-unlock.h"
+#include "root-endpoint.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "edge"
@@ -181,6 +182,7 @@ PROCESS_THREAD(edge, ev, data)
     PROCESS_BEGIN();
 
     timed_unlock_global_init();
+    root_endpoint_init();
 
     memset(applications_available, 0, sizeof(applications_available));
 

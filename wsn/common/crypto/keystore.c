@@ -12,6 +12,7 @@
 #include "crypto-support.h"
 #include "keystore-oscore.h"
 #include "timed-unlock.h"
+#include "root-endpoint.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "keystore"
@@ -26,8 +27,6 @@ PROCESS(keystore_unver, "keystore_unver");
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(public_keys_memb, public_key_item_t, PUBLIC_KEYSTORE_SIZE);
 LIST(public_keys);
-/*-------------------------------------------------------------------------------------------------------------------*/
-extern coap_endpoint_t server_ep;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool
 keystore_evict(keystore_eviction_policy_t evict)
@@ -216,7 +215,7 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
     uip_ip6addr_t norm_addr;
     uip_ip6addr_normalise(addr, &norm_addr);
 
-    if (uip_ip6addr_cmp(&norm_addr, &server_ep.ipaddr))
+    if (uip_ip6addr_cmp(&norm_addr, &root_ep.ipaddr))
     {
         return &root_key;
     }
@@ -325,7 +324,7 @@ static void request_public_key_continued(void* data)
         }
         else
         {
-            int ret = coap_send_request(&coap_callback, &server_ep, &msg, &request_public_key_callback);
+            int ret = coap_send_request(&coap_callback, &root_ep, &msg, &request_public_key_callback);
             if (ret)
             {
                 LOG_DBG("coap_send_request req pk done\n");

@@ -155,7 +155,7 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     rtimer_clock_t time;
 
-    LOG_DBG("Starting sha256()...\n");
+    LOG_DBG("Starting sha256(%zu)...\n", len);
     time = RTIMER_NOW();
 #endif
 
@@ -196,7 +196,7 @@ end:
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
-    LOG_DBG("sha256(), %" PRIu32 " us\n", (uint32_t)((uint64_t)time * 1000000 / RTIMER_SECOND));
+    LOG_DBG("sha256(%zu), %" PRIu32 " us\n", len, (uint32_t)((uint64_t)time * 1000000 / RTIMER_SECOND));
 #endif
 
     return ret;
