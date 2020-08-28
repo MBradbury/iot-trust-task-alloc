@@ -6,7 +6,7 @@ import time
 import os
 import sys
 
-from tools.run.util import Teed, StreamNoTimestamp
+from tools.run.util import Teed, Popen, StreamNoTimestamp
 
 DEFAULT_LOG_DIR = "~/iot-trust-task-alloc/logs"
 
@@ -57,7 +57,7 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
 
     teed = Teed()
 
-    tunslip = subprocess.Popen(
+    tunslip = Popen(
         "sudo ./tunslip6 -s /dev/ttyUSB0 fd00::1/64",
         cwd=os.path.expanduser("~/contiki-ng/tools/serial-io"),
         shell=True,
@@ -72,7 +72,7 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
 
     time.sleep(2)
 
-    service = subprocess.Popen(
+    service = Popen(
         "sudo service mosquitto restart",
         shell=True,
         stdout=subprocess.PIPE,
@@ -87,7 +87,7 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
 
     time.sleep(2)
 
-    root_server = subprocess.Popen(
+    root_server = Popen(
         "python3 root_server.py -k keystore",
         cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/root"),
         shell=True,
