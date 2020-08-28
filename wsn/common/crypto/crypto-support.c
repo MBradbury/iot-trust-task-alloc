@@ -250,7 +250,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -333,7 +333,7 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -533,7 +533,7 @@ PT_THREAD(ecdh1(ecdh1_state_t* state))
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecdh1(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+    LOG_DBG("ecdh1(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -563,7 +563,7 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
     ec_uint8v_to_uint32v(other_pubkey->x, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.point_in.x);
     ec_uint8v_to_uint32v(other_pubkey->y, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.point_in.y);
 
-    // Use our privacy key as the secret
+    // Use our private key as the secret
     ec_uint8v_to_uint32v(our_key.priv_key, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.secret);
 
     pka_enable();
@@ -577,7 +577,7 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecdh2(), %" PRIu32 " ms\n", (uint32_t)((uint64_t)state->time * 1000 / RTIMER_SECOND));
+    LOG_DBG("ecdh2(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
