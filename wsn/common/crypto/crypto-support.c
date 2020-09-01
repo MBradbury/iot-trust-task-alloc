@@ -196,7 +196,7 @@ end:
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
-    LOG_DBG("sha256(%zu), %" PRIu32 " us\n", len, (uint32_t)((uint64_t)time * 1000000 / RTIMER_SECOND));
+    LOG_DBG("sha256(%zu), %" PRIu32 " us\n", len, RTIMERTICKS_TO_US_64(time));
 #endif
 
     return ret;
@@ -250,7 +250,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -333,7 +333,7 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -533,7 +533,7 @@ PT_THREAD(ecdh1(ecdh1_state_t* state))
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecdh1(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+    LOG_DBG("ecdh1(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -577,7 +577,7 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecdh2(), %" PRIu32 " us\n", (uint32_t)((uint64_t)state->time * 1000000 / RTIMER_SECOND));
+    LOG_DBG("ecdh2(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);

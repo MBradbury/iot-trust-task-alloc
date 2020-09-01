@@ -2,9 +2,17 @@
 #include "crypto-support.h"
 #include "random-helpers.h"
 #include "assert.h"
+#include "rtimer.h"
+#include "sys/log.h"
+#include "oscore-crypto.h"
+#include "cose.h"
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define LOG_MODULE "profile"
+#define LOG_LEVEL LOG_LEVEL_DBG
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(profile, "profile");
 PROCESS(profile_ecc_sign_verify, "profile_ecc_sign_verify");
+PROCESS(profile_aes_ccm, "profile_aes_ccm");
 /*-------------------------------------------------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&profile);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -12,8 +20,13 @@ PROCESS_THREAD(profile, ev, data)
 {
     PROCESS_BEGIN();
 
-    process_start(&profile_ecc_sign_verify, NULL);
-    PROCESS_YIELD_UNTIL(!process_is_running(&profile_ecc_sign_verify));
+    LOG_INFO("There are " CC_STRINGIFY(RTIMER_SECOND) " ticks per second\n");
+
+    //process_start(&profile_ecc_sign_verify, NULL);
+    //PROCESS_YIELD_UNTIL(!process_is_running(&profile_ecc_sign_verify));
+
+    process_start(&profile_aes_ccm, NULL);
+    PROCESS_YIELD_UNTIL(!process_is_running(&profile_aes_ccm));
 
     PROCESS_END();
 }
@@ -58,6 +71,89 @@ PROCESS_THREAD(profile_ecc_sign_verify, ev, data)
         state.process = &profile_ecc_sign_verify;
         PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &our_key.pub_key));
         assert(state.ecc_multiply_state.result == PKA_STATUS_SUCCESS);
+    }
+
+    process_poll(&profile);
+
+    PROCESS_END();
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS_THREAD(profile_aes_ccm, ev, data)
+{
+    PROCESS_BEGIN();
+
+    static uint8_t plaintext[1024];
+    static uint16_t plaintext_len = 0;
+
+    static uint8_t ciphertext[1024 + COSE_algorithm_AES_CCM_16_64_128_TAG_LEN];
+    static uint16_t ciphertext_len = 0;
+
+    static uint8_t aad[35];
+
+    static uint8_t key[COSE_algorithm_AES_CCM_16_64_128_KEY_LEN];
+
+    static uint8_t nonce[COSE_algorithm_AES_CCM_16_64_128_IV_LEN];
+
+    static bool r;
+    static int result;
+
+    static rtimer_clock_t time;
+
+    while (1)
+    {
+        // Generate some data
+        plaintext_len = random_in_range_unbiased(1, 1024);
+        r = crypto_fill_random(plaintext, plaintext_len);
+        assert(r);
+
+        r = crypto_fill_random(aad, sizeof(aad));
+        assert(r);
+
+        r = crypto_fill_random(key, sizeof(key));
+        assert(r);
+
+        r = crypto_fill_random(nonce, sizeof(nonce));
+        assert(r);
+
+        memcpy(ciphertext, plaintext, plaintext_len);
+
+
+        LOG_DBG("Starting encrypt(%zu)...\n", plaintext_len);
+        time = RTIMER_NOW();
+
+        result = encrypt(
+            COSE_Algorithm_AES_CCM_16_64_128,
+            key, sizeof(key),
+            nonce, sizeof(nonce),
+            aad, sizeof(aad),
+            ciphertext, plaintext_len);
+
+        time = RTIMER_NOW() - time;
+        LOG_DBG("encrypt(%zu), %" PRIu32 " us\n", plaintext_len, RTIMERTICKS_TO_US_64(time));
+
+        assert(result > 0);
+
+        ciphertext_len = result;
+
+        LOG_DBG("Starting decrypt(%zu)...\n", plaintext_len);
+        time = RTIMER_NOW();
+
+        result = decrypt(
+            COSE_Algorithm_AES_CCM_16_64_128,
+            key, sizeof(key),
+            nonce, sizeof(nonce),
+            aad, sizeof(aad),
+            ciphertext, ciphertext_len);
+
+        time = RTIMER_NOW() - time;
+        LOG_DBG("decrypt(%zu), %" PRIu32 " us\n", plaintext_len, RTIMERTICKS_TO_US_64(time));
+
+        assert(result > 0);
+
+        assert(memcmp(plaintext, ciphertext, plaintext_len) == 0);
+
+        // Need to yield often enough to prevent the watchdog killing us
+        PROCESS_PAUSE();
     }
 
     process_poll(&profile);

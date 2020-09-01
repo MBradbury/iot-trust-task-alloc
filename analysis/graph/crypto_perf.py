@@ -82,10 +82,19 @@ def main(log_dir):
         return math.ceil(x / a) * a
 
 
-    names = ["stats_ecdh", "stats_sign", "stats_verify"]
-    bin_width = 0.001
+    names = {
+        "stats_sha256_u": 1e-5,
+        "stats_sha256_n": 1e-7,
+        "stats_ecdh": 1e-3,
+        "stats_sign": 1e-3,
+        "stats_verify": 1e-3,
+        "stats_encrypt_u": 1e-3,
+        "stats_encrypt_n": 1e-3,
+        "stats_decrypt_u": 1e-3,
+        "stats_decrypt_n": 1e-3,
+    }
 
-    for name in names:
+    for (name, bin_width) in names.items():
         fig = plt.figure()
         ax = fig.gca()
 
@@ -98,6 +107,7 @@ def main(log_dir):
             labels.append(hostname)
 
             h = getattr(result, name)
+
             hs.append(h)
 
             hmin = min(hmin, min(h))
@@ -110,7 +120,12 @@ def main(log_dir):
 
         ax.hist(hs, bins=bins, stacked=True, label=labels)
 
+        if name == "stats_sha256_n":
+            ax.set_xlim(0, 2e-6)
+
         ax.legend()
+        ax.set_xlabel('Time Taken (secs)')
+        ax.set_ylabel('Count')
 
         savefig(fig, f"{log_dir}/graphs/crypto_perf_{name}_hist.pdf")
 

@@ -6,12 +6,13 @@ from datetime import datetime
 import re
 from dataclasses import dataclass
 
-from scipy.stats import describe
+import numpy as np
+import scipy.stats as stats
 
 from analysis.parser.common import parse_contiki
 
 @dataclass(frozen=True)
-class SHA256Stats:
+class LengthStats:
     length: int
     seconds: float
 
@@ -27,6 +28,8 @@ class ProfileAnalyser:
     RE_SIGN = re.compile(r'ecc_dsa_sign\(\), ([0-9]+) us')
     RE_VERIFY = re.compile(r'ecc_dsa_verify\(\), ([0-9]+) us')
     
+    RE_ENCRYPT = re.compile(r'encrypt\(([0-9]+)\), ([0-9]+) us')
+    RE_DECRYPT = re.compile(r'decrypt\(([0-9]+)\), ([0-9]+) us')
 
     def __init__(self, hostname):
         self.hostname = hostname
@@ -35,18 +38,22 @@ class ProfileAnalyser:
         self.stats_ecdh = []
         self.stats_sign = []
         self.stats_verify = []
+        self.stats_encrypt = []
+        self.stats_decrypt = []
 
         self.res = {
             self.RE_SHA256_END: self._process_sha256_end,
             self.RE_ECDH: self._process_ecdh,
             self.RE_SIGN: self._process_sign,
             self.RE_VERIFY: self._process_verify,
+            self.RE_ENCRYPT: self._process_encrypt,
+            self.RE_DECRYPT: self._process_decrypt,
         }
 
     def analyse(self, f):
         for (time, log_level, module, line) in parse_contiki(f):
 
-            if module == "crypto-sup":
+            if module in ("crypto-sup", "profile"):
                 for (r, f) in self.res.items():
                     m = r.match(line)
                     if m is not None and f is not None:
@@ -57,18 +64,41 @@ class ProfileAnalyser:
             #print((time, module, line))
 
     def summary(self):
-        print("ECDH", describe(self.stats_ecdh))
-        print("Sign", describe(self.stats_sign))
-        print("Verify", describe(self.stats_verify))
+        if self.stats_ecdh:
+            print("ECDH", stats.describe(self.stats_ecdh))
 
-        print("SHA256 (u)", describe([x.seconds for x in self.stats_sha256]))
-        print("SHA256 (n)", describe([x.seconds / x.length for x in self.stats_sha256]))
+        if self.stats_sign:
+            print("Sign", stats.describe(self.stats_sign))
+
+        if self.stats_verify:
+            print("Verify", stats.describe(self.stats_verify))
+
+        if self.stats_sha256:
+            self.stats_sha256_u = [x.seconds for x in self.stats_sha256]
+            self.stats_sha256_n = [x.seconds / x.length for x in self.stats_sha256]
+            
+            print("SHA256 (u)", stats.describe(self.stats_sha256_u))
+            print("SHA256 (n)", stats.describe(self.stats_sha256_n))
+
+        if self.stats_encrypt:
+            self.stats_encrypt_u = [x.seconds for x in self.stats_encrypt]
+            self.stats_encrypt_n = [x.seconds / x.length for x in self.stats_encrypt]
+            
+            print("encrypt (u)", stats.describe(self.stats_encrypt_u))
+            print("encrypt (n)", stats.describe(self.stats_encrypt_n))
+
+        if self.stats_decrypt:
+            self.stats_decrypt_u = [x.seconds for x in self.stats_decrypt]
+            self.stats_decrypt_n = [x.seconds / x.length for x in self.stats_decrypt]
+            
+            print("decrypt (u)", stats.describe(self.stats_decrypt_u))
+            print("decrypt (n)", stats.describe(self.stats_decrypt_n))
 
     def _process_sha256_end(self, time, log_level, module, line, m):
         m_len = int(m.group(1))
         m_s = us_to_s(int(m.group(2)))
 
-        self.stats_sha256.append(SHA256Stats(m_len, m_s))
+        self.stats_sha256.append(LengthStats(m_len, m_s))
 
     def _process_ecdh(self, time, log_level, module, line, m):
         m_s = us_to_s(int(m.group(1)))
@@ -84,6 +114,57 @@ class ProfileAnalyser:
         m_s = us_to_s(int(m.group(1)))
 
         self.stats_verify.append(m_s)
+
+    def _process_encrypt(self, time, log_level, module, line, m):
+        m_len = int(m.group(1))
+        m_s = us_to_s(int(m.group(2)))
+
+        self.stats_encrypt.append(LengthStats(m_len, m_s))
+
+    def _process_decrypt(self, time, log_level, module, line, m):
+        m_len = int(m.group(1))
+        m_s = us_to_s(int(m.group(2)))
+
+        self.stats_decrypt.append(LengthStats(m_len, m_s))
+
+def print_mean_ci(name, x, confidence=0.95):
+    mean, sem, n = np.mean(x), stats.sem(x), len(x)
+    ci = mean - stats.t.interval(0.95, len(x)-1, loc=np.mean(x), scale=stats.sem(x))[0]
+
+    vs = {
+        "seconds": 1,
+        "ms": 1e3,
+        "us": 1e6,
+        "ns": 1e9,
+    }
+
+    for (n, f) in vs.items():
+        print(name, mean * f, ci * f, n)
+
+def global_summary(results):
+    names = [
+        "stats_sha256_u",
+        "stats_sha256_n",
+        "stats_ecdh",
+        "stats_sign",
+        "stats_verify",
+        "stats_encrypt_u",
+        "stats_encrypt_n",
+        "stats_decrypt_u",
+        "stats_decrypt_n",
+    ]
+
+    print("Global:")
+
+    for name in names:
+        print(name)
+
+        combined = np.concatenate([getattr(x, name, []) for x in results.values()])
+
+        if combined.size != 0:
+            print(name, stats.describe(combined))
+            print_mean_ci(name, combined)
+
 
 def main(log_dir):
     print(f"Looking for results in {log_dir}")
@@ -110,6 +191,8 @@ def main(log_dir):
         a.summary()
 
         results[hostname] = a
+
+    global_summary(results)
 
     return results
 
