@@ -14,6 +14,8 @@ ifdef BUILD_NUMBER
     CFLAGS += -DBUILD_NUMBER=$(BUILD_NUMBER)
 endif
 
+CFLAGS += -g
+
 #CFLAGS += -Wconversion
 
 # Add additional CFLAGS
