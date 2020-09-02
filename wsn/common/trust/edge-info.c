@@ -6,7 +6,7 @@
 #include "coap-constants.h"
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-comm"
+#define LOG_MODULE "trust-edge"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -111,7 +111,7 @@ edge_info_add(const uip_ipaddr_t* addr, const char* ident, const stereotype_tags
 
     list_push(edge_resources, edge);
 
-    edge->active = false;
+    edge->flags = EDGE_RESOURCE_NO_FLAGS;
     edge->tags = *tags;
 
     return edge;

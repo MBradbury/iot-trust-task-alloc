@@ -31,6 +31,10 @@ typedef struct edge_capability
 
 } edge_capability_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define EDGE_RESOURCE_NO_FLAGS 0
+#define EDGE_RESOURCE_ACTIVE (1 << 0)
+#define EDGE_RESOURCE_STEREOTYPE_REQUEST (1 << 1)
+/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_resource
 {
     struct edge_resource *next;
@@ -39,7 +43,7 @@ typedef struct edge_resource
 
     char name[MQTT_IDENTITY_LEN + 1];
 
-    bool active;
+    uint32_t flags;
 
     stereotype_tags_t tags;
 

@@ -3,7 +3,7 @@
 #include "list.h"
 #include "assert.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-comm"
+#define LOG_MODULE "trust-mods"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else

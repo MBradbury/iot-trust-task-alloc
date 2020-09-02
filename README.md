@@ -76,7 +76,7 @@ python3 -m pip install pyserial
 python3 -m pip install git+https://github.com/secdev/scapy.git -U
 ```
 
-Note: scapy needs to be installed from git in order to get access to their RPL implementation. On the release of 2.4.4 it should be okay to install scapy from pip.
+Note: scapy needs to be installed from git in order to get access to their RPL implementation. On the release of 2.4.4 it should be okay to install scapy from pip. It would be nice for https://github.com/secdev/scapy/pull/2751 to also be in use.
 
 ```bash
 cd  ~

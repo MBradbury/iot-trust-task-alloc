@@ -19,6 +19,8 @@ float beta_dist_variance(const beta_dist_t* dist);
 void beta_dist_add_good(beta_dist_t* dist);
 void beta_dist_add_bad(beta_dist_t* dist);
 /*-------------------------------------------------------------------------------------------------------------------*/
+void beta_dist_combine(const beta_dist_t* a, const beta_dist_t* b, beta_dist_t* out);
+/*-------------------------------------------------------------------------------------------------------------------*/
 int beta_dist_serialise(nanocbor_encoder_t* enc, const beta_dist_t* dist);
 int beta_dist_deserialise(nanocbor_value_t* dec, beta_dist_t* dist);
 /*-------------------------------------------------------------------------------------------------------------------*/

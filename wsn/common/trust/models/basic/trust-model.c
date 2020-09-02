@@ -2,6 +2,7 @@
 #include "trust-models.h"
 #include "float-helpers.h"
 #include "applications.h"
+#include "stereotypes.h"
 #include <stdio.h>
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -53,17 +54,27 @@ void peer_tm_print(const peer_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability)
 {
+    edge_stereotype_t* s = edge_stereotype_find(&edge->tags);
+    if (s != NULL)
+    {
+        LOG_DBG("Using stereotype information to calculate trust value\n");
+    }
+
     float trust = 0;
     float w_total = 0;
     float w, e;
 
+    beta_dist_t temp;
+
     w = find_trust_weight(capability->name, TRUST_METRIC_TASK_SUBMISSION);
-    e = beta_dist_expected(&edge->tm.task_submission);
+    beta_dist_combine(&edge->tm.task_submission, s ? &s->edge_tm.task_submission : NULL, &temp);
+    e = beta_dist_expected(&temp);
     trust += w * e;
     w_total += w;
 
     w = find_trust_weight(capability->name, TRUST_METRIC_TASK_RESULT);
-    e = beta_dist_expected(&edge->tm.task_result);
+    beta_dist_combine(&edge->tm.task_result, s ? &s->edge_tm.task_result : NULL, &temp);
+    e = beta_dist_expected(&temp);
     trust += w * e;
     w_total += w;
 

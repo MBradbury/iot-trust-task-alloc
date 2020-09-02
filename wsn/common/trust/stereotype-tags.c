@@ -6,7 +6,7 @@
 
 #include "nanocbor-helper.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-comm"
+#define LOG_MODULE "stereotype"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -44,5 +44,10 @@ int deserialise_stereotype_tags(nanocbor_value_t* dec, stereotype_tags_t* tags)
     nanocbor_leave_container(dec, &arr);
 
     return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool stereotype_tags_equal(const stereotype_tags_t* a, const stereotype_tags_t* b)
+{
+    return a->device_class == b->device_class;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

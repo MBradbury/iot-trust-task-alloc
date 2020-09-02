@@ -30,6 +30,8 @@ trust_weights_t* trust_weights_find(const char* application_name);
 /*-------------------------------------------------------------------------------------------------------------------*/
 float find_trust_weight(const char* application_name, uint16_t id);
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define TRUST_MODEL_INVALID_TAG UINT32_MAX
+/*-------------------------------------------------------------------------------------------------------------------*/
 // Edge resource metrics
 #define TRUST_METRIC_TASK_SUBMISSION  1001
 #define TRUST_METRIC_TASK_RESULT      1002

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-comm"
+#define LOG_MODULE "trust-dist"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -43,6 +43,20 @@ void beta_dist_add_good(beta_dist_t* dist)
 void beta_dist_add_bad(beta_dist_t* dist)
 {
     dist->beta += 1;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void beta_dist_combine(const beta_dist_t* a, const beta_dist_t* b, beta_dist_t* out)
+{
+    if (b == NULL)
+    {
+        *out = *a;
+    }
+    else
+    {
+        // Minus 1 here to remove the initialisation to (1, 1)
+        out->alpha = a->alpha - 1 + b->alpha;
+        out->beta = a->beta - 1 + b->beta;
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void beta_dist_print(const beta_dist_t* dist)

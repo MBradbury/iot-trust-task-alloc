@@ -113,12 +113,16 @@ process_certificate(const char* topic_identity, const uip_ipaddr_t* ip_addr, con
         LOG_DBG_6ADDR(ip_addr);
         LOG_DBG_("\n");
 
-        edge_resource->active = true;
+        edge_resource->flags |= EDGE_RESOURCE_ACTIVE;
     }
     else
     {
         LOG_ERR("Failed to allocate edge resource\n");
+        return -2;
     }
+
+    // We should request stereotypes for this edge (if needed)
+    stereotypes_request(edge_resource);
 
     // We should connect to the Edge resource that has announced themselves here
     // This means that if we are using DTLS, the handshake has already been performed,
@@ -193,7 +197,7 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         LOG_DBG_6ADDR(ip_addr);
         LOG_DBG_("\n");
 
-        edge_resource->active = false;
+        edge_resource->flags &= ~EDGE_RESOURCE_ACTIVE;
 
         edge_info_capability_clear(edge_resource);
     }
