@@ -4,7 +4,7 @@
 #include "random-helpers.h"
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-comm"
+#define LOG_MODULE "trust-band"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -48,9 +48,15 @@ edge_resource_t* choose_edge(const char* capability_name)
             continue;
         }
 
+        const float trust_value = calculate_trust_value(iter, capability);
+
         // Record this as a potential candidate
         candidates[candidates_len] = iter;
-        trust_values[candidates_len] = calculate_trust_value(iter, capability);
+        trust_values[candidates_len] = trust_value;
+
+        LOG_INFO("Trust value for edge %s and capability %s=%f at %u/%u\n",
+            iter->name, capability_name, trust_value, candidates_len, NUM_EDGE_RESOURCES);
+
         candidates_len++;
 
         // Record the highest trust seen
@@ -89,7 +95,7 @@ edge_resource_t* choose_edge(const char* capability_name)
 
         edge_resource_t* chosen = candidates[idx];
 
-        //LOG_DBG("Choosing candidate at index %u of %u candidates_lenwhich is %s\n", idx, candidates_len, chosen->name);
+        //LOG_DBG("Choosing candidate at index %u of %u candidates_len which is %s\n", idx, candidates_len, chosen->name);
 
         return chosen;
     }

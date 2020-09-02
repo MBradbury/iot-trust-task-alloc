@@ -3,7 +3,7 @@
 #include "edge-info.h"
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-comm"
+#define LOG_MODULE "trust-high"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -30,7 +30,8 @@ edge_resource_t* choose_edge(const char* capability_name)
 
         float trust_value = calculate_trust_value(iter, capability);
 
-        LOG_INFO("Trust value for edge %s and capability %s=%f\n", iter->name, capability_name, trust_value);
+        LOG_INFO("Trust value for edge %s and capability %s=%f\n",
+            iter->name, capability_name, trust_value);
 
         if (trust_value > best_trust)
         {

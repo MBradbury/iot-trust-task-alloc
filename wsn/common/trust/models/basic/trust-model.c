@@ -54,11 +54,8 @@ void peer_tm_print(const peer_tm_t* tm)
 /*-------------------------------------------------------------------------------------------------------------------*/
 float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability)
 {
+    // Get the stereotype that may inform the trust value
     edge_stereotype_t* s = edge_stereotype_find(&edge->tags);
-    if (s != NULL)
-    {
-        LOG_DBG("Using stereotype information to calculate trust value\n");
-    }
 
     float trust = 0;
     float w_total = 0;

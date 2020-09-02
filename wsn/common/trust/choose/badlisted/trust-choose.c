@@ -4,7 +4,7 @@
 #include "random-helpers.h"
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define LOG_MODULE "trust-comm"
+#define LOG_MODULE "trust-badl"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
 #else
@@ -62,7 +62,7 @@ edge_resource_t* choose_edge(const char* capability_name)
 
         edge_resource_t* chosen = candidates[idx];
 
-        //LOG_DBG("Choosing candidate at index %u of %u candidates_lenwhich is %s\n", idx, candidates_len, chosen->name);
+        //LOG_DBG("Choosing candidate at index %u of %u candidates_len which is %s\n", idx, candidates_len, chosen->name);
 
         return chosen;
     }
