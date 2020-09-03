@@ -19,3 +19,6 @@
 
 // Enable coloured log prefix
 #define LOG_CONF_WITH_COLOR 1
+
+// We are using 256 bit ECC, so can decrease RAM cost a bit here
+#define ECC_MAXIMUM_LENGTH 8
