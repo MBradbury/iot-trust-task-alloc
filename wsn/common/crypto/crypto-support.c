@@ -404,18 +404,18 @@ PROCESS_THREAD(signer, ev, data)
 
         while (!queue_is_empty(messages_to_sign))
         {
-            static messages_to_sign_entry_t* item;
-            item = (messages_to_sign_entry_t*)queue_dequeue(messages_to_sign);
+            static messages_to_sign_entry_t* sitem;
+            sitem = (messages_to_sign_entry_t*)queue_dequeue(messages_to_sign);
 
-            static sign_state_t state;
-            state.process = &signer;
-            PROCESS_PT_SPAWN(&state.pt, ecc_sign(&state, item->message, item->message_buffer_len, item->message_len));
+            static sign_state_t sign_state;
+            sign_state.process = &signer;
+            PROCESS_PT_SPAWN(&sign_state.pt, ecc_sign(&sign_state, sitem->message, sitem->message_buffer_len, sitem->message_len));
 
-            item->result = state.ecc_sign_state.result;
+            sitem->result = sign_state.ecc_sign_state.result;
 
-            if (process_post(item->process, pe_message_signed, item) != PROCESS_ERR_OK)
+            if (process_post(sitem->process, pe_message_signed, sitem) != PROCESS_ERR_OK)
             {
-                LOG_ERR("Failed to post pe_message_signed to %s\n", item->process->name);
+                LOG_ERR("Failed to post pe_message_signed to %s\n", sitem->process->name);
             }
         }
 
@@ -468,18 +468,18 @@ PROCESS_THREAD(verifier, ev, data)
 
         while (!queue_is_empty(messages_to_verify))
         {
-            static messages_to_verify_entry_t* item;
-            item = (messages_to_verify_entry_t*)queue_dequeue(messages_to_verify);
+            static messages_to_verify_entry_t* vitem;
+            vitem = (messages_to_verify_entry_t*)queue_dequeue(messages_to_verify);
 
-            static verify_state_t state;
-            state.process = &verifier;
-            PROCESS_PT_SPAWN(&state.pt, ecc_verify(&state, item->pubkey, item->message, item->message_len));
+            static verify_state_t verify_state;
+            verify_state.process = &verifier;
+            PROCESS_PT_SPAWN(&verify_state.pt, ecc_verify(&verify_state, vitem->pubkey, vitem->message, vitem->message_len));
 
-            item->result = state.ecc_verify_state.result;
+            vitem->result = verify_state.ecc_verify_state.result;
 
-            if (process_post(item->process, pe_message_verified, item) != PROCESS_ERR_OK)
+            if (process_post(vitem->process, pe_message_verified, vitem) != PROCESS_ERR_OK)
             {
-                LOG_ERR("Failed to post pe_message_verified to %s\n", item->process->name);
+                LOG_ERR("Failed to post pe_message_verified to %s\n", vitem->process->name);
             }
         }
 

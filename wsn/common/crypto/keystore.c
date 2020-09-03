@@ -557,31 +557,31 @@ PROCESS_THREAD(keystore_req, ev, data)
         // Verify key response
         if (ev == pe_message_verified)
         {
-            static public_key_item_t* item;
+            static public_key_item_t* pkitem;
             messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
             assert(entry->data == NULL);
             //LOG_INFO("Processing pe_message_verified for request_public_key_callback_continued\n");
-            item = request_public_key_callback_continued(entry);
+            pkitem = request_public_key_callback_continued(entry);
 
-            if (item)
+            if (pkitem)
             {
-                keystore_pin(item);
+                keystore_pin(pkitem);
 
-                static ecdh2_state_t state;
-                state.process = &keystore_req;
-                PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &item->pubkey));
+                static ecdh2_state_t ecdh2_req_state;
+                ecdh2_req_state.process = &keystore_req;
+                PROCESS_PT_SPAWN(&ecdh2_req_state.pt, ecdh2(&ecdh2_req_state, &pkitem->pubkey));
 
-                if (state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
+                if (ecdh2_req_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
-                    generate_shared_secret(item, state.shared_secret);
+                    generate_shared_secret(pkitem, ecdh2_req_state.shared_secret);
                 }
                 else
                 {
                     LOG_ERR("Failed to generate shared secret with error %d\n",
-                        state.ecc_multiply_state.result);
+                        ecdh2_req_state.ecc_multiply_state.result);
                 }
 
-                keystore_unpin(item);
+                keystore_unpin(pkitem);
             }
         }
     }
@@ -601,31 +601,31 @@ PROCESS_THREAD(keystore_unver, ev, data)
         // Verify key response
         if (ev == pe_message_verified)
         {
-            static public_key_item_t* item;
+            static public_key_item_t* pkitem;
             messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
             assert(entry->data != NULL);
             //LOG_INFO("Processing pe_message_verified for keystore_add_unverified_continued\n");
-            item = keystore_add_unverified_continued(entry);
+            pkitem = keystore_add_unverified_continued(entry);
 
-            if (item)
+            if (pkitem)
             {
-                keystore_pin(item);
+                keystore_pin(pkitem);
 
-                static ecdh2_state_t state;
-                state.process = &keystore_unver;
-                PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &item->pubkey));
+                static ecdh2_state_t ecdh2_unver_state;
+                ecdh2_unver_state.process = &keystore_unver;
+                PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->pubkey));
 
-                if (state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
+                if (ecdh2_unver_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
-                    generate_shared_secret(item, state.shared_secret);
+                    generate_shared_secret(pkitem, ecdh2_unver_state.shared_secret);
                 }
                 else
                 {
                     LOG_ERR("Failed to generate shared secret with error %d\n",
-                        state.ecc_multiply_state.result);
+                        ecdh2_unver_state.ecc_multiply_state.result);
                 }
 
-                keystore_unpin(item);
+                keystore_unpin(pkitem);
             }
         }
     }
