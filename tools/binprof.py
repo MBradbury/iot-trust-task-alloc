@@ -6,6 +6,26 @@ from typing import Optional
 from pprint import pprint
 from collections import defaultdict
 
+# Details of what the bufferent `symbol_type`s mean
+# https://sourceware.org/binutils/docs/binutils/nm.html
+
+# This article hit the same problem with nm
+# https://web.archive.org/web/20190317203555/https://www.embeddedrelated.com/showarticle/900.php
+# They looked up details with readelf/objdump
+
+"""subprocess.run(
+    "make distclean TRUST_MODEL=basic TRUST_CHOOSE=banded",
+    check=True,
+    shell=True,
+    cwd="wsn/node",
+)"""
+subprocess.run(
+    "make node TRUST_MODEL=basic TRUST_CHOOSE=banded",
+    check=True,
+    shell=True,
+    cwd="wsn/node",
+)
+
 result = subprocess.run(
     "nm --print-size --size-sort --radix=d --line-numbers node.zoul",
     check=True,
@@ -28,8 +48,8 @@ class Result:
         super().__setattr__("position", int(self.position))
         super().__setattr__("size", int(self.size))
 
-tsymb = []
-dsymb = []
+flash_symb = []
+ram_symb = []
 
 for line in result.stdout.split("\n"):
     if not line:
@@ -42,24 +62,27 @@ for line in result.stdout.split("\n"):
 
     r = Result(*details)
 
-    if r.symbol_type in ("T", "t"):
-        tsymb.append(r)
+    # Contiki's ramprof picks up [abdrw] and flashprof picks up [t] (both case insensitive)
+
+    if r.symbol_type in "Tt":
+        flash_symb.append(r)
+    elif r.symbol_type in "abdrwABDRW":
+        ram_symb.append(r)
     else:
-        dsymb.append(r)
+        raise RuntimeError(f"Unknown symbol type {r.symbol_type}")
 
 def summarise(symbs):
     return sum(x.size for x in symbs)
 
-#print("text", summarise(tsymb))
-#print("data", summarise(dsymb))
+#print("text", summarise(flash_symb))
+#print("data", summarise(ram_symb))
 
 def classify(symb):
     if symb.location is None:
-        if symb.name in ("process_current", "process_list",
-                         "curr_instance", "linkaddr_node_addr", "etimer_process"):
+        if symb.name in ("process_current", "process_list", "curr_instance", "linkaddr_null",
+                         "linkaddr_node_addr", "etimer_process", "csma_driver", "drop_route", "framer_802154"):
             return "contiki/net"
-        if (symb.name.startswith("uip") or symb.name.startswith("sicslowpan_") or
-            symb.name.startswith("rpl_") or symb.name.startswith("tcpip_")):
+        if symb.name.startswith(("uip", "sicslowpan_", "rpl_", "tcpip_", "root_ipaddr.")):
             return "contiki/net"
 
         if symb.name in ("serial_line_process", "sensors_process", "serial_line_event_message",
@@ -67,12 +90,16 @@ def classify(symb):
                          "button_hal_press_event", "button_hal_release_event", "node_id", "sensors_event"):
             return "contiki"
 
-        if symb.name in ("bignum_add_get_result", "ecc_add_get_result", "vdd3_sensor"):
+        if symb.name in ("bignum_add_get_result", "ecc_add_get_result", "vdd3_sensor", "vectors"):
             return "contiki/cc2538"
         if symb.name.startswith("cc2538_"):
             return "contiki/cc2538"
+        if symb.name.startswith("reset_cause."):
+            return "contiki/cc2538"
 
-        if symb.name in ("coap_status_code", "coap_error_message"):
+        if symb.name in ("coap_status_code", "coap_error_message", "coap_timer_default_driver"):
+            return "contiki/coap"
+        if symb.name.startswith(("message.", "response.")):
             return "contiki/coap"
 
         if symb.name in ("pe_edge_capability_add", "pe_edge_capability_remove"):
@@ -80,12 +107,21 @@ def classify(symb):
 
         if symb.name in ("pe_message_signed", "pe_message_signed", "pe_message_verified", "root_key", "our_key"):
             return "petras/crypto"
+        if symb.name.startswith(("verify_state.", "sign_state.", "ecdh2_unver_state.", "ecdh2_req_state.",
+                                 "pkitem.", "sitem.", "vitem.")):
+            return "petras/crypto"
 
         if symb.name in ("mqtt_client_process"):
             return "petras/mqtt-over-coap"
 
-        if symb.name in ("pe_timed_unlock_unlocked", "root_ep"):
+        if symb.name in ("pe_timed_unlock_unlocked", "root_ep", "autostart_processes"):
             return "petras/common"
+
+        if symb.name in ("_C_numeric_locale", "__mprec_bigtens", "__mprec_tinytens", "__mprec_tens",
+                         "__hexdig", "_ctype_", "_impure_ptr"):
+            return "newlib"
+        if symb.name.startswith(("fpinan.", "fpi.")):
+            return "newlib"
 
         return "other"
 
@@ -109,7 +145,7 @@ def classify(symb):
     if "applications/routing" in symb.location:
         return "applications/routing"
     if "applications/challenge-response" in symb.location:
-        return "applications/challenge-response"
+        return "applications/challenge-resp"
 
     if any(osdir in symb.location for osdir in ("os/lib", "os/sys", "os/dev", "os/contiki")):
         return "contiki"
@@ -137,30 +173,51 @@ def classify_all(symbs):
 
     return result
 
-csymb = classify_all(dsymb)
+classified_ram_symb = classify_all(ram_symb)
 
-pprint(csymb)
-pprint(csymb["other"])
+#pprint(classified_ram_symb)
+pprint(classified_ram_symb["other"])
 
-ssymb = {k: summarise(v) for k, v in csymb.items()}
-pprint(ssymb)
-
-
-
-ctsymb = classify_all(tsymb)
-
-pprint(ctsymb)
-pprint(ctsymb["other"])
-
-stsymb = {k: summarise(v) for k, v in ctsymb.items()}
-pprint(stsymb)
+summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
+#pprint(summarised_ram_symb)
 
 
 
-keys = set(ssymb.keys()) | set(ctsymb.keys())
+classified_flash_symb = classify_all(flash_symb)
+
+#print(classified_flash_symb)
+pprint(classified_flash_symb["other"])
+
+summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
+#pprint(summarised_flash_symb)
+
+total_flash_symb = sum(summarised_flash_symb.values())
+total_ram_symb = sum(summarised_ram_symb.values())
+
+
+keys = set(summarised_ram_symb.keys()) | set(classified_flash_symb.keys())
 
 
 for k in sorted(keys):
-    print(f"{k} & {stsymb[k]} & {ssymb[k]} \\\\")
+    print(f"{k} & {summarised_flash_symb[k]} & {round(100*summarised_flash_symb[k]/total_flash_symb, 1)} & {summarised_ram_symb[k]} & {round(100*summarised_ram_symb[k]/total_ram_symb, 1)} \\\\")
 print("\\midrule")
-print(f"Total Used & {sum(stsymb.values())} & {sum(ssymb.values())} \\\\")
+print(f"Total Used & {total_flash_symb} & & {total_ram_symb} & \\\\")
+
+
+"""result = subprocess.run(
+    "size node.zoul",
+    check=True,
+    shell=True,
+    capture_output=True,
+    cwd="wsn/node",
+    encoding="utf-8",
+    universal_newlines=True,
+)
+size_output = [[x.strip() for x in line.split("\t")] for line in result.stdout.split("\n") if line]
+
+size_output = dict(zip(*size_output))
+
+print(size_output)
+
+print(f"Total Used (size) & {size_output['text']} & {int(size_output['data']) + int(size_output['bss'])} \\\\")
+"""
