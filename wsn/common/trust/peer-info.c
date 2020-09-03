@@ -12,10 +12,12 @@
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef NUM_PEERS
-#define NUM_PEERS 16
+#define NUM_PEERS 8
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(peers_memb, peer_t, NUM_PEERS);
+MEMB(peer_edges_memb, peer_edge_t, NUM_PEERS * NUM_EDGE_RESOURCES);
+MEMB(peer_capabilities_memb, peer_edge_capability_t, NUM_PEERS * NUM_EDGE_RESOURCES * NUM_EDGE_CAPABILITIES);
 /*-------------------------------------------------------------------------------------------------------------------*/
 LIST(peers);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -30,20 +32,25 @@ peer_new(void)
 
     peer_tm_init(&peer->tm);
 
+    LIST_STRUCT_INIT(peer, edges);
+
     return peer;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+/*static void
 peer_free(peer_t* peer)
 {
     memb_free(&peers_memb, peer);
-}
+}*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_info_init(void)
 {
     LOG_DBG("Initialising peer info\n");
 
     memb_init(&peers_memb);
+    memb_init(&peer_edges_memb);
+    memb_init(&peer_capabilities_memb);
+
     list_init(peers);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -73,13 +80,14 @@ peer_info_add(const uip_ipaddr_t* addr)
     return peer;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void
+// TODO: Implement freeing of peers
+/*void
 peer_info_remove(peer_t* peer)
 {
     list_remove(peers, peer);
 
     peer_free(peer);
-}
+}*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 peer_t*
 peer_info_iter(void)
@@ -105,5 +113,106 @@ peer_info_find(const uip_ipaddr_t* addr)
     }
 
     return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static peer_edge_t* peer_info_find_edge(peer_t* peer, edge_resource_t* edge)
+{
+    for (peer_edge_t* iter = list_head(peer->edges); iter != NULL; iter = list_item_next(iter))
+    {
+        if (iter->edge == edge)
+        {
+            return iter;
+        }
+    }
+
+    return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static peer_edge_capability_t* peer_info_find_capability(peer_edge_t* peer_edge, edge_capability_t* cap)
+{
+    for (peer_edge_capability_t* iter = list_head(peer_edge->capabilities); iter != NULL; iter = list_item_next(iter))
+    {
+        if (iter->cap == cap)
+        {
+            return iter;
+        }
+    }
+
+    return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool peer_info_update_edge(peer_t* peer, edge_resource_t* edge, const edge_resource_tm_t* tm)
+{
+    peer_edge_t* peer_edge = peer_info_find_edge(peer, edge);
+    if (peer_edge == NULL)
+    {
+        peer_edge = memb_alloc(&peer_edges_memb);
+        if (peer_edge == NULL)
+        {
+            LOG_ERR("Out of memory peer_edges_memb\n");
+            return false;
+        }
+
+        LIST_STRUCT_INIT(peer_edge, capabilities);
+
+        peer_edge->edge = edge;
+
+        list_push(peer->edges, peer_edge);
+    }
+
+    peer_edge->tm = *tm;
+
+    LOG_DBG("Updated peer ");
+    LOG_DBG_6ADDR(&peer->addr);
+    LOG_DBG_(" edge '%s' to ", edge->name);
+    edge_resource_tm_print(tm);
+    LOG_DBG_("\n");
+
+    return true;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool peer_info_update_capability(peer_t* peer, edge_resource_t* edge, edge_capability_t* cap, const edge_capability_tm_t* tm)
+{
+    peer_edge_t* peer_edge = peer_info_find_edge(peer, edge);
+    if (peer_edge == NULL)
+    {
+        peer_edge = memb_alloc(&peer_edges_memb);
+        if (peer_edge == NULL)
+        {
+            LOG_ERR("Out of memory peer_edges_memb\n");
+            return false;
+        }
+
+        LIST_STRUCT_INIT(peer_edge, capabilities);
+
+        peer_edge->edge = edge;
+
+        list_push(peer->edges, peer_edge);
+    }
+
+    peer_edge_capability_t* peer_cap = peer_info_find_capability(peer_edge, cap);
+    if (peer_cap == NULL)
+    {
+        peer_cap = memb_alloc(&peer_capabilities_memb);
+        if (peer_cap == NULL)
+        {
+            LOG_ERR("Out of memory peer_capabilities_memb\n");
+            return false;
+        }
+
+        peer_cap->cap = cap;
+
+        list_push(peer_edge->capabilities, peer_cap);
+    }
+
+    peer_cap->tm = *tm;
+
+    LOG_DBG("Updated peer ");
+    LOG_DBG_6ADDR(&peer->addr);
+    LOG_DBG_(" edge '%s' capability '%s' to ", edge->name, cap->name);
+    edge_capability_tm_print(tm);
+    LOG_DBG_("\n");
+
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

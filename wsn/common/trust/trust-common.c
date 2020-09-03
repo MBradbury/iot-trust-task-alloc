@@ -482,6 +482,21 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static int serialise_trust_edge_and_capabilities(nanocbor_encoder_t* enc, edge_resource_t* edge)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(serialise_trust_edge_resource(enc, &edge->tm));
+
+    NANOCBOR_CHECK(nanocbor_fmt_map(enc, list_length(edge->capabilities)));
+    for (edge_capability_t* cap = list_head(edge->capabilities); cap != NULL; cap = list_item_next(cap))
+    {
+        NANOCBOR_CHECK(nanocbor_put_tstr(enc, cap->name));
+        NANOCBOR_CHECK(serialise_trust_edge_capability(enc, &cap->tm));
+    }
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len)
 {
     // Can provide addr to request trust on specific nodes, when NULL is provided
@@ -507,20 +522,84 @@ int serialise_trust(const uip_ipaddr_t* addr, uint8_t* buffer, size_t buffer_len
         }
 
         NANOCBOR_CHECK(nanocbor_fmt_ipaddr(&enc, addr));
-        NANOCBOR_CHECK(serialise_trust_edge_resource(&enc, &edge->tm));
+        NANOCBOR_CHECK(serialise_trust_edge_and_capabilities(&enc, edge));
     }
     else
     {
         for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
         {
             NANOCBOR_CHECK(nanocbor_fmt_ipaddr(&enc, &iter->ep.ipaddr));
-            NANOCBOR_CHECK(serialise_trust_edge_resource(&enc, &iter->tm));
+            NANOCBOR_CHECK(serialise_trust_edge_and_capabilities(&enc, iter));
         }
     }
 
     assert(nanocbor_encoded_len(&enc) <= buffer_len);
 
     return nanocbor_encoded_len(&enc);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int deserialise_trust_edge_and_capabilities(nanocbor_value_t* dec, peer_t* peer, edge_resource_t* edge)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+
+    edge_resource_tm_t edge_tm;
+    NANOCBOR_CHECK(deserialise_trust_edge_resource(&arr, &edge_tm));
+
+    peer_info_update_edge(peer, edge, &edge_tm);
+
+    nanocbor_value_t map;
+    NANOCBOR_CHECK(nanocbor_enter_map(&arr, &map));
+
+    while (!nanocbor_at_end(&map))
+    {
+        const char* cap_name;
+        size_t cap_name_len;
+        NANOCBOR_CHECK(nanocbor_get_tstr(&map, &cap_name, &cap_name_len));
+
+        if (cap_name_len > EDGE_CAPABILITY_NAME_LEN)
+        {
+            LOG_DBG("Skipping processing edge ");
+            LOG_DBG_6ADDR(&edge->ep.ipaddr);
+            LOG_DBG_(" capability %.*s (name too long)\n", cap_name_len, cap_name);
+
+            NANOCBOR_CHECK(nanocbor_skip(&map));
+            continue;
+        }
+
+        char cap_name_terminated[EDGE_CAPABILITY_NAME_LEN + 1];
+        strncpy(cap_name_terminated, cap_name, cap_name_len);
+        cap_name_terminated[cap_name_len] = '\0';
+
+        edge_capability_t* cap = edge_info_capability_find(edge, cap_name_terminated);
+        if (cap != NULL)
+        {
+            edge_capability_tm_t cap_tm;
+            NANOCBOR_CHECK(deserialise_trust_edge_capability(&map, &cap_tm));
+
+            peer_info_update_capability(peer, edge, cap, &cap_tm);
+        }
+        else
+        {
+            LOG_DBG("Skipping processing edge ");
+            LOG_DBG_6ADDR(&edge->ep.ipaddr);
+            LOG_DBG_(" unknown capability %.*s\n", cap_name_len, cap_name);
+
+            NANOCBOR_CHECK(nanocbor_skip(&map));
+        }
+    }
+
+    nanocbor_leave_container(&arr, &map);
+
+    if (!nanocbor_at_end(&arr))
+    {
+        LOG_ERR("!nanocbor_at_end\n");
+        return -1;
+    }
+
+    nanocbor_leave_container(dec, &arr);
+
+    return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_t buffer_len)
@@ -550,28 +629,29 @@ int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_
 
     while (!nanocbor_at_end(&map))
     {
-        const uip_ipaddr_t* ip_addr;
-        NANOCBOR_CHECK(nanocbor_get_ipaddr(&map, &ip_addr));
+        const uip_ipaddr_t* ipaddr;
+        NANOCBOR_CHECK(nanocbor_get_ipaddr(&map, &ipaddr));
 
         // TODO: in the future might want to consider creating an edge here
         // Risk of possible DoS via buffer exhaustion though
-        edge_resource_t* edge = edge_info_find_addr(ip_addr);
+        edge_resource_t* edge = edge_info_find_addr(ipaddr);
         if (edge == NULL)
         {
+            LOG_DBG("Skipping processing unknown edge ");
+            LOG_DBG_6ADDR(ipaddr);
+            LOG_DBG_("\n");
+
             NANOCBOR_CHECK(nanocbor_skip(&map));
         }
         else
         {
-            edge_resource_tm_t edge_tm;
-            NANOCBOR_CHECK(deserialise_trust_edge_resource(&map, &edge_tm));
-
-            // TODO: merge edge_tm with the peer trust model 
+            NANOCBOR_CHECK(deserialise_trust_edge_and_capabilities(&map, peer, edge));
         }
     }
 
     if (!nanocbor_at_end(&map))
     {
-        LOG_ERR("!nanocbor_leave_container 4\n");
+        LOG_ERR("!nanocbor_at_end 4\n");
         return -1;
     }
 
@@ -579,7 +659,7 @@ int process_received_trust(const uip_ipaddr_t* src, const uint8_t* buffer, size_
 
     if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("!nanocbor_leave_container 5\n");
+        LOG_ERR("!nanocbor_at_end 5\n");
         return -1;
     }
 
