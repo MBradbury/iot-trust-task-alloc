@@ -16,11 +16,11 @@
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef MESSAGES_TO_SIGN_SIZE
-#define MESSAGES_TO_SIGN_SIZE 5
+#define MESSAGES_TO_SIGN_SIZE 3
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef MESSAGES_TO_VERIFY_SIZE
-#define MESSAGES_TO_VERIFY_SIZE 5
+#define MESSAGES_TO_VERIFY_SIZE 3
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 void crypto_support_init(void);
