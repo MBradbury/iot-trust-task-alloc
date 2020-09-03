@@ -81,26 +81,26 @@ def classify(symb):
     if symb.location is None:
         if symb.name in ("process_current", "process_list", "curr_instance", "linkaddr_null",
                          "linkaddr_node_addr", "etimer_process", "csma_driver", "drop_route", "framer_802154"):
-            return "contiki/net"
+            return "contiki-ng/net"
         if symb.name.startswith(("uip", "sicslowpan_", "rpl_", "tcpip_", "root_ipaddr.")):
-            return "contiki/net"
+            return "contiki-ng/net"
 
         if symb.name in ("serial_line_process", "sensors_process", "serial_line_event_message",
                          "curr_log_level_main", "curr_log_level_coap", "button_hal_periodic_event",
                          "button_hal_press_event", "button_hal_release_event", "node_id", "sensors_event"):
-            return "contiki"
+            return "contiki-ng"
 
         if symb.name in ("bignum_add_get_result", "ecc_add_get_result", "vdd3_sensor", "vectors"):
-            return "contiki/cc2538"
+            return "contiki-ng/cc2538"
         if symb.name.startswith("cc2538_"):
-            return "contiki/cc2538"
+            return "contiki-ng/cc2538"
         if symb.name.startswith("reset_cause."):
-            return "contiki/cc2538"
+            return "contiki-ng/cc2538"
 
         if symb.name in ("coap_status_code", "coap_error_message", "coap_timer_default_driver"):
-            return "contiki/coap"
+            return "contiki-ng/coap"
         if symb.name.startswith(("message.", "response.")):
-            return "contiki/coap"
+            return "contiki-ng/coap"
 
         if symb.name in ("pe_edge_capability_add", "pe_edge_capability_remove"):
             return "petras/trust"
@@ -129,16 +129,16 @@ def classify(symb):
         return "newlib"
 
     if "oscore" in symb.location:
-        return "contiki/oscore"
+        return "contiki-ng/oscore"
 
     if "os/net/app-layer/coap" in symb.location:
-        return "contiki/coap"
+        return "contiki-ng/coap"
 
     if "os/net" in symb.location:
-        return "contiki/net"
+        return "contiki-ng/net"
 
     if "arch/cpu/cc2538" in symb.location or "arch/platform/zoul" in symb.location:
-        return "contiki/cc2538"
+        return "contiki-ng/cc2538"
 
     if "applications/monitoring" in symb.location:
         return "applications/monitoring"
@@ -148,7 +148,7 @@ def classify(symb):
         return "applications/challenge-resp"
 
     if any(osdir in symb.location for osdir in ("os/lib", "os/sys", "os/dev", "os/contiki")):
-        return "contiki"
+        return "contiki-ng"
 
     if "crypto" in symb.location:
         return "petras/crypto"
