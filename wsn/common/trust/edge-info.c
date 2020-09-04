@@ -86,7 +86,7 @@ edge_info_init(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t*
-edge_info_add(const uip_ipaddr_t* addr, const char* ident, const stereotype_tags_t* tags)
+edge_info_add(const uip_ipaddr_t* addr, const char* ident)
 {
     edge_resource_t* edge;
 
@@ -112,7 +112,6 @@ edge_info_add(const uip_ipaddr_t* addr, const char* ident, const stereotype_tags
     list_push(edge_resources, edge);
 
     edge->flags = EDGE_RESOURCE_NO_FLAGS;
-    edge->tags = *tags;
 
     return edge;
 }

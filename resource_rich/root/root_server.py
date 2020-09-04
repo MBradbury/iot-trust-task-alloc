@@ -4,9 +4,9 @@ import logging
 import asyncio
 import signal
 
-from coap_key_server import COAPKeyServer
-from mqtt_coap_bridge import MQTTCOAPBridge
-from stereotype_server import StereotypeServer
+from .coap_key_server import COAPKeyServer
+from .mqtt_coap_bridge import MQTTCOAPBridge
+from .stereotype_server import StereotypeServer
 
 import aiocoap
 import aiocoap.resource as resource

@@ -70,7 +70,7 @@ keystore_evict(keystore_eviction_policy_t evict)
     }
 
     LOG_DBG("Evicting ");
-    LOG_DBG_6ADDR(&found->addr);
+    LOG_DBG_BYTES(&found->cert.subject, EUI64_LENGTH);
     LOG_DBG_(" from the keystore.\n");
 
 #ifdef WITH_OSCORE
@@ -101,12 +101,9 @@ uip_ip6addr_normalise(const uip_ip6addr_t* in, uip_ip6addr_t* out)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t*
-keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, keystore_eviction_policy_t evict)
+keystore_add(const uip_ip6addr_t* addr, const certificate_t* cert, keystore_eviction_policy_t evict)
 {
-    uip_ip6addr_t norm_addr;
-    uip_ip6addr_normalise(addr, &norm_addr);
-
-    public_key_item_t* item = keystore_find(&norm_addr);
+    public_key_item_t* item = keystore_find(addr);
     if (item)
     {
         return item;
@@ -129,8 +126,8 @@ keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, 
         }
     }
 
-    uip_ipaddr_copy(&item->addr, &norm_addr);
-    memcpy(&item->pubkey, pubkey, sizeof(ecdsa_secp256r1_pubkey_t));
+    item->cert = *cert;
+
     item->age = clock_time();
     item->pin_count = 0;
 
@@ -141,11 +138,11 @@ keystore_add(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, 
 /*-------------------------------------------------------------------------------------------------------------------*/
 // 2*32 for the public key
 // 2*32 for the signature
-static uint8_t add_unverified_buffer[DTLS_EC_KEY_SIZE*2 + DTLS_EC_KEY_SIZE*2];
+static uint8_t add_unverified_buffer[CERTIFICATE_MESSAGE_LENGTH + DTLS_EC_SIG_SIZE];
 static bool add_unverified_buffer_in_use;
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t*
-keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_t* pubkey, const ecdsa_secp256r1_sig_t* sig)
+keystore_add_unverified(const uip_ip6addr_t* addr, const certificate_t* cert)
 {
     uip_ip6addr_t norm_addr;
     uip_ip6addr_normalise(addr, &norm_addr);
@@ -173,15 +170,32 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const ecdsa_secp256r1_pubkey_
     LOG_DBG_6ADDR(addr);
     LOG_DBG_(" to be verified\n");
 
-    uip_ipaddr_copy(&item->addr, &norm_addr);
-    memcpy(&item->pubkey, pubkey, sizeof(ecdsa_secp256r1_pubkey_t));
+    item->cert = *cert;
+
     item->age = clock_time();
     item->pin_count = 0;
 
-    memcpy(add_unverified_buffer + DTLS_EC_KEY_SIZE*0, pubkey, DTLS_EC_KEY_SIZE*2);
-    memcpy(add_unverified_buffer + DTLS_EC_KEY_SIZE*2, sig,    DTLS_EC_KEY_SIZE*2);
+    const size_t available_space = sizeof(add_unverified_buffer) - DTLS_EC_SIG_SIZE;
 
-    if (!queue_message_to_verify(&keystore_unver, item, add_unverified_buffer, sizeof(add_unverified_buffer), &root_key))
+    nanocbor_encoder_t enc;
+    nanocbor_encoder_init(&enc, add_unverified_buffer, available_space);
+    certificate_encode_tbs(&enc, cert);
+
+    size_t encoded_length = nanocbor_encoded_len(&enc);
+
+    if (encoded_length > available_space)
+    {
+        LOG_ERR("keystore_add_unverified: encode failed %zu > %zu\n", encoded_length, available_space);
+        memb_free(&public_keys_memb, item);
+        return NULL;
+    }
+
+    // Put the signature at the end
+    memcpy(&add_unverified_buffer[encoded_length], &cert->signature, DTLS_EC_SIG_SIZE);
+
+    if (!queue_message_to_verify(&keystore_unver, item,
+                                 add_unverified_buffer, encoded_length + DTLS_EC_SIG_SIZE,
+                                 &root_cert.public_key))
     {
         LOG_ERR("keystore_add_unverified: enqueue failed\n");
         memb_free(&public_keys_memb, item);
@@ -199,9 +213,12 @@ keystore_find(const uip_ip6addr_t* addr)
     uip_ip6addr_t norm_addr;
     uip_ip6addr_normalise(addr, &norm_addr);
 
+    uint8_t eui64[EUI64_LENGTH];
+    eui64_from_ipaddr(&norm_addr, eui64);
+
     for (public_key_item_t* iter = list_head(public_keys); iter != NULL; iter = list_item_next(iter))
     {
-        if (uip_ip6addr_cmp(&iter->addr, &norm_addr))
+        if (memcmp(&iter->cert.subject, eui64, EUI64_LENGTH) == 0)
         {
             return iter;
         }
@@ -217,7 +234,7 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
 
     if (uip_ip6addr_cmp(&norm_addr, &root_ep.ipaddr))
     {
-        return &root_key;
+        return &root_cert.public_key;
     }
 
     public_key_item_t* item = keystore_find(&norm_addr);
@@ -226,7 +243,7 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
         return NULL;
     }
 
-    return &item->pubkey;
+    return &item->cert.public_key;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void keystore_pin(public_key_item_t* item)
@@ -234,7 +251,7 @@ void keystore_pin(public_key_item_t* item)
     item->pin_count += 1;
 
     LOG_DBG("Key ");
-    LOG_DBG_6ADDR(&item->addr);
+    LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
     LOG_DBG_(" pin count=%u (+)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -245,7 +262,7 @@ void keystore_unpin(public_key_item_t* item)
     item->pin_count -= 1;
 
     LOG_DBG("Key ");
-    LOG_DBG_6ADDR(&item->addr);
+    LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
     LOG_DBG_(" pin count=%u (-)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -254,14 +271,11 @@ bool keystore_is_pinned(const public_key_item_t* item)
     return item->pin_count > 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-// 16 bytes for ipv6 address
-// 2*32 for the public key
-// 2*32 for the signature
-static uint8_t req_resp[sizeof(uip_ip6addr_t) + DTLS_EC_KEY_SIZE*2 + DTLS_EC_KEY_SIZE*2];
+static uint8_t req_resp[CERTIFICATE_MESSAGE_LENGTH + DTLS_EC_SIG_SIZE];
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
-static uint8_t key_req_payload[sizeof(uip_ip6addr_t) + DTLS_EC_KEY_SIZE*2];
+static uint8_t key_req_payload[sizeof(uip_ip6addr_t) + DTLS_EC_SIG_SIZE];
 static timed_unlock_t in_use;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void request_public_key_callback(coap_callback_request_state_t* callback_state);
@@ -315,7 +329,7 @@ static void request_public_key_continued(void* data)
     // of the extra data that needsa to be sent.
     if (entry->result == PKA_STATUS_SUCCESS)
     {
-        int payload_len = entry->message_len + DTLS_EC_KEY_SIZE*2;
+        int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
         int coap_payload_len = coap_set_payload(&msg, key_req_payload, payload_len);
         if (coap_payload_len < payload_len)
         {
@@ -368,13 +382,20 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         }
         else
         {
-            if (req_resp_len == sizeof(req_resp))
+            if (req_resp_len <= sizeof(req_resp))
             {
                 memcpy(req_resp, payload, req_resp_len);
+
+                LOG_DBG("Queuing public key request response to be verified\n");
+                if (!queue_message_to_verify(&keystore_req, NULL, req_resp, req_resp_len, &root_cert.public_key))
+                {
+                    LOG_ERR("request_public_key_callback: enqueue failed\n");
+                    timed_unlock_unlock(&in_use);
+                }
             }
             else
             {
-                LOG_ERR("req_resp is not the expected length %d != %d\n", req_resp_len, sizeof(req_resp));
+                LOG_ERR("req_resp is not the expected length %d > %d\n", req_resp_len, sizeof(req_resp));
                 timed_unlock_unlock(&in_use);
             }
         }
@@ -383,17 +404,6 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
     case COAP_REQUEST_STATUS_FINISHED:
     {
         // Not truely finished yet here, need to wait for signature verification
-        if (timed_unlock_is_locked(&in_use))
-        {
-            LOG_DBG("Queuing public key request ");
-            LOG_DBG_6ADDR((const uip_ip6addr_t*)req_resp);
-            LOG_DBG_(" response to be verified\n");
-            if (!queue_message_to_verify(&keystore_req, NULL, req_resp, sizeof(req_resp), &root_key))
-            {
-                LOG_ERR("request_public_key_callback: enqueue failed\n");
-                timed_unlock_unlock(&in_use);
-            }
-        }
     } break;
 
     default:
@@ -408,37 +418,41 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
 static public_key_item_t*
 request_public_key_callback_continued(messages_to_verify_entry_t* entry)
 {
-    // Parse contents of req_resp:
-    // First 16 bytes are the IP Address
-    // Next 64 bytes are the raw public key (x, y)
-    // Next 64 bytes are the raw digital signature of the root server (r, s)
-    const uip_ip6addr_t* addr = (const uip_ip6addr_t*)entry->message;
-    const ecdsa_secp256r1_pubkey_t* pubkey = 
-        (const ecdsa_secp256r1_pubkey_t*)(entry->message + sizeof(uip_ip6addr_t));
-
     public_key_item_t* item = NULL;
 
     if (entry->result == PKA_STATUS_SUCCESS)
     {
-        item = keystore_add(addr, pubkey, EVICT_OLDEST);
+        nanocbor_value_t dec;
+        nanocbor_decoder_init(&dec, entry->message, entry->message_len - DTLS_EC_SIG_SIZE);
+
+        certificate_t cert;
+        int ret = certificate_decode(&dec, &cert);
+        if (ret != NANOCBOR_OK)
+        {
+            LOG_ERR("Failed to decode certificate\n");
+            return NULL;
+        }
+
+        uip_ip6addr_t ipaddr;
+        ipaddr_from_eui64(cert.subject, &ipaddr);
+
+        item = keystore_add(&ipaddr, &cert, EVICT_OLDEST);
         if (item)
         {
             LOG_INFO("Sucessfully added public key for ");
-            LOG_DBG_6ADDR(addr);
+            LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
             LOG_INFO_(" [new]\n");
         }
         else
         {
             LOG_ERR("Failed to add public key for ");
-            LOG_ERR_6ADDR(addr);
+            LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
             LOG_ERR_(" (out of memory) [new]\n");
         }
     }
     else
     {
-        LOG_ERR("Failed to add public key for ");
-        LOG_ERR_6ADDR(addr);
-        LOG_ERR_(" (sig verification failed) [new]\n");
+        LOG_ERR("Failed to add public key (sig verification failed) [new]\n");
     }
 
     queue_message_to_verify_done(entry);
@@ -456,7 +470,7 @@ keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
     if (entry->result == PKA_STATUS_SUCCESS)
     {
         LOG_INFO("Sucessfully verfied public key for ");
-        LOG_INFO_6ADDR(&item->addr);
+        LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
         LOG_INFO_(" [unver]\n");
 
         list_push(public_keys, item);
@@ -464,7 +478,7 @@ keystore_add_unverified_continued(messages_to_verify_entry_t* entry)
     else
     {
         LOG_ERR("Failed to verfiy public key for ");
-        LOG_ERR_6ADDR(&item->addr);
+        LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
         LOG_ERR_(" (sig verification failed) [unver]\n");
 
         memb_free(&public_keys_memb, item);
@@ -485,7 +499,7 @@ static void
 generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret)
 {
     LOG_INFO("Generated shared secret with ");
-    LOG_INFO_6ADDR(&item->addr);
+    LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
     LOG_INFO_(" value=");
     LOG_INFO_BYTES(shared_secret, DTLS_EC_KEY_SIZE);
     LOG_INFO_("\n");
@@ -495,9 +509,8 @@ generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret)
 
 #ifdef WITH_OSCORE
     // Take the lower OSCORE_ID_LEN bytes as the ids
-    // The linkaddr contains the EUI-64
-    const uint8_t* sender_id = &linkaddr_node_addr.u8[LINKADDR_SIZE - OSCORE_ID_LEN];
-    const uint8_t* receiver_id = &item->addr.u8[sizeof(item->addr.u8) - OSCORE_ID_LEN];
+    const uint8_t* sender_id = &our_cert.subject[EUI64_LENGTH - OSCORE_ID_LEN];
+    const uint8_t* receiver_id = &item->cert.subject[EUI64_LENGTH - OSCORE_ID_LEN];
 
     oscore_derive_ctx(&item->context,
         shared_secret, DTLS_EC_KEY_SIZE,
@@ -569,7 +582,7 @@ PROCESS_THREAD(keystore_req, ev, data)
 
                 static ecdh2_state_t ecdh2_req_state;
                 ecdh2_req_state.process = &keystore_req;
-                PROCESS_PT_SPAWN(&ecdh2_req_state.pt, ecdh2(&ecdh2_req_state, &pkitem->pubkey));
+                PROCESS_PT_SPAWN(&ecdh2_req_state.pt, ecdh2(&ecdh2_req_state, &pkitem->cert.public_key));
 
                 if (ecdh2_req_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
@@ -613,7 +626,7 @@ PROCESS_THREAD(keystore_unver, ev, data)
 
                 static ecdh2_state_t ecdh2_unver_state;
                 ecdh2_unver_state.process = &keystore_unver;
-                PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->pubkey));
+                PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->cert.public_key));
 
                 if (ecdh2_unver_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {

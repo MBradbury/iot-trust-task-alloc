@@ -55,6 +55,11 @@ static bool is_our_addr(const uip_ip6addr_t* addr)
     return false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static bool is_our_eui64(const uint8_t* eui64)
+{
+    return memcmp(eui64, current_eui64(), EUI64_LENGTH) == 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static bool is_our_ident(const char* ident)
 {
     char our_ident[8 * 2 + 1];
@@ -73,56 +78,37 @@ static bool is_our_ident(const char* ident)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
-parse_certificate(nanocbor_value_t* dec, const uip_ipaddr_t** ip_addr, stereotype_tags_t* tags,
-                  const ecdsa_secp256r1_pubkey_t** pubkey, const ecdsa_secp256r1_sig_t** sig)
-{
-    nanocbor_value_t arr;
-    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
-
-    NANOCBOR_CHECK(nanocbor_get_ipaddr(&arr, ip_addr));
-
-    NANOCBOR_CHECK(deserialise_stereotype_tags(&arr, tags));
-
-    NANOCBOR_GET_OBJECT(&arr, pubkey);
-    NANOCBOR_GET_OBJECT(&arr, sig);
-
-    if (!nanocbor_at_end(&arr))
-    {
-        LOG_ERR("!nanocbor_at_end\n");
-        return -1;
-    }
-
-    return NANOCBOR_OK;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static int
-process_certificate(const char* topic_identity, const uip_ipaddr_t* ip_addr, const stereotype_tags_t* tags,
-                    const ecdsa_secp256r1_pubkey_t* pubkey, const ecdsa_secp256r1_sig_t* sig)
+process_certificate(const char* topic_identity, const certificate_t* cert)
 {
     // We should add a record of other edge resources, but not ourselves.
     // TODO: might need to change this, so we can have a trust model of beliefs about ourself
-    if (is_our_addr(ip_addr))
+    if (is_our_eui64(cert->subject))
     {
         return -1;
     }
 
-    edge_resource_t* edge_resource = edge_info_add(ip_addr, topic_identity, tags);
+    uip_ip6addr_t ipaddr;
+    ipaddr_from_eui64(cert->subject, &ipaddr);
+
+    edge_resource_t* edge_resource = edge_info_add(&ipaddr, topic_identity);
     if (edge_resource != NULL)
     {
         LOG_DBG("Received certificate for %s with address ", topic_identity);
-        LOG_DBG_6ADDR(ip_addr);
+        LOG_DBG_6ADDR(&ipaddr);
         LOG_DBG_("\n");
 
         edge_resource->flags |= EDGE_RESOURCE_ACTIVE;
     }
     else
     {
-        LOG_ERR("Failed to allocate edge resource\n");
+        LOG_ERR("Failed to allocate edge resource %s with address ", topic_identity);
+        LOG_DBG_6ADDR(&ipaddr);
+        LOG_DBG_("\n");
         return -2;
     }
 
     // We should request stereotypes for this edge (if needed)
-    stereotypes_request(edge_resource);
+    stereotypes_request(edge_resource, &cert->tags);
 
     // We should connect to the Edge resource that has announced themselves here
     // This means that if we are using DTLS, the handshake has already been performed,
@@ -139,9 +125,9 @@ process_certificate(const char* topic_identity, const uip_ipaddr_t* ip_addr, con
 
     // We are probably going to be interacting with this edge resource,
     // so ask for its public key. If this fails we will obtain the key later.
-    if (keystore_add_unverified(ip_addr, pubkey, sig) == NULL)
+    if (keystore_add_unverified(&ipaddr, cert) == NULL)
     {
-        request_public_key(ip_addr);
+        request_public_key(&ipaddr);
     }
 
     return 0;
@@ -155,13 +141,9 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, chunk, chunk_len);
 
-    const uip_ipaddr_t* ip_addr;
-    stereotype_tags_t tags;
-    const ecdsa_secp256r1_pubkey_t* pubkey;
-    const ecdsa_secp256r1_sig_t* sig;
-    NANOCBOR_CHECK(parse_certificate(&dec, &ip_addr, &tags, &pubkey, &sig));
-
-    return process_certificate(topic_identity, ip_addr, &tags, pubkey, sig);
+    certificate_t cert;
+    NANOCBOR_CHECK(certificate_decode(&dec, &cert));
+    return process_certificate(topic_identity, &cert);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
@@ -228,12 +210,9 @@ mqtt_publish_capability_add_handler(const char* topic_identity, const char* capa
     // if so we should handle it
     if (certificate_included)
     {
-        const uip_ipaddr_t* ip_addr;
-        stereotype_tags_t tags;
-        const ecdsa_secp256r1_pubkey_t* pubkey;
-        const ecdsa_secp256r1_sig_t* sig;
-        NANOCBOR_CHECK(parse_certificate(&arr, &ip_addr, &tags, &pubkey, &sig));
-        process_certificate(topic_identity, ip_addr, &tags, pubkey, sig);
+        certificate_t cert;
+        NANOCBOR_CHECK(certificate_decode(&arr, &cert));
+        process_certificate(topic_identity, &cert);
     }
     else
     {
@@ -295,12 +274,9 @@ mqtt_publish_capability_remove_handler(const char* topic_identity, const char* c
     // if so we should handle it
     if (certificate_included)
     {
-        const uip_ipaddr_t* ip_addr;
-        stereotype_tags_t tags;
-        const ecdsa_secp256r1_pubkey_t* pubkey;
-        const ecdsa_secp256r1_sig_t* sig;
-        NANOCBOR_CHECK(parse_certificate(&arr, &ip_addr, &tags, &pubkey, &sig));
-        process_certificate(topic_identity, ip_addr, &tags, pubkey, sig);
+        certificate_t cert;
+        NANOCBOR_CHECK(certificate_decode(&arr, &cert));
+        process_certificate(topic_identity, &cert);
     }
     else
     {

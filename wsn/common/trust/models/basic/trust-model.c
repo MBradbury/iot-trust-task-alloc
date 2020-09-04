@@ -3,6 +3,7 @@
 #include "float-helpers.h"
 #include "applications.h"
 #include "stereotypes.h"
+#include "keystore.h"
 #include <stdio.h>
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -55,7 +56,12 @@ void peer_tm_print(const peer_tm_t* tm)
 float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability)
 {
     // Get the stereotype that may inform the trust value
-    edge_stereotype_t* s = edge_stereotype_find(&edge->tags);
+    edge_stereotype_t* s = NULL;
+    public_key_item_t* item = keystore_find(&edge->ep.ipaddr);
+    if (item != NULL)
+    {
+        s = edge_stereotype_find(&item->cert.tags);
+    }
 
     float trust = 0;
     float w_total = 0;

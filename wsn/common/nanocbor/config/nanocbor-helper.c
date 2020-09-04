@@ -50,3 +50,23 @@ int nanocbor_get_ipaddr(nanocbor_value_t *cvalue, const uip_ip6addr_t **addr)
     return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+int nanocbor_get_bstr_of_len(nanocbor_value_t *cvalue, uint8_t *buf, size_t len)
+{
+    const uint8_t* bufptr;
+    size_t bufptr_length;
+    NANOCBOR_CHECK(nanocbor_get_bstr(cvalue, &bufptr, &bufptr_length));
+
+    if (bufptr_length > len)
+    {
+        return NANOCBOR_ERR_OVERFLOW;
+    }
+    if (bufptr_length < len)
+    {
+        return NANOCBOR_ERR_UNDERFLOW;
+    }
+
+    memcpy(buf, bufptr, len);
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/

@@ -235,7 +235,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     state->ecc_sign_state.curve_info = &nist_p_256;
 
     // Set secret key from our private key
-    ec_uint8v_to_uint32v(our_key.priv_key, DTLS_EC_KEY_SIZE, state->ecc_sign_state.secret);
+    ec_uint8v_to_uint32v(our_privkey.k, DTLS_EC_KEY_SIZE, state->ecc_sign_state.secret);
 
     crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
 
@@ -564,7 +564,7 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
     ec_uint8v_to_uint32v(other_pubkey->y, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.point_in.y);
 
     // Use our private key as the secret
-    ec_uint8v_to_uint32v(our_key.priv_key, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.secret);
+    ec_uint8v_to_uint32v(our_privkey.k, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.secret);
 
     pka_enable();
     PT_SPAWN(&state->pt, &(state->ecc_multiply_state.pt), ecc_multiply(&state->ecc_multiply_state));

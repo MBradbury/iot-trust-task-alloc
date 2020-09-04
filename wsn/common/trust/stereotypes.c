@@ -8,6 +8,7 @@
 #include "keystore-oscore.h"
 #include "timed-unlock.h"
 #include "root-endpoint.h"
+#include "keystore.h"
 
 #include "nanocbor-helper.h"
 
@@ -52,7 +53,7 @@ edge_stereotype_t* edge_stereotype_find(const stereotype_tags_t* tags)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int serialise_request(nanocbor_encoder_t* enc, const edge_resource_t* edge)
+static int serialise_request(nanocbor_encoder_t* enc, const edge_resource_t* edge, const public_key_item_t* item)
 {
     nanocbor_fmt_array(enc, 3);
 
@@ -63,7 +64,7 @@ static int serialise_request(nanocbor_encoder_t* enc, const edge_resource_t* edg
     NANOCBOR_CHECK(nanocbor_fmt_ipaddr(enc, &edge->ep.ipaddr));
 
     // Send the Edge's tags
-    NANOCBOR_CHECK(serialise_stereotype_tags(enc, &edge->tags));
+    NANOCBOR_CHECK(serialise_stereotype_tags(enc, &item->cert.tags));
 
     return NANOCBOR_OK;
 }
@@ -100,12 +101,12 @@ process_sterotype_response(coap_message_t* response)
     unsigned int content_format;
     if (!coap_get_header_content_format(response, &content_format))
     {
-        LOG_ERR("Received sterotype response had no content format\n");
+        LOG_ERR("Received stereotype response had no content format\n");
         return;
     }
     if (content_format != APPLICATION_CBOR)
     {
-        LOG_ERR("Received sterotype response not in CBOR format\n");
+        LOG_ERR("Received stereotype response not in CBOR format\n");
         return;
     }
 
@@ -204,9 +205,19 @@ send_callback(coap_callback_request_state_t* callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool stereotypes_request(edge_resource_t* edge)
+bool stereotypes_request(edge_resource_t* edge, const stereotype_tags_t* tags)
 {
-    if (edge_stereotype_find(&edge->tags) != NULL)
+    /*public_key_item_t* item = keystore_find(&edge->ep.ipaddr);
+    if (item == NULL)
+    {
+        LOG_ERR("Failed to find keystore entry for ");
+        LOG_ERR_6ADDR(&edge->ep.ipaddr);
+        LOG_ERR_("\n");
+        return false;
+    }*/
+
+    //if (edge_stereotype_find(&item->cert.tags) != NULL)
+    if (edge_stereotype_find(tags) != NULL)
     {
         LOG_DBG("No need to request stereotypes for %s as we already have them\n", edge->name);
         return false;
@@ -222,7 +233,16 @@ bool stereotypes_request(edge_resource_t* edge)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool stereotypes_send_request(const edge_resource_t* edge)
 {
-    if (edge_stereotype_find(&edge->tags) != NULL)
+    public_key_item_t* item = keystore_find(&edge->ep.ipaddr);
+    if (item == NULL)
+    {
+        LOG_ERR("Failed to find keystore entry for ");
+        LOG_ERR_6ADDR(&edge->ep.ipaddr);
+        LOG_ERR_("\n");
+        return false;
+    }
+
+    if (edge_stereotype_find(&item->cert.tags) != NULL)
     {
         LOG_DBG("No need to request stereotypes for %s as we already have them\n", edge->name);
         return false;
@@ -236,7 +256,7 @@ static bool stereotypes_send_request(const edge_resource_t* edge)
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, msg_buf, sizeof(msg_buf));
-    if (serialise_request(&enc, edge) != NANOCBOR_OK)
+    if (serialise_request(&enc, edge, item) != NANOCBOR_OK)
     {
         LOG_ERR("Failed to serialise the sterotype request\n");
         return false;
@@ -262,6 +282,8 @@ static bool stereotypes_send_request(const edge_resource_t* edge)
         timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Stereotype request message sent to ");
         LOG_DBG_COAP_EP(&root_ep);
+        LOG_DBG_(" for ");
+        LOG_DBG_6ADDR(&edge->ep.ipaddr);
         LOG_DBG_("\n");
     }
     else

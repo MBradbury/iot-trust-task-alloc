@@ -7,15 +7,15 @@
 #include "oscore.h"
 #endif
 
-#include "keys.h"
+#include "certificate.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLIC_KEYSTORE_SIZE 16
+#define PUBLIC_KEYSTORE_SIZE 12
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct public_key_item {
     struct public_key_item *next;
 
-    uip_ip6addr_t addr;
-    ecdsa_secp256r1_pubkey_t pubkey;
+    certificate_t cert;
+
     uint8_t shared_secret[DTLS_EC_KEY_SIZE];
 
 #ifdef WITH_OSCORE
@@ -33,13 +33,12 @@ typedef enum {
 } keystore_eviction_policy_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_add(const uip_ip6addr_t* addr,
-                                const ecdsa_secp256r1_pubkey_t* pubkey,
+                                const certificate_t* cert,
                                 keystore_eviction_policy_t evict);
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_add_unverified(
                                 const uip_ip6addr_t* addr,
-                                const ecdsa_secp256r1_pubkey_t* pubkey,
-                                const ecdsa_secp256r1_sig_t* sig);
+                                const certificate_t* cert);
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_find(const uip_ip6addr_t* addr);
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr);

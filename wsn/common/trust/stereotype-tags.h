@@ -3,6 +3,8 @@
 #include <stdint.h>
 
 #include "nanocbor/nanocbor.h"
+
+#include "device-classes.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     uint8_t device_class;

@@ -45,8 +45,6 @@ typedef struct edge_resource
 
     uint32_t flags;
 
-    stereotype_tags_t tags;
-
     edge_resource_tm_t tm;
 
     LIST_STRUCT(capabilities);
@@ -55,7 +53,7 @@ typedef struct edge_resource
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_info_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident, const stereotype_tags_t* tags);
+edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident);
 void edge_info_remove(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_find_addr(const uip_ipaddr_t* addr);

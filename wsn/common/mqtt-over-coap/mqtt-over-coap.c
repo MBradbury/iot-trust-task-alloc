@@ -138,10 +138,10 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
 
 #if 0
     // Need space for 2 signatures in future packets
-    if (data_len > MAX_COAP_PAYLOAD - DTLS_EC_KEY_SIZE*2*2)
+    if (data_len > MAX_COAP_PAYLOAD - DTLS_EC_SIG_SIZE*2)
     {
-        LOG_ERR("data_len (%u) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_KEY_SIZE*2*2 (%u)\n",
-            data_len, MAX_COAP_PAYLOAD, DTLS_EC_KEY_SIZE*2*2);
+        LOG_ERR("data_len (%u) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_SIG_SIZE*2 (%u)\n",
+            data_len, MAX_COAP_PAYLOAD, DTLS_EC_SIG_SIZE*2);
         return false;
     }
 #endif
@@ -205,7 +205,7 @@ mqtt_over_coap_publish_continue(void* data)
 
     if (entry->result == PKA_STATUS_SUCCESS)
     {
-        int payload_len = entry->message_len + DTLS_EC_KEY_SIZE*2;
+        int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
         int coap_payload_len = coap_set_payload(&msg, coap_payload, payload_len);
         if (coap_payload_len < payload_len)
         {

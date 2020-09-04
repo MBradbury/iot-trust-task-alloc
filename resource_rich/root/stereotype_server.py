@@ -13,6 +13,8 @@ import aiocoap.resource as resource
 
 import cbor2
 
+from common.stereotype_tags import *
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("stereotype-server")
 logger.setLevel(logging.DEBUG)
@@ -23,28 +25,8 @@ class TrustModel(IntEnum):
     Continuous = 2
     ChallengeResponse = 3
 
-    def to_cbor(self):
+    def encode(self):
         return int(self)
-
-class DeviceClass(IntEnum):
-    RASPBERRY_PI = 1
-    PHONE = 2
-    LAPTOP = 3
-    DESKTOP = 4
-    SERVER = 5
-
-    def to_cbor(self):
-        return int(self)
-
-@dataclass(frozen=True)
-class StereotypeTags:
-    device_class: DeviceClass
-
-    def __post_init__(self):
-        super().__setattr__("device_class", DeviceClass(self.device_class))
-
-    def to_cbor(self):
-        return [self.device_class.to_cbor()]
 
 @dataclass(frozen=True)
 class StereotypeRequest:
@@ -52,13 +34,30 @@ class StereotypeRequest:
     addr: ipaddress.IPv6Address
     tags: StereotypeTags
 
-    def __post_init__(self):
-        super().__setattr__("model", TrustModel(self.model))
-        super().__setattr__("addr", ipaddress.ip_address(self.addr))
-        super().__setattr__("tags", StereotypeTags(*self.tags))
+    @staticmethod
+    def decode(payload: bytes):
+        model, addr, tags = cbor2.loads(payload)
 
-    def to_cbor(self):
-        return [self.model.to_cbor(), self.addr, self.tags.to_cbor()]
+        model = TrustModel(model)
+        addr = ipaddress.ip_address(model)
+        tags = StereotypeTags(*tags)
+
+        return StereotypeRequest(model, addr, tags)
+
+@dataclass(frozen=True)
+class StereotypeResponse:
+    model: TrustModel
+    addr: ipaddress.IPv6Address
+    tags: StereotypeTags
+    result: object
+
+    def encode(self):
+        return [
+            self.model.encode(),
+            ipaddress.v6_int_to_packed(int(self.addr)),
+            self.tags.encode(),
+            self.result
+        ]
 
 class StereotypeServer(resource.Resource):
     async def render_get(self, request):
@@ -66,8 +65,7 @@ class StereotypeServer(resource.Resource):
         if request.opt.content_format != media_types_rev['application/cbor']:
             raise error.UnsupportedContentFormat()
 
-        payload = cbor2.loads(request.payload)
-        payload = StereotypeRequest(*payload)
+        payload = StereotypeRequest.decode(request.payload)
 
         # TODO: include verification that the edge node has included correct tags
 
@@ -86,12 +84,8 @@ class StereotypeServer(resource.Resource):
         else:
             raise error.BadRequest(f"Unknown trust model {payload.model}")
 
-        result_payload = cbor2.dumps([
-            payload.model.to_cbor(),
-            ipaddress.v6_int_to_packed(int(payload.addr)),
-            payload.tags.to_cbor(),
-            result
-        ])
+        result = StereotypeResponse(payload.model, payload.addr, payload.tags, result)
+        result_payload = cbor2.dumps(result.encode())
 
         return aiocoap.Message(payload=result_payload, code=codes.CONTENT, content_format=media_types_rev['application/cbor'])
 

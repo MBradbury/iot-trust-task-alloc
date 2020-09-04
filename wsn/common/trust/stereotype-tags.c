@@ -37,7 +37,7 @@ int deserialise_stereotype_tags(nanocbor_value_t* dec, stereotype_tags_t* tags)
 
     if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("!nanocbor_leave_container\n");
+        LOG_ERR("!nanocbor_at_end\n");
         return -1;
     }
 

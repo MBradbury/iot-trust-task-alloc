@@ -36,17 +36,17 @@ curve = ec.SECP256R1
 curve_byte_len = (curve.key_size + 7) // 8
 
 ipv6_byte_len = 16
+sig_endianness = "big"
 
 class COAPKeyServer(resource.Resource):
     def __init__(self, key_dir):
         super().__init__()
         self.key_dir = key_dir
         self.keystore = {}
+        self.certstore = {}
 
         # Load the server's public/private key
         self.privkey = self._load_privkey(os.path.join(key_dir, "private.pem"))
-
-        self.sig_endianness = "big"
 
     def _load_privkey(self, path):
         with open(path, 'rb') as f:
@@ -70,18 +70,26 @@ class COAPKeyServer(resource.Resource):
 
         return key
 
-    def _key_to_message(self, addr, key):
-        # 16 bytes for the IP address who the key belongs to
-        addr_bytes = int(addr).to_bytes(ipv6_byte_len, byteorder='big')
+    def _load_cert(self, path):
+        with open(path, 'rb') as f:
+            return f.read()
 
-        # Raw Public Key (64 bytes)
-        public_numbers = key.public_numbers()
-        x = public_numbers.x.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
-        y = public_numbers.y.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
+    def _load_cert_cached(self, request_address):
+        cert = self.certstore.get(request_address, None)
+        if cert is None:
+            file = str(request_address).replace(":", "_") + "-cert.iot-trust-cert"
 
-        payload = addr_bytes + x + y
+            logger.info(f"Loading cert for {request_address} from file {file}")
 
-        payload = self.sign_message(payload)
+            self.certstore[request_address] = cert = self._load_cert(os.path.join(self.key_dir, file))
+
+        else:
+            logger.info(f"Using cached public cert for {request_address} as response")
+
+        return cert
+
+    def _cert_to_message(self, addr, key):
+        payload = self.sign_message(key)
 
         return aiocoap.Message(payload=payload, content_format=media_types_rev['application/octet-stream'])
 
@@ -117,11 +125,11 @@ class COAPKeyServer(resource.Resource):
             request_address = global_request_address
 
         try:
-            key = self._load_pubkey_cached(request_address)
+            cert = self._load_cert_cached(request_address)
         except FileNotFoundError:
             raise UnknownAddressRequest()
 
-        return self._key_to_message(request_address, key)
+        return self._cert_to_message(request_address, cert)
 
 
     def verify_request(self, request):
@@ -134,8 +142,8 @@ class COAPKeyServer(resource.Resource):
         r = request.payload[payload_len               :payload_len+curve_byte_len  ]
         s = request.payload[payload_len+curve_byte_len:payload_len+curve_byte_len*2]
 
-        r = int.from_bytes(r, byteorder=self.sig_endianness)
-        s = int.from_bytes(s, byteorder=self.sig_endianness)
+        r = int.from_bytes(r, byteorder=sig_endianness)
+        s = int.from_bytes(s, byteorder=sig_endianness)
 
         sig = utils.encode_dss_signature(r, s)
 
@@ -148,8 +156,8 @@ class COAPKeyServer(resource.Resource):
 
         (r, s) = utils.decode_dss_signature(sig)
 
-        r = r.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
-        s = s.to_bytes(curve_byte_len, byteorder=self.sig_endianness)
+        r = r.to_bytes(curve_byte_len, byteorder=sig_endianness)
+        s = s.to_bytes(curve_byte_len, byteorder=sig_endianness)
 
         return payload + r + s
 

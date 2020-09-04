@@ -8,120 +8,10 @@ openssl ec -in private.pem -pubout -out public.pem
 ```
 """
 
-from textwrap import wrap
-import pathlib
+from tools.keygen.keygen import generate_and_save_key, derive_private_key
+from tools.keygen.contiking_format import contiking_format_our_key, contiking_format_our_key_cert, contiking_format_certificate
 
-from hashlib import sha256
-
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, utils
-
-# From: https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-
-def derive_private_key(deterministic_string):
-    # Byteorder and signed here doesn't matter, is just needed to convert into an int
-    private_value = int.from_bytes(sha256(deterministic_string.encode("utf-8")).digest(), byteorder="little", signed=False)
-
-    return ec.derive_private_key(private_value, ec.SECP256R1(), default_backend())
-
-def save_key(pk, name, keystore_dir):
-    """From: https://stackoverflow.com/questions/45146504/python-cryptography-module-save-load-rsa-keys-to-from-file"""
-
-    pathlib.Path(keystore_dir).mkdir(parents=True, exist_ok=True)
-
-    if name is not None:
-        prefix = name.replace(":", "_") + "-"
-    else:
-        prefix = ""
-
-    pem = pk.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-    with open(f"{keystore_dir}/{prefix}private.pem", 'wb') as pem_out:
-        pem_out.write(pem)
-
-
-    pem = pk.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    with open(f"{keystore_dir}/{prefix}public.pem", 'wb') as pem_out:
-        pem_out.write(pem)
-
-
-def format_individual(number, size, line_group_size=None):
-    hex_num = number.to_bytes(32, 'big').hex().upper()
-
-    wrapped = [f"0x{part}" for part in wrap(hex_num, size)]
-
-    if line_group_size is None:
-        return ", ".join(wrapped)
-    else:
-        chunked = list(chunks(wrapped, line_group_size))
-        return ",\n                  ".join([", ".join(chunk) for chunk in chunked])
-
-def contiking_format_our_key(private_key, our_deterministic_string=None):
-    public_key_nums = private_key.public_key().public_numbers()
-    private_value = private_key.private_numbers().private_value
-
-    private_key_hex_formatted = format_individual(private_value, 2, line_group_size=8)
-    public_key_nums_x_formatted = format_individual(public_key_nums.x, 2, line_group_size=8)
-    public_key_nums_y_formatted = format_individual(public_key_nums.y, 2, line_group_size=8)
-
-    return f"""const ecdsa_secp256r1_key_t our_key = {{ // {our_deterministic_string}
-    .priv_key = {{ {private_key_hex_formatted} }},
-    .pub_key = {{
-           .x = {{ {public_key_nums_x_formatted} }},
-           .y = {{ {public_key_nums_y_formatted} }} }}
-}};"""
-
-def contiking_format_our_key_cert(private_key, root_private_key,
-                             our_deterministic_string=None, root_deterministic_string=None):
-    public_key_nums = private_key.public_key().public_numbers()
-    x = public_key_nums.x.to_bytes(32, 'big')
-    y = public_key_nums.y.to_bytes(32, 'big')
-
-    payload = x + y
-    sig = root_private_key.sign(payload, ec.ECDSA(hashes.SHA256()))
-    (r, s) = utils.decode_dss_signature(sig)
-
-    public_sig_r_formatted = format_individual(r, 2, line_group_size=8)
-    public_sig_s_formatted = format_individual(s, 2, line_group_size=8)
-
-    return f"""const ecdsa_secp256r1_sig_t our_pubkey_sig = {{ // {root_deterministic_string}
-           .r = {{ {public_sig_r_formatted} }},
-           .s = {{ {public_sig_s_formatted} }},
-}};"""
-
-
-def contiking_format_root_key(private_key, deterministic_string=None):
-    public_key_nums = private_key.public_key().public_numbers()
-
-    public_key_nums_x_formatted = format_individual(public_key_nums.x, 2, line_group_size=8)
-    public_key_nums_y_formatted = format_individual(public_key_nums.y, 2, line_group_size=8)
-
-    return f"""const ecdsa_secp256r1_pubkey_t root_key = {{ // {deterministic_string}
-           .x = {{ {public_key_nums_x_formatted} }},
-           .y = {{ {public_key_nums_y_formatted} }}
-}};"""
-
-def main(deterministic_string, keystore_dir):
-    if deterministic_string is None:
-        private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
-    else:
-        print(f"Generating deterministic key using {deterministic_string}")
-        private_key = derive_private_key(deterministic_string)
-
-    save_key(private_key, deterministic_string, keystore_dir)
-
-    return private_key
+from tools.keygen.certgen import TBSCertificate
 
 if __name__ == "__main__":
     import argparse
@@ -134,7 +24,31 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    private_key = main(args.deterministic, args.keystore_dir)
+    private_key = generate_and_save_key(args.keystore_dir, args.deterministic)
     root_private_key = derive_private_key(args.root)
-    out_format = contiking_format_our_key(private_key, root_private_key, args.deterministic, args.root)
-    print(out_format)
+
+    print(contiking_format_our_key(private_key, args.deterministic))
+
+    print(contiking_format_our_key_cert(private_key, root_private_key, args.deterministic, args.root))
+
+    tags = StereotypeTags(
+        device_class=DeviceClass.RASPBERRY_PI
+    )
+
+    tbscert = TBSCertificate(
+        serial_number=0,
+        issuer=b"\x00\x00\x00\x00\x00\x00\x00\x01",
+        validity_from=0,
+        validity_to=None,
+        subject=b"\x00\x00\x00\x00\x00\x00\x00\x02",
+        stereotype_tags=tags,
+        public_key=private_key.public_key(),
+    )
+
+    cert = tbscert.build(root_private_key)
+    print(cert)
+
+    enc_cert = cert.encode()
+    print(enc_cert, len(enc_cert))
+
+    print(contiking_format_certificate(cert, "our_cert"))

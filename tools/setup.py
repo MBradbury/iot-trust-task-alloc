@@ -8,11 +8,15 @@ import pathlib
 import getpass
 import os
 import sys
+import ipaddress
 
 import fabric
 import patchwork.transfers
 
-import eckeygen
+from common.stereotype_tags import StereotypeTags, DeviceClass
+from tools.keygen.keygen import generate_and_save_key
+from tools.keygen.contiking_format import *
+from tools.keygen.certgen import TBSCertificate
 
 available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
 available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]
@@ -58,26 +62,79 @@ print("Cleaning directories")
 for binary in binaries:
     subprocess.run(f"make distclean -C wsn/{binary} TRUST_MODEL={args.trust_model} TRUST_CHOOSE={args.trust_choose}", shell=True, check=True, capture_output=True)
 
+def ip_name(ip):
+    return ip.replace(":", "_")
+
 print("Building keystore")
 keys = {
-    ip: eckeygen.main(ip, "setup/keystore")
+    ip: generate_and_save_key("setup/keystore", ip)
     for ip
     in ips.values()
 }
 
-def ip_name(ip):
-    return ip.replace(":", "_")
+def ip_to_eui64(subject):
+    ip = ipaddress.ip_address(subject)
+
+    # Last 8 bytes of the ip address
+    eui64 = bytearray(int(ip).to_bytes(16, byteorder='big')[-8:])
+
+    # See: uip_ds6_set_lladdr_from_iid
+    if subject != root_ip:
+        eui64[0] ^= 0x02
+
+    return bytes(eui64)
+
+serial_number = 0
+
+def create_certificate(subject):
+    global serial_number
+
+    tags = StereotypeTags(
+        device_class=DeviceClass.RASPBERRY_PI
+    )
+
+    tbscert = TBSCertificate(
+        serial_number=serial_number,
+        issuer=ip_to_eui64(root_ip),
+        validity_from=0,
+        validity_to=None,
+        subject=ip_to_eui64(subject),
+        stereotype_tags=tags,
+        public_key=keys[subject].public_key(),
+    )
+
+    serial_number += 1
+
+    return tbscert.build(keys[root_ip])
+
+def create_and_save_certificate(keystore_dir, subject):
+    cert = create_certificate(subject)
+
+    pathlib.Path(keystore_dir).mkdir(parents=True, exist_ok=True)
+
+    prefix = subject.replace(":", "_")
+
+    with open(f"{keystore_dir}/{prefix}-cert.iot-trust-cert", 'wb') as cert_out:
+        cert_out.write(cert.encode())
+
+    return cert
+
+certs = {
+    ip: create_and_save_certificate("setup/keystore", ip)
+    for name, ip
+    in sorted(ips.items(), key=lambda x: x[0])
+}
 
 def create_static_keys(ip):
     with open("setup/static-keys.c", "w") as static_keys:
         print(f'// Generated at {datetime.now()}', file=static_keys)
-        print('#include "keys.h"', file=static_keys)
+        print('#include "certificate.h"', file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
-        print(eckeygen.contiking_format_our_key(keys[ip], ip), file=static_keys)
+        print(contiking_format_our_privkey(keys[ip], ip), file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
-        print(eckeygen.contiking_format_our_key_cert(keys[ip], keys[root_ip], ip, root_ip), file=static_keys)
+        print(contiking_format_certificate(certs[root_ip], "root_cert", root_ip), file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
-        print(eckeygen.contiking_format_root_key(keys[root_ip], root_ip), file=static_keys)
+        print(contiking_format_certificate(certs[ip], "our_cert", ip), file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
 
 # Back-up static-keys.c

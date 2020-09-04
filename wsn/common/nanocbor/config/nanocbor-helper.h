@@ -30,3 +30,5 @@
 
 int nanocbor_fmt_ipaddr(nanocbor_encoder_t *enc, const uip_ip6addr_t *addr);
 int nanocbor_get_ipaddr(nanocbor_value_t *cvalue, const uip_ip6addr_t **addr);
+
+int nanocbor_get_bstr_of_len(nanocbor_value_t *cvalue, uint8_t *buf, size_t len);

@@ -174,7 +174,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
 
         keystore_pin(key);
 
-        if (!queue_message_to_verify(&trust_model, item, item->payload_buf, payload_len, &key->pubkey))
+        if (!queue_message_to_verify(&trust_model, item, item->payload_buf, payload_len, &key->cert.public_key))
         {
             memb_free(&trust_rx_memb, item);
             keystore_unpin(key);
@@ -189,10 +189,13 @@ static void trust_rx_continue(void* data)
 
     if (entry->result == PKA_STATUS_SUCCESS)
     {
-        int payload_len = entry->message_len - DTLS_EC_KEY_SIZE*2;
+        uip_ipaddr_t ipaddr;
+        ipaddr_from_eui64(item->key->cert.subject, &ipaddr);
+
+        int payload_len = entry->message_len - DTLS_EC_SIG_SIZE;
 
         LOG_DBG("Trust payload verified (len=%d), need to merge with our db\n", payload_len);
-        process_received_trust(&item->key->addr, item->payload_buf, payload_len);
+        process_received_trust(&ipaddr, item->payload_buf, payload_len);
     }
     else
     {
@@ -252,7 +255,7 @@ static void trust_tx_continue(void* data)
 
     if (entry->result == PKA_STATUS_SUCCESS)
     {
-        int payload_len = entry->message_len + DTLS_EC_KEY_SIZE*2;
+        int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
         int coap_payload_len = coap_set_payload(&item->msg, item->payload_buf, payload_len);
         if (coap_payload_len < payload_len)
         {
