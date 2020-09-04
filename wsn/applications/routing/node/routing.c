@@ -459,6 +459,14 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
             nanocbor_get_coordinate_from_payload(&dec, &first, 1);
 
             first_src_isclose = isclose(first.latitude, task_src.latitude) && isclose(first.longitude, task_src.longitude);
+
+            if (!first_src_isclose)
+            {
+                LOG_WARN("Bad result from edge first=(%f,%f) src=(%f,%f) not close enough\n",
+                    first.latitude, first.longitude,
+                    task_src.latitude, task_src.longitude
+                );
+            }
         }
 
         // last block
@@ -473,6 +481,14 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
 
             // Update trust model
             const bool last_dest_isclose = isclose(last.latitude, task_dest.latitude) && isclose(last.longitude, task_dest.longitude);
+
+            if (!last_dest_isclose)
+            {
+                LOG_WARN("Bad result from edge last=(%f,%f) dest=(%f,%f) not close enough\n",
+                    last.latitude, last.longitude,
+                    task_dest.latitude, task_dest.longitude
+                );
+            }
 
             const tm_result_quality_info_t info = {
                 .good = (first_src_isclose && last_dest_isclose)
@@ -493,7 +509,9 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
 static void
 edge_capability_add(edge_resource_t* edge)
 {
-    LOG_INFO("Notified of edge %s capability\n", edge->name);
+    LOG_INFO("Notified of edge ");
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_(" capability\n");
 
     capability_count += 1;
 
@@ -503,7 +521,9 @@ edge_capability_add(edge_resource_t* edge)
 static void
 edge_capability_remove(edge_resource_t* edge)
 {
-    LOG_INFO("Notified edge %s no longer has capability\n", edge->name);
+    LOG_INFO("Notified edge ");
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_(" no longer has capability\n");
 
     capability_count -= 1;
 

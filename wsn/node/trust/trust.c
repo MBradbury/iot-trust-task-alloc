@@ -151,7 +151,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
         return;
     }
 
-    public_key_item_t* key = keystore_find(&request->src_ep->ipaddr);
+    public_key_item_t* key = keystore_find_addr(&request->src_ep->ipaddr);
     if (key == NULL)
     {
         LOG_DBG("Missing public key, need to request it.\n");

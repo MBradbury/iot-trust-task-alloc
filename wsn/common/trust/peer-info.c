@@ -164,7 +164,7 @@ bool peer_info_update_edge(peer_t* peer, edge_resource_t* edge, const edge_resou
 
     LOG_DBG("Updated peer ");
     LOG_DBG_6ADDR(&peer->addr);
-    LOG_DBG_(" edge '%s' to ", edge->name);
+    LOG_DBG_(" edge '%s' to ", edge_info_name(edge));
     edge_resource_tm_print(tm);
     LOG_DBG_("\n");
 
@@ -209,7 +209,7 @@ bool peer_info_update_capability(peer_t* peer, edge_resource_t* edge, edge_capab
 
     LOG_DBG("Updated peer ");
     LOG_DBG_6ADDR(&peer->addr);
-    LOG_DBG_(" edge '%s' capability '%s' to ", edge->name, cap->name);
+    LOG_DBG_(" edge '%s' capability '%s' to ", edge_info_name(edge), cap->name);
     edge_capability_tm_print(tm);
     LOG_DBG_("\n");
 

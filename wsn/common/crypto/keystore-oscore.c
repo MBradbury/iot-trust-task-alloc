@@ -27,7 +27,7 @@ void coap_set_random_token(coap_message_t* request)
 #ifdef WITH_OSCORE
 bool keystore_protect_coap_with_oscore(coap_message_t* request, const coap_endpoint_t* ep)
 {
-    public_key_item_t* pubkeyitem = keystore_find(&ep->ipaddr);
+    public_key_item_t* pubkeyitem = keystore_find_addr(&ep->ipaddr);
     if (pubkeyitem)
     {
         coap_set_oscore(request, &pubkeyitem->context);

@@ -9,7 +9,9 @@
 
 #include "certificate.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef PUBLIC_KEYSTORE_SIZE
 #define PUBLIC_KEYSTORE_SIZE 12
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct public_key_item {
     struct public_key_item *next;
@@ -40,7 +42,8 @@ public_key_item_t* keystore_add_unverified(
                                 const uip_ip6addr_t* addr,
                                 const certificate_t* cert);
 /*-------------------------------------------------------------------------------------------------------------------*/
-public_key_item_t* keystore_find(const uip_ip6addr_t* addr);
+public_key_item_t* keystore_find(const uint8_t* eui64);
+public_key_item_t* keystore_find_addr(const uip_ip6addr_t* addr);
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr);
 /*-------------------------------------------------------------------------------------------------------------------*/
 void keystore_pin(public_key_item_t* item);

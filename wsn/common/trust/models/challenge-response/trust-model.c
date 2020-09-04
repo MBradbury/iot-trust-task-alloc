@@ -57,7 +57,7 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
     if (should_update)
     {
         LOG_INFO("Updating Edge %s TM cr (type=%d,good=%d): ",
-            edge->name, info->type, good);
+            edge_info_name(edge), info->type, good);
         edge_resource_tm_print(&edge->tm);
         LOG_INFO_(" -> ");
 

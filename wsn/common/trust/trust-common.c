@@ -88,9 +88,9 @@ process_certificate(const char* topic_identity, const certificate_t* cert)
     }
 
     uip_ip6addr_t ipaddr;
-    ipaddr_from_eui64(cert->subject, &ipaddr);
+    eui64_to_ipaddr(cert->subject, &ipaddr);
 
-    edge_resource_t* edge_resource = edge_info_add(&ipaddr, topic_identity);
+    edge_resource_t* edge_resource = edge_info_add(&ipaddr);
     if (edge_resource != NULL)
     {
         LOG_DBG("Received certificate for %s with address ", topic_identity);
@@ -98,6 +98,10 @@ process_certificate(const char* topic_identity, const certificate_t* cert)
         LOG_DBG_("\n");
 
         edge_resource->flags |= EDGE_RESOURCE_ACTIVE;
+
+        // Check this
+        // TODO: remove this
+        assert(edge_info_find_addr(&ipaddr) == edge_info_find_ident(topic_identity));
     }
     else
     {
@@ -237,11 +241,15 @@ mqtt_publish_capability_add_handler(const char* topic_identity, const char* capa
     capability = edge_info_capability_add(edge, capability_name);
     if (capability == NULL)
     {
-        LOG_ERR("Failed to create capability (%s) for edge with identity %s\n", capability_name, edge->name);
+        LOG_ERR("Failed to create capability (%s) for edge with identity ", capability_name);
+        LOG_ERR_6ADDR(&edge->ep.ipaddr);
+        LOG_ERR_("\n");
         return -1;
     }
 
-    LOG_INFO("Added capability (%s) for edge with identity %s\n", capability_name, edge->name);
+    LOG_INFO("Added capability (%s) for edge with identity ", capability_name);
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_("\n");
 
     // We have at least one Edge resource to support this application, so we need to inform the process
     struct process* proc = find_process_with_name(capability_name);
@@ -294,8 +302,9 @@ mqtt_publish_capability_remove_handler(const char* topic_identity, const char* c
     edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
     if (capability == NULL)
     {
-        LOG_DBG("Notified of removal of capability %s from %s, but had not recorded this previously.\n",
-            capability_name, edge->name);
+        LOG_DBG("Notified of removal of capability %s from ", capability_name);
+        LOG_DBG_6ADDR(&edge->ep.ipaddr);
+        LOG_DBG_(", but had not recorded this previously.\n");
         return -1;
     }
 
@@ -313,13 +322,16 @@ mqtt_publish_capability_remove_handler(const char* topic_identity, const char* c
     bool result = edge_info_capability_remove(edge, capability);
     if (result)
     {
-        LOG_INFO("Removed capability %s from %s\n", capability_name, edge->name);
+        LOG_INFO("Removed capability %s from ", capability_name);
+        LOG_INFO_6ADDR(&edge->ep.ipaddr);
+        LOG_INFO_("\n");
     }
     else
     {
         // Should never get here
-        LOG_ERR("Cannot removed capability %s from %s as it does not have that capability\n",
-            capability_name, edge->name);
+        LOG_ERR("Cannot removed capability %s from ", capability_name);
+        LOG_ERR_6ADDR(&edge->ep.ipaddr);
+        LOG_ERR_(" as it does not have that capability\n");
     }
 
     return 0;

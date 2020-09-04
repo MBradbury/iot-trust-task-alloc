@@ -57,7 +57,7 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
 {
     // Get the stereotype that may inform the trust value
     edge_stereotype_t* s = NULL;
-    public_key_item_t* item = keystore_find(&edge->ep.ipaddr);
+    public_key_item_t* item = keystore_find_addr(&edge->ep.ipaddr);
     if (item != NULL)
     {
         s = edge_stereotype_find(&item->cert.tags);
@@ -119,7 +119,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
     }
 
     LOG_INFO("Updating Edge %s Cap %s TM task_submission (req=%d, coap=%d): ",
-        edge->name, cap->name, info->coap_request_status, info->coap_status);
+        edge_info_name(edge), cap->name, info->coap_request_status, info->coap_status);
     beta_dist_print(&edge->tm.task_submission);
     LOG_INFO_(" -> ");
 
@@ -138,7 +138,7 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM task_result (good=%d): ", edge->name, cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM task_result (good=%d): ", edge_info_name(edge), cap->name, info->good);
     beta_dist_print(&edge->tm.task_result);
     LOG_INFO_(" -> ");
 
@@ -157,7 +157,7 @@ void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const 
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, const tm_result_quality_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM result_quality (good=%d): ", edge->name, cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM result_quality (good=%d): ", edge_info_name(edge), cap->name, info->good);
     beta_dist_print(&cap->tm.result_quality);
     LOG_INFO_(" -> ");
 

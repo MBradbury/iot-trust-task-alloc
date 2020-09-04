@@ -24,14 +24,14 @@ edge_resource_t* choose_edge(const char* capability_name)
         edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
         if (capability == NULL)
         {
-            LOG_WARN("Cannot find capability %s for edge %s\n", capability_name, iter->name);
+            LOG_WARN("Cannot find capability %s for edge %s\n", capability_name, edge_info_name(iter));
             continue;
         }
 
         float trust_value = calculate_trust_value(iter, capability);
 
         LOG_INFO("Trust value for edge %s and capability %s=%f\n",
-            iter->name, capability_name, trust_value);
+            edge_info_name(iter), capability_name, trust_value);
 
         if (trust_value > best_trust)
         {

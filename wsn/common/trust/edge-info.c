@@ -1,10 +1,10 @@
 #include "edge-info.h"
+#include "eui64.h"
 
 #include "lib/memb.h"
 #include "os/sys/log.h"
 
 #include "coap-constants.h"
-
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-edge"
 #ifdef TRUST_MODEL_LOG_LEVEL
@@ -25,7 +25,7 @@ edge_capability_new(edge_resource_t* edge)
     if (list_length(edge->capabilities) >= NUM_EDGE_CAPABILITIES)
     {
         LOG_ERR("Cannot allocate another capability for edge %s, as it has reached the maximum number allowed\n",
-            edge->name);
+            edge_info_name(edge));
         return NULL;
     }
 
@@ -86,12 +86,12 @@ edge_info_init(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t*
-edge_info_add(const uip_ipaddr_t* addr, const char* ident)
+edge_info_add(const uip_ipaddr_t* addr)
 {
     edge_resource_t* edge;
 
     // First lets check if we already have a record of this edge resource
-    edge = edge_info_find_ident(ident);
+    edge = edge_info_find_addr(addr);
     if (edge != NULL)
     {
         return edge;
@@ -106,8 +106,6 @@ edge_info_add(const uip_ipaddr_t* addr, const char* ident)
     uip_ipaddr_copy(&edge->ep.ipaddr, addr);
     edge->ep.secure = 0;
     edge->ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
-
-    strcpy(edge->name, ident);
 
     list_push(edge_resources, edge);
 
@@ -153,15 +151,17 @@ edge_info_find_addr(const uip_ipaddr_t* addr)
 edge_resource_t*
 edge_info_find_ident(const char* ident)
 {
-    for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
+    uint8_t eui64[EUI64_LENGTH];
+    if (!eui64_from_str(ident, eui64))
     {
-        if (strcmp(iter->name, ident) == 0)
-        {
-            return iter;
-        }
+        LOG_ERR("Failed to convert ident %s to eui64\n", ident);
+        return NULL;
     }
 
-    return NULL;
+    uip_ip6addr_t ipaddr;
+    eui64_to_ipaddr(eui64, &ipaddr);
+
+    return edge_info_find_addr(&ipaddr);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 size_t edge_info_count(void)
@@ -249,5 +249,16 @@ edge_info_capability_find(edge_resource_t* edge, const char* name)
     }
 
     return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+const char* edge_info_name(const edge_resource_t* edge)
+{
+    uint8_t eui64[EUI64_LENGTH];
+    eui64_from_ipaddr(&edge->ep.ipaddr, eui64);
+
+    static char name[EUI64_LENGTH*2 + 1];
+    eui64_to_str(eui64, name, sizeof(name));
+
+    return name;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

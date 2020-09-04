@@ -30,7 +30,7 @@ edge_resource_t* choose_edge(const char* capability_name)
 
     for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
     {
-        //LOG_DBG("Considering edge %s with ", iter->name);
+        //LOG_DBG("Considering edge %s with ", edge_info_name(iter));
         //edge_resource_tm_print(&iter->tm);
         //LOG_DBG_("\n");
 
@@ -38,7 +38,7 @@ edge_resource_t* choose_edge(const char* capability_name)
         edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
         if (capability == NULL)
         {
-            //LOG_DBG("Excluding edge %s because it lacks the capability\n", iter->name);
+            //LOG_DBG("Excluding edge %s because it lacks the capability\n", edge_info_name(iter));
             continue;
         }
 
@@ -55,7 +55,7 @@ edge_resource_t* choose_edge(const char* capability_name)
         trust_values[candidates_len] = trust_value;
 
         LOG_INFO("Trust value for edge %s and capability %s=%f at %u/%u\n",
-            iter->name, capability_name, trust_value, candidates_len, NUM_EDGE_RESOURCES);
+            edge_info_name(iter), capability_name, trust_value, candidates_len, NUM_EDGE_RESOURCES);
 
         // Record the highest trust seen
         if (trust_value > highest_trust)
@@ -98,7 +98,8 @@ edge_resource_t* choose_edge(const char* capability_name)
 
         edge_resource_t* chosen = candidates[idx];
 
-        LOG_DBG("Choosing candidate at index %u of %u candidates_len which is %s\n", idx, candidates_len, chosen->name);
+        LOG_DBG("Choosing candidate at index %u of %u candidates_len which is %s\n",
+            idx, candidates_len, edge_info_name(chosen));
 
         return chosen;
     }

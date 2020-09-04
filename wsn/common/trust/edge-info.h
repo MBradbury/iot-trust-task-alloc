@@ -41,8 +41,6 @@ typedef struct edge_resource
 
     coap_endpoint_t ep;
 
-    char name[MQTT_IDENTITY_LEN + 1];
-
     uint32_t flags;
 
     edge_resource_tm_t tm;
@@ -53,7 +51,7 @@ typedef struct edge_resource
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_info_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_resource_t* edge_info_add(const uip_ipaddr_t* addr, const char* ident);
+edge_resource_t* edge_info_add(const uip_ipaddr_t* addr);
 void edge_info_remove(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_find_addr(const uip_ipaddr_t* addr);
@@ -74,4 +72,6 @@ edge_capability_t* edge_info_capability_find(edge_resource_t* edge, const char* 
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern process_event_t pe_edge_capability_add;
 extern process_event_t pe_edge_capability_remove;
+/*-------------------------------------------------------------------------------------------------------------------*/
+const char* edge_info_name(const edge_resource_t* edge); // TODO: Remove this function
 /*-------------------------------------------------------------------------------------------------------------------*/

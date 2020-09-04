@@ -187,7 +187,9 @@ periodic_action(void)
 static void
 edge_capability_add(edge_resource_t* edge)
 {
-    LOG_INFO("Notified of edge %s capability\n", edge->name);
+    LOG_INFO("Notified of edge ");
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_(" capability\n");
 
     capability_count += 1;
 
@@ -205,7 +207,9 @@ edge_capability_add(edge_resource_t* edge)
 static void
 edge_capability_remove(edge_resource_t* edge)
 {
-    LOG_INFO("Notified edge %s no longer has capability\n", edge->name);
+    LOG_INFO("Notified edge ");
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_(" no longer has capability\n");
 
     capability_count -= 1;
 

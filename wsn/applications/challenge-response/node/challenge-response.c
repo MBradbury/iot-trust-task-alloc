@@ -104,13 +104,17 @@ move_to_next_challenge(void)
     // Move to next challenge, if there is one
     if (next_challenge != NULL)
     {
-        LOG_DBG_("currently %s ", next_challenge->edge->name);
+        LOG_DBG_("currently ");
+        LOG_DBG_6ADDR(&next_challenge->edge->ep.ipaddr);
+        LOG_DBG_(" ");
 
         next_challenge = list_item_next(next_challenge);
 
         if (next_challenge != NULL)
         {
-            LOG_DBG_("setting to %s ", next_challenge->edge->name);
+            LOG_DBG_("setting to ");
+            LOG_DBG_6ADDR(&next_challenge->edge->ep.ipaddr);
+            LOG_DBG_(" ");
         }
     }
     else
@@ -123,7 +127,9 @@ move_to_next_challenge(void)
     {
         next_challenge = list_head(challengers);
 
-        LOG_DBG_("setting to %s ", next_challenge == NULL ? "NULL" : next_challenge->edge->name);
+        LOG_DBG_("setting to ");
+        LOG_DBG_6ADDR(next_challenge == NULL ? NULL : &next_challenge->edge->ep.ipaddr);
+        LOG_DBG_(" ");
     }
 
     // The final challenge might have been removed, if so we need to stop the timeout timer
@@ -208,8 +214,9 @@ challenge_response_timed_out(void)
         // Only check if we have previously sent a challenge
         if (next_challenge->generated != 0 && (never_received || received_late))
         {
-            LOG_WARN("Failed to receive challenge response from %s in a suitable time (gen=%lu,recv=%lu,diff=%lu,dur=%lu)\n",
-                next_challenge->edge->name,
+            LOG_WARN("Failed to receive challenge response from ");
+            LOG_WARN_6ADDR(&next_challenge->edge->ep.ipaddr);
+            LOG_WARN_(" in a suitable time (gen=%lu,recv=%lu,diff=%lu,dur=%lu)\n",
                 next_challenge->generated,
                 next_challenge->received,
                 next_challenge->received - next_challenge->generated,
@@ -478,7 +485,9 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
     // Record if this was received late
     info.challenge_late = (challenger->received - challenger->generated) > (challenger->ch.max_duration_secs * CLOCK_SECOND);
 
-    LOG_INFO("Challenge response from %s %s\n", edge->name, info.challenge_successful ? "succeeded" : "failed");
+    LOG_INFO("Challenge response from ");
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_(" %s\n", info.challenge_successful ? "succeeded" : "failed");
 
     // Update trust model
 end:
@@ -488,7 +497,9 @@ end:
 static void
 edge_capability_add(edge_resource_t* edge)
 {
-    LOG_INFO("Notified of edge %s capability\n", edge->name);
+    LOG_INFO("Notified of edge ");
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_(" capability\n");
 
     capability_count += 1;
 
@@ -522,7 +533,9 @@ edge_capability_add(edge_resource_t* edge)
 static void
 edge_capability_remove(edge_resource_t* edge)
 {
-    LOG_INFO("Notified edge %s no longer has capability\n", edge->name);
+    LOG_INFO("Notified edge ");
+    LOG_INFO_6ADDR(&edge->ep.ipaddr);
+    LOG_INFO_(" no longer has capability\n");
 
     capability_count -= 1;
 

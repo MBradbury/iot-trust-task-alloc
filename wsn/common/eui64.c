@@ -1,4 +1,5 @@
 #include "eui64.h"
+#include "base16.h"
 #include "linkaddr.h"
 #include "uip-ds6.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -36,10 +37,7 @@ bool eui64_from_str(const char* eui64_str, uint8_t* eui64)
         return false;
     }
 
-    int filled = sscanf(eui64_str,
-           "%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx",
-           &eui64[0], &eui64[1], &eui64[2], &eui64[3],
-           &eui64[4], &eui64[5], &eui64[6], &eui64[7]);
+    ssize_t filled = base16_decode(eui64_str, eui64, EUI64_LENGTH);
 
     return filled == EUI64_LENGTH;
 }

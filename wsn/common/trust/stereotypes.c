@@ -207,7 +207,7 @@ send_callback(coap_callback_request_state_t* callback_state)
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool stereotypes_request(edge_resource_t* edge, const stereotype_tags_t* tags)
 {
-    /*public_key_item_t* item = keystore_find(&edge->ep.ipaddr);
+    /*public_key_item_t* item = keystore_find_addr(&edge->ep.ipaddr);
     if (item == NULL)
     {
         LOG_ERR("Failed to find keystore entry for ");
@@ -219,7 +219,9 @@ bool stereotypes_request(edge_resource_t* edge, const stereotype_tags_t* tags)
     //if (edge_stereotype_find(&item->cert.tags) != NULL)
     if (edge_stereotype_find(tags) != NULL)
     {
-        LOG_DBG("No need to request stereotypes for %s as we already have them\n", edge->name);
+        LOG_DBG("No need to request stereotypes for ");
+        LOG_DBG_6ADDR(&edge->ep.ipaddr);
+        LOG_DBG_(" as we already have them\n");
         return false;
     }
 
@@ -233,7 +235,7 @@ bool stereotypes_request(edge_resource_t* edge, const stereotype_tags_t* tags)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool stereotypes_send_request(const edge_resource_t* edge)
 {
-    public_key_item_t* item = keystore_find(&edge->ep.ipaddr);
+    public_key_item_t* item = keystore_find_addr(&edge->ep.ipaddr);
     if (item == NULL)
     {
         LOG_ERR("Failed to find keystore entry for ");
@@ -244,7 +246,9 @@ static bool stereotypes_send_request(const edge_resource_t* edge)
 
     if (edge_stereotype_find(&item->cert.tags) != NULL)
     {
-        LOG_DBG("No need to request stereotypes for %s as we already have them\n", edge->name);
+        LOG_DBG("No need to request stereotypes for ");
+        LOG_DBG_6ADDR(&edge->ep.ipaddr);
+        LOG_DBG_(" as we already have them\n");
         return false;
     }
 

@@ -103,7 +103,7 @@ uip_ip6addr_normalise(const uip_ip6addr_t* in, uip_ip6addr_t* out)
 public_key_item_t*
 keystore_add(const uip_ip6addr_t* addr, const certificate_t* cert, keystore_eviction_policy_t evict)
 {
-    public_key_item_t* item = keystore_find(addr);
+    public_key_item_t* item = keystore_find_addr(addr);
     if (item)
     {
         return item;
@@ -147,7 +147,7 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const certificate_t* cert)
     uip_ip6addr_t norm_addr;
     uip_ip6addr_normalise(addr, &norm_addr);
 
-    public_key_item_t* item = keystore_find(&norm_addr);
+    public_key_item_t* item = keystore_find_addr(&norm_addr);
     if (item)
     {
         return item;
@@ -208,14 +208,8 @@ keystore_add_unverified(const uip_ip6addr_t* addr, const certificate_t* cert)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t*
-keystore_find(const uip_ip6addr_t* addr)
+keystore_find(const uint8_t* eui64)
 {
-    uip_ip6addr_t norm_addr;
-    uip_ip6addr_normalise(addr, &norm_addr);
-
-    uint8_t eui64[EUI64_LENGTH];
-    eui64_from_ipaddr(&norm_addr, eui64);
-
     for (public_key_item_t* iter = list_head(public_keys); iter != NULL; iter = list_item_next(iter))
     {
         if (memcmp(&iter->cert.subject, eui64, EUI64_LENGTH) == 0)
@@ -225,6 +219,18 @@ keystore_find(const uip_ip6addr_t* addr)
     }
 
     return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+public_key_item_t*
+keystore_find_addr(const uip_ip6addr_t* addr)
+{
+    uip_ip6addr_t norm_addr;
+    uip_ip6addr_normalise(addr, &norm_addr);
+
+    uint8_t eui64[EUI64_LENGTH];
+    eui64_from_ipaddr(&norm_addr, eui64);
+
+    return keystore_find(eui64);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
@@ -237,7 +243,7 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
         return &root_cert.public_key;
     }
 
-    public_key_item_t* item = keystore_find(&norm_addr);
+    public_key_item_t* item = keystore_find_addr(&norm_addr);
     if (!item)
     {
         return NULL;
@@ -282,7 +288,7 @@ static void request_public_key_callback(coap_callback_request_state_t* callback_
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool request_public_key(const uip_ip6addr_t* addr)
 {
-    if (keystore_find(addr) != NULL)
+    if (keystore_find_addr(addr) != NULL)
     {
         //LOG_DBG("Already have this public key, do not need to request it.\n");
         return false;

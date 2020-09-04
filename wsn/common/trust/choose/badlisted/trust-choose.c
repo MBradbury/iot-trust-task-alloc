@@ -21,7 +21,7 @@ edge_resource_t* choose_edge(const char* capability_name)
 
     for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
     {
-        //LOG_DBG("Considering edge %s with ", iter->name);
+        //LOG_DBG("Considering edge %s with ", edge_info_name(iter));
         //edge_resource_tm_print(&iter->tm);
         //LOG_DBG_("\n");
 
@@ -29,14 +29,14 @@ edge_resource_t* choose_edge(const char* capability_name)
         edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
         if (capability == NULL)
         {
-            //LOG_DBG("Excluding edge %s because it lacks the capability\n", iter->name);
+            //LOG_DBG("Excluding edge %s because it lacks the capability\n", edge_info_name(iter));
             continue;
         }
 
         // Can't use this node if it is bad
         if (!edge_is_good(iter))
         {
-            //LOG_DBG("Excluding edge %s because it is bad\n", iter->name);
+            //LOG_DBG("Excluding edge %s because it is bad\n", edge_info_name(iter));
             continue;
         }
 

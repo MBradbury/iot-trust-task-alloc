@@ -33,11 +33,13 @@ struct process* find_process_with_name(const char* name)
 void edge_capability_add_common(edge_resource_t* edge, const char* uri)
 {
     // pin keys for this edge node
-    public_key_item_t* key = keystore_find(&edge->ep.ipaddr);
+    public_key_item_t* key = keystore_find_addr(&edge->ep.ipaddr);
 
     if (key)
     {
-        LOG_DBG("Creating context and pinning %s's keys\n", edge->name);
+        LOG_DBG("Creating context and pinning ");
+        LOG_DBG_6ADDR(&edge->ep.ipaddr);
+        LOG_DBG_("'s keys\n");
 
         keystore_pin(key);
 
@@ -47,7 +49,9 @@ void edge_capability_add_common(edge_resource_t* edge, const char* uri)
     }
     else
     {
-        LOG_WARN("Cannot create context and pin %s's keys. Requesting public key...\n", edge->name);
+        LOG_WARN("Cannot create context and pin ");
+        LOG_DBG_6ADDR(&edge->ep.ipaddr);
+        LOG_DBG_("'s keys. Requesting public key...\n");
         // Ideally this point has been reached after:
         // 1. The client has received an announce from the edge that contained its certificate
         // 2. The client received an announce and requested a public key from the PKI
@@ -61,14 +65,16 @@ void edge_capability_add_common(edge_resource_t* edge, const char* uri)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_remove_common(edge_resource_t* edge, const char* uri)
 {
-    LOG_DBG("Removing context and unpinning %s's keys\n", edge->name);
+    LOG_DBG("Removing context and unpinning ");
+    LOG_DBG_6ADDR(&edge->ep.ipaddr);
+    LOG_DBG_("'s keys\n");
 
 #ifdef WITH_OSCORE
     //oscore_remove_ep_ctx(&edge->ep, uri);
 #endif
 
     // unpin keys for this edge node
-    public_key_item_t* key = keystore_find(&edge->ep.ipaddr);
+    public_key_item_t* key = keystore_find_addr(&edge->ep.ipaddr);
 
     // The key should never be NULL here
     assert(key != NULL);
