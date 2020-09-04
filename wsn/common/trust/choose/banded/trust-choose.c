@@ -57,14 +57,17 @@ edge_resource_t* choose_edge(const char* capability_name)
         LOG_INFO("Trust value for edge %s and capability %s=%f at %u/%u\n",
             iter->name, capability_name, trust_value, candidates_len, NUM_EDGE_RESOURCES);
 
-        candidates_len++;
-
         // Record the highest trust seen
-        if (trust_values[candidates_len] > highest_trust)
+        if (trust_value > highest_trust)
         {
-            highest_trust = trust_values[candidates_len];
+            highest_trust = trust_value;
         }
+
+        candidates_len++;
     }
+
+    LOG_DBG("Filtering candidates, looking for those in the range [%f, %f]\n",
+        highest_trust - BAND_SIZE, highest_trust);
 
     uint8_t new_idx = 0;
 
@@ -81,9 +84,9 @@ edge_resource_t* choose_edge(const char* capability_name)
         }
     }
 
-    candidates_len = new_idx;
+    LOG_DBG("There are %u candidates (previously %u)\n", new_idx, candidates_len);
 
-    //LOG_DBG("There are %u candidates\n", candidates_len);
+    candidates_len = new_idx;
 
     if (candidates_len == 0)
     {
@@ -95,7 +98,7 @@ edge_resource_t* choose_edge(const char* capability_name)
 
         edge_resource_t* chosen = candidates[idx];
 
-        //LOG_DBG("Choosing candidate at index %u of %u candidates_len which is %s\n", idx, candidates_len, chosen->name);
+        LOG_DBG("Choosing candidate at index %u of %u candidates_len which is %s\n", idx, candidates_len, chosen->name);
 
         return chosen;
     }
