@@ -77,7 +77,7 @@ def summarise(symbs):
 #print("text", summarise(flash_symb))
 #print("data", summarise(ram_symb))
 
-def classify(symb):
+def classify(symb, other="other"):
     if symb.location is None:
         if symb.name in ("process_current", "process_list", "curr_instance", "linkaddr_null",
                          "linkaddr_node_addr", "etimer_process", "csma_driver", "drop_route", "framer_802154"):
@@ -88,6 +88,8 @@ def classify(symb):
         if symb.name in ("serial_line_process", "sensors_process", "serial_line_event_message",
                          "curr_log_level_main", "curr_log_level_coap", "button_hal_periodic_event",
                          "button_hal_press_event", "button_hal_release_event", "node_id", "sensors_event"):
+            return "contiki-ng"
+        if symb.name.startswith(("heap_end.",)):
             return "contiki-ng"
 
         if symb.name in ("bignum_add_get_result", "ecc_add_get_result", "vdd3_sensor", "vectors"):
@@ -123,7 +125,7 @@ def classify(symb):
         if symb.name.startswith(("fpinan.", "fpi.")):
             return "newlib"
 
-        return "other"
+        return other
 
     if "newlib" in symb.location or "libgcc" in symb.location:
         return "newlib"
@@ -162,31 +164,31 @@ def classify(symb):
     if "wsn/node" in symb.location or "wsn/edge" in symb.location:
         return "petras/common"
 
-    return "other"
+    return other
 
 
-def classify_all(symbs):
+def classify_all(symbs, other="other"):
     result = defaultdict(list)
 
     for symb in symbs:
-        result[classify(symb)].append(symb)
+        result[classify(symb, other=other)].append(symb)
 
     return result
 
-classified_ram_symb = classify_all(ram_symb)
+classified_ram_symb = classify_all(ram_symb, other="contiki-ng")
 
 #pprint(classified_ram_symb)
-pprint(classified_ram_symb["other"])
+#pprint(classified_ram_symb["other"])
 
 summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
 #pprint(summarised_ram_symb)
 
 
 
-classified_flash_symb = classify_all(flash_symb)
+classified_flash_symb = classify_all(flash_symb, other="contiki-ng")
 
 #print(classified_flash_symb)
-pprint(classified_flash_symb["other"])
+#pprint(classified_flash_symb["other"])
 
 summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
 #pprint(summarised_flash_symb)
