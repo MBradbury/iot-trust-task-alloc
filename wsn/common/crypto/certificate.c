@@ -3,8 +3,6 @@
 #include "nanocbor-helper.h"
 
 #include "cc.h"
-#include "linkaddr.h"
-#include "uip-ds6.h"
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "crypto-cert"
@@ -129,31 +127,5 @@ int certificate_decode(nanocbor_value_t* dec, certificate_t* certificate)
     nanocbor_leave_container(dec, &arr);
 
     return NANOCBOR_OK;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-const uint8_t* current_eui64(void)
-{
-    return linkaddr_node_addr.u8;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-void eui64_from_ipaddr(const uip_ip6addr_t* ipaddr, uint8_t* eui64)
-{
-    uip_lladdr_t lladdr;
-    uip_ds6_set_lladdr_from_iid(&lladdr, ipaddr);
-
-    memcpy(eui64, &lladdr, EUI64_LENGTH);
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-void ipaddr_from_eui64(const uint8_t* eui64, uip_ip6addr_t* ipaddr)
-{
-    uip_lladdr_t lladdr;
-    memcpy(&lladdr, eui64, EUI64_LENGTH);
-
-    memset(ipaddr, 0, sizeof(*ipaddr));
-
-    ipaddr->u8[0] = 0xFD;
-    ipaddr->u8[1] = 0x00;
-
-    uip_ds6_set_addr_iid(ipaddr, &lladdr);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -190,7 +190,7 @@ static void trust_rx_continue(void* data)
     if (entry->result == PKA_STATUS_SUCCESS)
     {
         uip_ipaddr_t ipaddr;
-        ipaddr_from_eui64(item->key->cert.subject, &ipaddr);
+        eui64_to_ipaddr(item->key->cert.subject, &ipaddr);
 
         int payload_len = entry->message_len - DTLS_EC_SIG_SIZE;
 

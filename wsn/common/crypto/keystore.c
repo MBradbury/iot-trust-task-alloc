@@ -434,7 +434,7 @@ request_public_key_callback_continued(messages_to_verify_entry_t* entry)
         }
 
         uip_ip6addr_t ipaddr;
-        ipaddr_from_eui64(cert.subject, &ipaddr);
+        eui64_to_ipaddr(cert.subject, &ipaddr);
 
         item = keystore_add(&ipaddr, &cert, EVICT_OLDEST);
         if (item)

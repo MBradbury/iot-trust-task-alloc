@@ -7,12 +7,12 @@
 
 #include "nanocbor/nanocbor.h"
 
+#include "eui64.h"
 #include "keys.h"
 #include "stereotype-tags.h"
 
 #include "uip.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define EUI64_LENGTH 8
 #define CERTIFICATE_MESSAGE_LENGTH ( \
         (1) + \
             (1) + \
@@ -47,10 +47,6 @@ int certificate_encode(nanocbor_encoder_t* enc, const certificate_t* certificate
 int certificate_encode_tbs(nanocbor_encoder_t* enc, const certificate_t* certificate);
 /*-------------------------------------------------------------------------------------------------------------------*/
 int certificate_decode(nanocbor_value_t* dec, certificate_t* certificate);
-/*-------------------------------------------------------------------------------------------------------------------*/
-const uint8_t* current_eui64(void);
-void eui64_from_ipaddr(const uip_ip6addr_t* ipaddr, uint8_t* eui64);
-void ipaddr_from_eui64(const uint8_t* eui64, uip_ip6addr_t* ipaddr);
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern const certificate_t our_cert;
 extern const certificate_t root_cert;
