@@ -8,6 +8,8 @@ from .coap_key_server import COAPKeyServer
 from .mqtt_coap_bridge import MQTTCOAPBridge
 from .stereotype_server import StereotypeServer
 
+from .keystore import Keystore
+
 import aiocoap
 import aiocoap.resource as resource
 
@@ -49,17 +51,19 @@ def main(coap_target_port,
 
     loop = asyncio.get_event_loop()
 
+    keystore = Keystore(key_directory)
+
     coap_site = resource.Site()
     coap_site.add_resource(['.well-known', 'core'],
         resource.WKCResource(coap_site.get_resources_as_linkheader, impl_info=None))
 
-    key_server = COAPKeyServer(key_directory)
+    key_server = COAPKeyServer(keystore)
     coap_site.add_resource(['key'], key_server)
 
     bridge = MQTTCOAPBridge(mqtt_database, coap_target_port)
     coap_site.add_resource(['mqtt'], bridge.coap_connector)
 
-    stereotype = StereotypeServer()
+    stereotype = StereotypeServer(keystore)
     coap_site.add_resource(['stereotype'], stereotype)
 
     # May want to catch other signals too

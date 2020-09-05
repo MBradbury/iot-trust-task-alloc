@@ -106,16 +106,16 @@ class SignedCertificate:
         return cbor2.dumps(certificate)
 
     @staticmethod
-    def decode(self, data: bytes):
+    def decode(data: bytes):
         loaded = cbor2.loads(data)
 
         return SignedCertificate(
-            serial_number=loaded[0],
-            issuer=loaded[1],
-            validity_from=loaded[2][0],
-            validity_to=loaded[2][1],
-            subject=loaded[3],
-            stereotype_tags=StereotypeTags.decode(loaded[4]),
-            public_key=loaded[5],
-            signature=loaded[6],
+            serial_number=loaded[0][0],
+            issuer=loaded[0][1],
+            validity_from=loaded[0][2][0],
+            validity_to=loaded[0][2][1],
+            subject=loaded[0][3],
+            stereotype_tags=StereotypeTags.decode(loaded[0][4]),
+            public_key=loaded[0][5],
+            signature=loaded[1],
         )

@@ -16,7 +16,7 @@ import patchwork.transfers
 from common.stereotype_tags import StereotypeTags, DeviceClass
 from tools.keygen.keygen import generate_and_save_key
 from tools.keygen.contiking_format import *
-from tools.keygen.certgen import TBSCertificate
+from common.certificate import TBSCertificate
 
 available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
 available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]

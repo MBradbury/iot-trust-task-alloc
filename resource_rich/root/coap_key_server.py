@@ -3,7 +3,6 @@
 import logging
 import asyncio
 import ipaddress
-import os
 
 import aiocoap
 import aiocoap.error as error
@@ -12,9 +11,10 @@ from aiocoap.numbers import media_types_rev
 import aiocoap.resource as resource
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, utils
+
+from .keystore import Keystore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("coap-key-server")
@@ -39,54 +39,9 @@ ipv6_byte_len = 16
 sig_endianness = "big"
 
 class COAPKeyServer(resource.Resource):
-    def __init__(self, key_dir):
+    def __init__(self, keystore: Keystore):
         super().__init__()
-        self.key_dir = key_dir
-        self.keystore = {}
-        self.certstore = {}
-
-        # Load the server's public/private key
-        self.privkey = self._load_privkey(os.path.join(key_dir, "private.pem"))
-
-    def _load_privkey(self, path):
-        with open(path, 'rb') as f:
-            return serialization.load_pem_private_key(f.read(), password=None, backend=default_backend())
-
-    def _load_pubkey(self, path):
-        with open(path, 'rb') as f:
-            return serialization.load_pem_public_key(f.read(), backend=default_backend())
-
-    def _load_pubkey_cached(self, request_address):
-        key = self.keystore.get(request_address, None)
-        if key is None:
-            file = str(request_address).replace(":", "_") + "-public.pem"
-
-            logger.info(f"Loading key for {request_address} from file {file}")
-
-            self.keystore[request_address] = key = self._load_pubkey(os.path.join(self.key_dir, file))
-
-        else:
-            logger.info(f"Using cached public key for {request_address} as response")
-
-        return key
-
-    def _load_cert(self, path):
-        with open(path, 'rb') as f:
-            return f.read()
-
-    def _load_cert_cached(self, request_address):
-        cert = self.certstore.get(request_address, None)
-        if cert is None:
-            file = str(request_address).replace(":", "_") + "-cert.iot-trust-cert"
-
-            logger.info(f"Loading cert for {request_address} from file {file}")
-
-            self.certstore[request_address] = cert = self._load_cert(os.path.join(self.key_dir, file))
-
-        else:
-            logger.info(f"Using cached public cert for {request_address} as response")
-
-        return cert
+        self.keystore = keystore
 
     def _cert_to_message(self, addr, key):
         payload = self.sign_message(key)
@@ -125,7 +80,7 @@ class COAPKeyServer(resource.Resource):
             request_address = global_request_address
 
         try:
-            cert = self._load_cert_cached(request_address)
+            cert = self.keystore.get_cert(request_address)
         except FileNotFoundError:
             raise UnknownAddressRequest()
 
@@ -134,7 +89,7 @@ class COAPKeyServer(resource.Resource):
 
     def verify_request(self, request):
         remote_addr = ipaddress.IPv6Address(request.remote.sockaddr[0])
-        pubkey = self._load_pubkey_cached(remote_addr)
+        pubkey = self.keystore.get_pubkey(remote_addr)
 
         payload = request.payload[0:-curve_byte_len*2]
         payload_len = len(payload)
@@ -152,7 +107,7 @@ class COAPKeyServer(resource.Resource):
 
     def sign_message(self, payload):
         # Raw signature (64 bytes)
-        sig = self.privkey.sign(payload, ec.ECDSA(hashes.SHA256()))
+        sig = self.keystore.privkey.sign(payload, ec.ECDSA(hashes.SHA256()))
 
         (r, s) = utils.decode_dss_signature(sig)
 
@@ -167,10 +122,12 @@ def main(key_dir, coap_target_port):
 
     loop = asyncio.get_event_loop()
 
+    keystore = Keystore(key_dir)
+
     coap_site = resource.Site()
     coap_site.add_resource(['.well-known', 'core'],
         resource.WKCResource(coap_site.get_resources_as_linkheader, impl_info=None))
-    coap_site.add_resource(['key'], COAPKeyServer(key_dir))
+    coap_site.add_resource(['key'], COAPKeyServer(keystore))
 
     try:
         loop.create_task(aiocoap.Context.create_server_context(coap_site))

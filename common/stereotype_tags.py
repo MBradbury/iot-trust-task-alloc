@@ -25,3 +25,9 @@ class StereotypeTags:
         return [
             self.device_class.encode()
         ]
+
+    @staticmethod
+    def decode(data: bytes):
+        return StereotypeTags(
+            device_class=DeviceClass(data[0])
+        )

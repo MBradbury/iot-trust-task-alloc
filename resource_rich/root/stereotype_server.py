@@ -14,6 +14,8 @@ import aiocoap.resource as resource
 import cbor2
 
 from common.stereotype_tags import *
+from common.certificate import SignedCertificate
+from .keystore import Keystore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("stereotype-server")
@@ -39,7 +41,7 @@ class StereotypeRequest:
         model, addr, tags = cbor2.loads(payload)
 
         model = TrustModel(model)
-        addr = ipaddress.ip_address(model)
+        addr = ipaddress.IPv6Address(addr)
         tags = StereotypeTags(*tags)
 
         return StereotypeRequest(model, addr, tags)
@@ -60,6 +62,10 @@ class StereotypeResponse:
         ]
 
 class StereotypeServer(resource.Resource):
+    def __init__(self, keystore: Keystore):
+        super().__init__()
+        self.keystore = keystore
+
     async def render_get(self, request):
         """Return stereotype information for the requested Edge server"""
         if request.opt.content_format != media_types_rev['application/cbor']:
@@ -67,7 +73,11 @@ class StereotypeServer(resource.Resource):
 
         payload = StereotypeRequest.decode(request.payload)
 
-        # TODO: include verification that the edge node has included correct tags
+        # Check that the tags match the certificate
+        cert = self.keystore.get_cert(payload.addr)
+        cert = SignedCertificate.decode(cert)
+        if cert.stereotype_tags != payload.tags:
+            raise error.BadRequest(f"Mismatched stereotype tags")
 
         if payload.model == TrustModel.No:
             result = self._no_trust_model(payload)
@@ -124,15 +134,17 @@ class StereotypeServer(resource.Resource):
 
 
 
-def main(coap_target_port):
+def main(key_dir, coap_target_port):
     logger.info("Starting stereotype server")
 
     loop = asyncio.get_event_loop()
 
+    keystore = Keystore(key_dir)
+
     coap_site = resource.Site()
     coap_site.add_resource(['.well-known', 'core'],
         resource.WKCResource(coap_site.get_resources_as_linkheader, impl_info=None))
-    coap_site.add_resource(['stereotype'], StereotypeServer())
+    coap_site.add_resource(['stereotype'], StereotypeServer(keystore))
 
     try:
         loop.create_task(aiocoap.Context.create_server_context(coap_site))
@@ -147,7 +159,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Stereotype Server')
     parser.add_argument('-p', '--coap-target-port', type=int, default=5683, help='The target port for CoAP messages to be POSTed to')
+    parser.add_argument('-k', '--key-directory', type=str, required=True, help='The location of serialised database')
 
     args = parser.parse_args()
 
-    main(coap_target_port=args.coap_target_port)
+    main(key_dir=args.key_dir, coap_target_port=args.coap_target_port)

@@ -4,7 +4,7 @@ from more_itertools import chunked
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 
-from tools.keygen.certgen import SignedCertificate
+from common.certificate import SignedCertificate
 
 def format_individual(number, size, line_group_size=None, spacing=18):
     if not isinstance(number, bytes):
