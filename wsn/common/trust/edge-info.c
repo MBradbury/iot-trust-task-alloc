@@ -149,15 +149,8 @@ edge_info_find_addr(const uip_ipaddr_t* addr)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t*
-edge_info_find_ident(const char* ident)
+edge_info_find_eui64(const uint8_t* eui64)
 {
-    uint8_t eui64[EUI64_LENGTH];
-    if (!eui64_from_str(ident, eui64))
-    {
-        LOG_ERR("Failed to convert ident %s to eui64\n", ident);
-        return NULL;
-    }
-
     uip_ip6addr_t ipaddr;
     eui64_to_ipaddr(eui64, &ipaddr);
 

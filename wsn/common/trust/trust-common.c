@@ -60,25 +60,8 @@ static bool is_our_eui64(const uint8_t* eui64)
     return memcmp(eui64, current_eui64(), EUI64_LENGTH) == 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool is_our_ident(const char* ident)
-{
-    char our_ident[8 * 2 + 1];
-    int len = snprintf(our_ident, sizeof(our_ident), "%02x%02x%02x%02x%02x%02x%02x%02x", 
-        linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
-        linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[3],
-        linkaddr_node_addr.u8[4], linkaddr_node_addr.u8[5],
-        linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
-    if (len >= sizeof(our_ident))
-    {
-        LOG_ERR("Failed to create our ident %d >= %d\n", len, sizeof(our_ident));
-        return false;
-    }
-
-    return strncmp(ident, our_ident, len) == 0;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 static int
-process_certificate(const char* topic_identity, const certificate_t* cert)
+process_certificate(const uint8_t* eui64, const certificate_t* cert)
 {
     // We should add a record of other edge resources, but not ourselves.
     // TODO: might need to change this, so we can have a trust model of beliefs about ourself
@@ -87,13 +70,25 @@ process_certificate(const char* topic_identity, const certificate_t* cert)
         return -1;
     }
 
+    if (memcmp(eui64, cert->subject, EUI64_LENGTH) != 0)
+    {
+        LOG_ERR("Received a mismatched certificate about ");
+        LOG_ERR_BYTES(cert->subject, EUI64_LENGTH);
+        LOG_ERR_(" but from ");
+        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
+        LOG_DBG_("\n");
+        return -3;
+    }
+
     uip_ip6addr_t ipaddr;
     eui64_to_ipaddr(cert->subject, &ipaddr);
 
     edge_resource_t* edge_resource = edge_info_add(&ipaddr);
     if (edge_resource != NULL)
     {
-        LOG_DBG("Received certificate for %s with address ", topic_identity);
+        LOG_DBG("Received certificate for ");
+        LOG_DBG_BYTES(eui64, EUI64_LENGTH);
+        LOG_DBG_(" with address ");
         LOG_DBG_6ADDR(&ipaddr);
         LOG_DBG_("\n");
 
@@ -101,11 +96,13 @@ process_certificate(const char* topic_identity, const certificate_t* cert)
 
         // Check this
         // TODO: remove this
-        assert(edge_info_find_addr(&ipaddr) == edge_info_find_ident(topic_identity));
+        assert(edge_info_find_addr(&ipaddr) == edge_info_find_eui64(eui64));
     }
     else
     {
-        LOG_ERR("Failed to allocate edge resource %s with address ", topic_identity);
+        LOG_ERR("Failed to allocate edge resource ");
+        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
+        LOG_ERR_(" with address ");
         LOG_DBG_6ADDR(&ipaddr);
         LOG_DBG_("\n");
         return -2;
@@ -140,20 +137,20 @@ process_certificate(const char* topic_identity, const certificate_t* cert)
 static int
 mqtt_publish_announce_handler(const char *topic, const char* topic_end,
                               const uint8_t *chunk, uint16_t chunk_len,
-                              const char* topic_identity)
+                              const uint8_t* eui64)
 {
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, chunk, chunk_len);
 
     certificate_t cert;
     NANOCBOR_CHECK(certificate_decode(&dec, &cert));
-    return process_certificate(topic_identity, &cert);
+    return process_certificate(eui64, &cert);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
 mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
                                 const uint8_t *chunk, uint16_t chunk_len,
-                                const char* topic_identity)
+                                const uint8_t* eui64)
 {
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, chunk, chunk_len);
@@ -176,10 +173,12 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         return -1;
     }
 
-    edge_resource_t* edge_resource = edge_info_find_ident(topic_identity);
+    edge_resource_t* edge_resource = edge_info_find_eui64(eui64);
     if (edge_resource != NULL)
     {
-        LOG_DBG("Received unannounce for %s with address ", topic_identity);
+        LOG_DBG("Received unannounce for ");
+        LOG_DBG_BYTES(eui64, EUI64_LENGTH);
+        LOG_DBG_(" with address ");
         LOG_DBG_6ADDR(ip_addr);
         LOG_DBG_("\n");
 
@@ -189,7 +188,9 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
     }
     else
     {
-        LOG_ERR("Failed to find edge resource %s with address ", topic_identity);
+        LOG_ERR("Failed to find edge resource ");
+        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
+        LOG_ERR_(" with address ");
         LOG_ERR_6ADDR(ip_addr);
         LOG_ERR_("\n");
     }
@@ -198,7 +199,7 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
-mqtt_publish_capability_add_handler(const char* topic_identity, const char* capability_name,
+mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability_name,
                                     const uint8_t *chunk, uint16_t chunk_len)
 {
     nanocbor_value_t dec;
@@ -216,17 +217,19 @@ mqtt_publish_capability_add_handler(const char* topic_identity, const char* capa
     {
         certificate_t cert;
         NANOCBOR_CHECK(certificate_decode(&arr, &cert));
-        process_certificate(topic_identity, &cert);
+        process_certificate(eui64, &cert);
     }
     else
     {
         NANOCBOR_CHECK(nanocbor_get_null(&arr));
     }
 
-    edge_resource_t* edge = edge_info_find_ident(topic_identity);
+    edge_resource_t* edge = edge_info_find_eui64(eui64);
     if (edge == NULL)
     {
-        LOG_ERR("Failed to find edge with identity %s\n", topic_identity);
+        LOG_ERR("Failed to find edge with identity ");
+        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
+        LOG_ERR_("\n");
         return -1;
     }
 
@@ -266,7 +269,7 @@ mqtt_publish_capability_add_handler(const char* topic_identity, const char* capa
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int
-mqtt_publish_capability_remove_handler(const char* topic_identity, const char* capability_name,
+mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capability_name,
                                        const uint8_t *chunk, uint16_t chunk_len)
 {
     nanocbor_value_t dec;
@@ -284,17 +287,19 @@ mqtt_publish_capability_remove_handler(const char* topic_identity, const char* c
     {
         certificate_t cert;
         NANOCBOR_CHECK(certificate_decode(&arr, &cert));
-        process_certificate(topic_identity, &cert);
+        process_certificate(eui64, &cert);
     }
     else
     {
         NANOCBOR_CHECK(nanocbor_get_null(&arr));
     }
 
-    edge_resource_t* edge = edge_info_find_ident(topic_identity);
+    edge_resource_t* edge = edge_info_find_eui64(eui64);
     if (edge == NULL)
     {
-        LOG_ERR("Failed to find edge with identity %s\n", topic_identity);
+        LOG_ERR("Failed to find edge with identity ");
+        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
+        LOG_ERR_("\n");
         return -1;
     }
 
@@ -340,7 +345,7 @@ mqtt_publish_capability_remove_handler(const char* topic_identity, const char* c
 static int
 mqtt_publish_capability_handler(const char *topic, const char* topic_end,
                                 const uint8_t *chunk, uint16_t chunk_len,
-                                const char* topic_identity)
+                                const uint8_t* eui64)
 {
     // Format of topic is now in "/%s/add"
 
@@ -376,11 +381,11 @@ mqtt_publish_capability_handler(const char *topic, const char* topic_end,
 
     if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_ADD, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_ADD)) == 0)
     {
-        return mqtt_publish_capability_add_handler(topic_identity, capability_name, chunk, chunk_len);
+        return mqtt_publish_capability_add_handler(eui64, capability_name, chunk, chunk_len);
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY_REMOVE, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY_REMOVE)) == 0)
     {
-        return mqtt_publish_capability_remove_handler(topic_identity, capability_name, chunk, chunk_len);
+        return mqtt_publish_capability_remove_handler(eui64, capability_name, chunk, chunk_len);
     }
     else
     {
@@ -426,12 +431,16 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
         }
     }
 
-    char topic_identity[MQTT_IDENTITY_LEN + 1];
-    strncpy(topic_identity, topic, MQTT_IDENTITY_LEN);
-    *(topic_identity + MQTT_IDENTITY_LEN) = '\0';
+    // Parse topic identity
+    uint8_t eui64[EUI64_LENGTH];
+    if(!eui64_from_strn(topic, MQTT_IDENTITY_LEN, eui64))
+    {
+        LOG_ERR("Bad topic_identity\n");
+        return;
+    }
 
     // No need to add information on ourselves
-    if (is_our_ident(topic_identity))
+    if (is_our_eui64(eui64))
     {
         return;
     }
@@ -450,19 +459,19 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     {
         topic += strlen(MQTT_EDGE_ACTION_ANNOUNCE);
 
-        mqtt_publish_announce_handler(topic, topic_end, chunk, chunk_len, topic_identity);
+        mqtt_publish_announce_handler(topic, topic_end, chunk, chunk_len, eui64);
     }
     else if (strncmp(MQTT_EDGE_ACTION_UNANNOUNCE, topic, strlen(MQTT_EDGE_ACTION_UNANNOUNCE)) == 0)
     {
         topic += strlen(MQTT_EDGE_ACTION_UNANNOUNCE);
 
-        mqtt_publish_unannounce_handler(topic, topic_end, chunk, chunk_len, topic_identity);
+        mqtt_publish_unannounce_handler(topic, topic_end, chunk, chunk_len, eui64);
     }
     else if (strncmp(MQTT_EDGE_ACTION_CAPABILITY, topic, strlen(MQTT_EDGE_ACTION_CAPABILITY)) == 0)
     {
         topic += strlen(MQTT_EDGE_ACTION_CAPABILITY);
 
-        mqtt_publish_capability_handler(topic, topic_end, chunk, chunk_len, topic_identity);
+        mqtt_publish_capability_handler(topic, topic_end, chunk, chunk_len, eui64);
     }
     else
     {

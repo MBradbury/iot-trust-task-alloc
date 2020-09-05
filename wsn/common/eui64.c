@@ -32,12 +32,17 @@ void eui64_to_ipaddr(const uint8_t* eui64, uip_ip6addr_t* ipaddr)
 bool eui64_from_str(const char* eui64_str, uint8_t* eui64)
 {
     int len = strlen(eui64_str);
-    if (len != EUI64_LENGTH * 2)
+    return eui64_from_strn(eui64_str, len, eui64);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool eui64_from_strn(const char* eui64_str, size_t length, uint8_t* eui64)
+{
+    if (length != EUI64_LENGTH * 2)
     {
         return false;
     }
 
-    ssize_t filled = base16_decode(eui64_str, eui64, EUI64_LENGTH);
+    ssize_t filled = base16_decode_length(eui64_str, length, eui64, EUI64_LENGTH);
 
     return filled == EUI64_LENGTH;
 }
