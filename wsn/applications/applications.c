@@ -42,10 +42,6 @@ void edge_capability_add_common(edge_resource_t* edge, const char* uri)
         LOG_DBG_("'s keys\n");
 
         keystore_pin(key);
-
-#ifdef WITH_OSCORE
-        //oscore_ep_ctx_set_association(&edge->ep, uri, &key->context);
-#endif
     }
     else
     {
@@ -68,10 +64,6 @@ void edge_capability_remove_common(edge_resource_t* edge, const char* uri)
     LOG_DBG("Removing context and unpinning ");
     LOG_DBG_6ADDR(&edge->ep.ipaddr);
     LOG_DBG_("'s keys\n");
-
-#ifdef WITH_OSCORE
-    //oscore_remove_ep_ctx(&edge->ep, uri);
-#endif
 
     // unpin keys for this edge node
     public_key_item_t* key = keystore_find_addr(&edge->ep.ipaddr);
