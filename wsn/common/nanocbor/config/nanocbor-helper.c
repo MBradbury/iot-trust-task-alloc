@@ -62,7 +62,7 @@ int nanocbor_get_bstr_of_len(nanocbor_value_t *cvalue, uint8_t *buf, size_t len)
     }
     if (bufptr_length < len)
     {
-        return NANOCBOR_ERR_UNDERFLOW;
+        return NANOCBOR_ERR_TOO_SMALL;
     }
 
     memcpy(buf, bufptr, len);
