@@ -4,7 +4,7 @@
 
 bool isclose(float a, float b)
 {
-    const float rel_tol = 1e-4f;
+    const float rel_tol = 2.5e-4f;
 
     const float comp = (fabs(a) < fabs(b) ? fabs(b) : fabs(a));
 
