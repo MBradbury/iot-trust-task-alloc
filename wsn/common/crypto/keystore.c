@@ -27,64 +27,7 @@ PROCESS(keystore_add_verifier, "keystore_add_verifier"); // Processes verifying 
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(public_keys_memb, public_key_item_t, PUBLIC_KEYSTORE_SIZE);
 LIST(public_keys);
-/*-------------------------------------------------------------------------------------------------------------------*/
-static bool
-keystore_evict(keystore_eviction_policy_t evict)
-{
-    public_key_item_t* found = list_head(public_keys);
-    if (!found)
-    {
-        return false;
-    }
-
-    switch (evict)
-    {
-    case EVICT_NONE:
-        return false;
-
-    case EVICT_OLDEST: {
-        for (public_key_item_t* iter = list_item_next(found); iter != NULL; iter = list_item_next(iter))
-        {
-            // Do not evict pinned keys as they are in use
-            if (keystore_is_pinned(iter))
-            {
-                continue;
-            }
-
-            if (iter->age > found->age) // TODO: check for clock overflow
-            {
-                found = iter;
-            }
-        }
-    } break;
-
-    default:
-        LOG_WARN("Unknown eviction policy %u\n", evict);
-        return false;
-    }
-
-    // Do not evict the first item in the list if not other suitable items found
-    if (keystore_is_pinned(found))
-    {
-        return false;
-    }
-
-    LOG_DBG("Evicting ");
-    LOG_DBG_BYTES(&found->cert.subject, EUI64_LENGTH);
-    LOG_DBG_(" from the keystore.\n");
-
-#ifdef WITH_OSCORE
-    oscore_free_ctx(&found->context);
-#endif
-
-    list_remove(public_keys, found);
-
-    memset(found, 0, sizeof(*found));
-
-    memb_free(&public_keys_memb, found);
-
-    return true;
-}
+LIST(public_keys_to_verify);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 uip_ip6addr_normalise(const uip_ip6addr_t* in, uip_ip6addr_t* out)
@@ -101,111 +44,7 @@ uip_ip6addr_normalise(const uip_ip6addr_t* in, uip_ip6addr_t* out)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static public_key_item_t*
-keystore_insert(const certificate_t* cert, keystore_eviction_policy_t evict)
-{
-    public_key_item_t* item = keystore_find(cert->subject);
-    if (item)
-    {
-        return item;
-    }
-
-    item = memb_alloc(&public_keys_memb);
-    if (!item)
-    {
-        if (keystore_evict(evict))
-        {
-            item = memb_alloc(&public_keys_memb);
-            if (!item)
-            {
-                return NULL;
-            }
-        }
-        else
-        {
-            return NULL;
-        }
-    }
-
-    item->cert = *cert;
-
-    item->age = clock_time();
-    item->pin_count = 0;
-
-    list_push(public_keys, item);
-
-    return item;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static uint8_t add_buffer[TBS_CERTIFICATE_CBOR_LENGTH + DTLS_EC_SIG_SIZE];
-static bool add_buffer_in_use;
-/*-------------------------------------------------------------------------------------------------------------------*/
-public_key_item_t*
-keystore_add(const certificate_t* cert)
-{
-    // Check if this certificate is already present
-    public_key_item_t* item = keystore_find(cert->subject);
-    if (item)
-    {
-        return item;
-    }
-
-    // Can't make a request if the buffer is in use
-    if (add_buffer_in_use)
-    {
-        LOG_WARN("keystore_add: buffer in use\n");
-        return NULL;
-    }
-
-    item = memb_alloc(&public_keys_memb);
-    if (!item)
-    {
-        LOG_ERR("keystore_add: out of memory\n");
-        return NULL;
-    }
-
-    LOG_DBG("Queuing unverified key for ");
-    LOG_DBG_BYTES(cert->subject, EUI64_LENGTH);
-    LOG_DBG_(" to be verified\n");
-
-    item->cert = *cert;
-
-    item->age = clock_time();
-    item->pin_count = 0;
-
-    const size_t available_space = sizeof(add_buffer) - DTLS_EC_SIG_SIZE;
-
-    nanocbor_encoder_t enc;
-    nanocbor_encoder_init(&enc, add_buffer, available_space);
-    certificate_encode_tbs(&enc, cert);
-
-    size_t encoded_length = nanocbor_encoded_len(&enc);
-
-    if (encoded_length > available_space)
-    {
-        LOG_ERR("keystore_add: encode failed %zu > %zu\n", encoded_length, available_space);
-        memb_free(&public_keys_memb, item);
-        return NULL;
-    }
-
-    // Put the signature at the end
-    memcpy(&add_buffer[encoded_length], &cert->signature, DTLS_EC_SIG_SIZE);
-
-    if (!queue_message_to_verify(&keystore_add_verifier, item,
-                                 add_buffer, encoded_length + DTLS_EC_SIG_SIZE,
-                                 &root_cert.public_key))
-    {
-        LOG_ERR("keystore_add: enqueue failed\n");
-        memb_free(&public_keys_memb, item);
-        return NULL;
-    }
-
-    add_buffer_in_use = true;
-
-    return item;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-public_key_item_t*
-keystore_find(const uint8_t* eui64)
+keystore_find_in_list(const uint8_t* eui64, list_t l)
 {
     for (public_key_item_t* iter = list_head(public_keys); iter != NULL; iter = list_item_next(iter))
     {
@@ -216,6 +55,12 @@ keystore_find(const uint8_t* eui64)
     }
 
     return NULL;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+public_key_item_t*
+keystore_find(const uint8_t* eui64)
+{
+    return keystore_find_in_list(eui64, public_keys);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t*
@@ -272,6 +117,48 @@ void keystore_unpin(public_key_item_t* item)
 bool keystore_is_pinned(const public_key_item_t* item)
 {
     return item->pin_count > 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool
+keystore_add(const certificate_t* cert)
+{
+    // Check if this certificate is already present
+    public_key_item_t* item = keystore_find(cert->subject);
+    if (item)
+    {
+        return true;
+    }
+
+    // Check if this certificate is queued to be verified
+    item = keystore_find_in_list(cert->subject, public_keys_to_verify);
+    if (item)
+    {
+        process_poll(&keystore_add_verifier);
+        return true;
+    }
+
+    // No item has this certificate so allocate memory for it
+    item = memb_alloc(&public_keys_memb);
+    if (!item)
+    {
+        LOG_ERR("keystore_add: out of memory\n");
+        return false;
+    }
+
+    LOG_DBG("Queuing unverified key for ");
+    LOG_DBG_BYTES(cert->subject, EUI64_LENGTH);
+    LOG_DBG_(" to be verified\n");
+
+    item->cert = *cert;
+
+    item->age = clock_time();
+    item->pin_count = 0;
+
+    list_add(public_keys_to_verify, item);
+
+    process_poll(&keystore_add_verifier);
+
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static uint8_t req_resp[CERTIFICATE_CBOR_LENGTH + DTLS_EC_SIG_SIZE];
@@ -418,53 +305,93 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static public_key_item_t*
+static void
 request_public_key_callback_continued(messages_to_verify_entry_t* entry)
 {
-    public_key_item_t* item = NULL;
-
-    if (entry->result == PKA_STATUS_SUCCESS)
+    if (entry->result != PKA_STATUS_SUCCESS)
     {
-        nanocbor_value_t dec;
-        nanocbor_decoder_init(&dec, entry->message, entry->message_len - DTLS_EC_SIG_SIZE);
+        LOG_ERR("Failed to add public key (sig verification failed)\n");
+        goto end;
+    }
 
-        certificate_t cert;
-        int ret = certificate_decode(&dec, &cert);
-        if (ret != NANOCBOR_OK)
-        {
-            LOG_ERR("Failed to decode certificate\n");
-            return NULL;
-        }
+    nanocbor_value_t dec;
+    nanocbor_decoder_init(&dec, entry->message, entry->message_len - DTLS_EC_SIG_SIZE);
 
-        // TODO: instead of calling insert here, we should call keystore_add
-        // and have the digital certificate verified as well as the message.
-        // There is a risk that the adding may already be in use, so
-        // we would need to handle this case.
+    certificate_t cert;
+    int ret = certificate_decode(&dec, &cert);
+    if (ret != NANOCBOR_OK)
+    {
+        LOG_ERR("Failed to decode certificate\n");
+        goto end;
+    }
 
-        item = keystore_insert(&cert, EVICT_OLDEST);
-        if (item)
-        {
-            LOG_INFO("Sucessfully added public key for ");
-            LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
-            LOG_INFO_(" [new]\n");
-        }
-        else
-        {
-            LOG_ERR("Failed to add public key for ");
-            LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
-            LOG_ERR_(" (out of memory) [new]\n");
-        }
+    // Message verified, now need to verify certificate
+    if (keystore_add(&cert))
+    {
+        LOG_INFO("Sucessfully added public key for ");
+        LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
+        LOG_INFO_("\n");
     }
     else
     {
-        LOG_ERR("Failed to add public key (sig verification failed) [new]\n");
+        LOG_ERR("Failed to add public key for ");
+        LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
+        LOG_ERR_(" (out of memory)\n");
     }
 
+end:
     queue_message_to_verify_done(entry);
 
     timed_unlock_unlock(&in_use);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static uint8_t add_buffer[TBS_CERTIFICATE_CBOR_LENGTH + DTLS_EC_SIG_SIZE];
+static bool add_buffer_in_use;
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+keystore_add_start(void)
+{
+    if (add_buffer_in_use)
+    {
+        return;
+    }
 
-    return item;
+    public_key_item_t* item = list_head(public_keys_to_verify);
+    if (!item)
+    {
+        return;
+    }
+
+    const size_t available_space = sizeof(add_buffer) - DTLS_EC_SIG_SIZE;
+
+    nanocbor_encoder_t enc;
+    nanocbor_encoder_init(&enc, add_buffer, available_space);
+    certificate_encode_tbs(&enc, &item->cert);
+
+    size_t encoded_length = nanocbor_encoded_len(&enc);
+
+    if (encoded_length > available_space)
+    {
+        LOG_ERR("keystore_add: encode failed %zu > %zu\n", encoded_length, available_space);
+        list_remove(public_keys_to_verify, item);
+        memb_free(&public_keys_memb, item);
+        return;
+    }
+
+    // Put the signature at the end
+    memcpy(&add_buffer[encoded_length], &item->cert.signature, DTLS_EC_SIG_SIZE);
+
+    if (!queue_message_to_verify(&keystore_add_verifier, item,
+                                 add_buffer, encoded_length + DTLS_EC_SIG_SIZE,
+                                 &root_cert.public_key))
+    {
+        LOG_ERR("keystore_add: enqueue failed\n");
+        list_remove(public_keys_to_verify, item);
+        memb_free(&public_keys_memb, item);
+        return;
+    }
+
+    add_buffer_in_use = true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static public_key_item_t*
@@ -472,11 +399,13 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
 {
     public_key_item_t* item = (public_key_item_t*)entry->data;
 
+    list_remove(public_keys_to_verify, item);
+
     if (entry->result == PKA_STATUS_SUCCESS)
     {
         LOG_INFO("Sucessfully verfied public key for ");
         LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
-        LOG_INFO_(" [unver]\n");
+        LOG_INFO_("\n");
 
         list_push(public_keys, item);
     }
@@ -484,7 +413,7 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
     {
         LOG_ERR("Failed to verfiy public key for ");
         LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
-        LOG_ERR_(" (sig verification failed) [unver]\n");
+        LOG_ERR_(" (sig verification failed)\n");
 
         memb_free(&public_keys_memb, item);
 
@@ -542,6 +471,7 @@ keystore_init(void)
 
     memb_init(&public_keys_memb);
     list_init(public_keys);
+    list_init(public_keys_to_verify);
 
     timed_unlock_init(&in_use, "keystore", (1 * 60 * CLOCK_SECOND));
     add_buffer_in_use = false;
@@ -572,33 +502,11 @@ PROCESS_THREAD(keystore_request, ev, data)
         // Verify key response
         if (ev == pe_message_verified)
         {
-            static public_key_item_t* pkitem;
             messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
             assert(entry->data == NULL);
-            //LOG_INFO("Processing pe_message_verified for request_public_key_callback_continued\n");
-            pkitem = request_public_key_callback_continued(entry);
 
-            if (pkitem)
-            {
-                keystore_pin(pkitem);
-
-                static ecdh2_state_t ecdh2_req_state;
-                ecdh2_req_state.ecc_multiply_state.process = &keystore_request;
-                ecdh2_req_state.shared_secret = pkitem->shared_secret;
-                PROCESS_PT_SPAWN(&ecdh2_req_state.pt, ecdh2(&ecdh2_req_state, &pkitem->cert.public_key));
-
-                if (ecdh2_req_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
-                {
-                    generate_shared_secret(pkitem);
-                }
-                else
-                {
-                    LOG_ERR("Failed to generate shared secret with error %d\n",
-                        ecdh2_req_state.ecc_multiply_state.result);
-                }
-
-                keystore_unpin(pkitem);
-            }
+            // Message verified now need to verify certificate
+            request_public_key_callback_continued(entry);
         }
     }
 
@@ -614,6 +522,12 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
     {
         PROCESS_WAIT_EVENT();
 
+        // Need to consider verifying certificate
+        if (ev == PROCESS_EVENT_POLL)
+        {
+            keystore_add_start();
+        }
+
         // Verify key response
         if (ev == pe_message_verified)
         {
@@ -623,6 +537,7 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
             //LOG_INFO("Processing pe_message_verified for keystore_add_continued\n");
             pkitem = keystore_add_continued(entry);
 
+            // Generated a shared secret if this step succeeded
             if (pkitem)
             {
                 keystore_pin(pkitem);
@@ -644,6 +559,9 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
 
                 keystore_unpin(pkitem);
             }
+
+            // Poll ourselves to potentially verify another message
+            process_poll(&keystore_add_verifier);
         }
     }
 

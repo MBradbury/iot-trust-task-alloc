@@ -127,7 +127,7 @@ process_certificate(const uint8_t* eui64, const certificate_t* cert)
 
     // We are probably going to be interacting with this edge resource,
     // so ask for its public key. If this fails we will obtain the key later.
-    if (keystore_add(cert) == NULL)
+    if (!keystore_add(cert))
     {
         request_public_key(&ipaddr);
     }

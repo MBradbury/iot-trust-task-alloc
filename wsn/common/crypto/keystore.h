@@ -29,12 +29,7 @@ typedef struct public_key_item {
     uint16_t pin_count;
 } public_key_item_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
-typedef enum {
-    EVICT_NONE = 0,
-    EVICT_OLDEST = 1,
-} keystore_eviction_policy_t;
-/*-------------------------------------------------------------------------------------------------------------------*/
-public_key_item_t* keystore_add(const certificate_t* cert);
+bool keystore_add(const certificate_t* cert);
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_find(const uint8_t* eui64);
 public_key_item_t* keystore_find_addr(const uip_ip6addr_t* addr);
