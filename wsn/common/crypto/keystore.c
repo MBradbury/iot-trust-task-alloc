@@ -138,7 +138,7 @@ keystore_add(const uip_ip6addr_t* addr, const certificate_t* cert, keystore_evic
 /*-------------------------------------------------------------------------------------------------------------------*/
 // 2*32 for the public key
 // 2*32 for the signature
-static uint8_t add_unverified_buffer[CERTIFICATE_MESSAGE_LENGTH + DTLS_EC_SIG_SIZE];
+static uint8_t add_unverified_buffer[CERTIFICATE_CBOR_LENGTH + DTLS_EC_SIG_SIZE];
 static bool add_unverified_buffer_in_use;
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t*
@@ -277,7 +277,7 @@ bool keystore_is_pinned(const public_key_item_t* item)
     return item->pin_count > 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static uint8_t req_resp[CERTIFICATE_MESSAGE_LENGTH + DTLS_EC_SIG_SIZE];
+static uint8_t req_resp[CERTIFICATE_CBOR_LENGTH + DTLS_EC_SIG_SIZE];
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;

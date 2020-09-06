@@ -76,7 +76,7 @@ publish_announce(void)
         return false;
     }
 
-    uint8_t cbor_buffer[CERTIFICATE_MESSAGE_LENGTH];
+    uint8_t cbor_buffer[CERTIFICATE_CBOR_LENGTH];
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
@@ -137,7 +137,7 @@ publish_add_capability(const char* name, bool include_certificate)
         return false;
     }
 
-    uint8_t cbor_buffer[(1) + (1) + CERTIFICATE_MESSAGE_LENGTH];
+    uint8_t cbor_buffer[(1) + (1) + CERTIFICATE_CBOR_LENGTH];
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));
@@ -174,7 +174,7 @@ publish_remove_capability(const char* name, bool include_certificate)
         return false;
     }
 
-    uint8_t cbor_buffer[(1) + (1) + CERTIFICATE_MESSAGE_LENGTH];
+    uint8_t cbor_buffer[(1) + (1) + CERTIFICATE_CBOR_LENGTH];
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, cbor_buffer, sizeof(cbor_buffer));

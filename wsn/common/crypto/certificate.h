@@ -13,7 +13,7 @@
 
 #include "uip.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define CERTIFICATE_MESSAGE_LENGTH ( \
+#define CERTIFICATE_CBOR_LENGTH ( \
         (1) + \
             (1) + \
                 (1 + sizeof(uint32_t)) + \
