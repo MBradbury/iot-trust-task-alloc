@@ -63,13 +63,7 @@ static bool is_our_eui64(const uint8_t* eui64)
 static int
 process_certificate(const uint8_t* eui64, const certificate_t* cert)
 {
-    // We should add a record of other edge resources, but not ourselves.
-    // TODO: might need to change this, so we can have a trust model of beliefs about ourself
-    if (is_our_eui64(cert->subject))
-    {
-        return -1;
-    }
-
+    // Validate that the eui matches the certificate's subject
     if (memcmp(eui64, cert->subject, EUI64_LENGTH) != 0)
     {
         LOG_ERR("Received a mismatched certificate about ");
@@ -80,6 +74,13 @@ process_certificate(const uint8_t* eui64, const certificate_t* cert)
         return -3;
     }
 
+    // We should add a record of other edge resources, but not ourselves.
+    // TODO: might need to change this, so we can have a trust model of beliefs about ourself
+    if (is_our_eui64(cert->subject))
+    {
+        return -1;
+    }
+
     uip_ip6addr_t ipaddr;
     eui64_to_ipaddr(cert->subject, &ipaddr);
 
@@ -87,7 +88,7 @@ process_certificate(const uint8_t* eui64, const certificate_t* cert)
     if (edge_resource != NULL)
     {
         LOG_DBG("Received certificate for ");
-        LOG_DBG_BYTES(eui64, EUI64_LENGTH);
+        LOG_DBG_BYTES(cert->subject, EUI64_LENGTH);
         LOG_DBG_(" with address ");
         LOG_DBG_6ADDR(&ipaddr);
         LOG_DBG_("\n");
@@ -96,12 +97,12 @@ process_certificate(const uint8_t* eui64, const certificate_t* cert)
 
         // Check this
         // TODO: remove this
-        assert(edge_info_find_addr(&ipaddr) == edge_info_find_eui64(eui64));
+        assert(edge_info_find_addr(&ipaddr) == edge_info_find_eui64(cert->subject));
     }
     else
     {
         LOG_ERR("Failed to allocate edge resource ");
-        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
+        LOG_ERR_BYTES(cert->subject, EUI64_LENGTH);
         LOG_ERR_(" with address ");
         LOG_DBG_6ADDR(&ipaddr);
         LOG_DBG_("\n");
@@ -126,7 +127,7 @@ process_certificate(const uint8_t* eui64, const certificate_t* cert)
 
     // We are probably going to be interacting with this edge resource,
     // so ask for its public key. If this fails we will obtain the key later.
-    if (keystore_add_unverified(&ipaddr, cert) == NULL)
+    if (keystore_add(cert) == NULL)
     {
         request_public_key(&ipaddr);
     }

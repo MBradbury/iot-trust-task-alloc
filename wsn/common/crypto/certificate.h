@@ -13,15 +13,19 @@
 
 #include "uip.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define TBS_CERTIFICATE_CBOR_LENGTH ( \
+        (1) + \
+            (1 + sizeof(uint32_t)) + \
+            (1 + EUI64_LENGTH) + \
+            (1 + (1 + sizeof(uint32_t)) + (1 + sizeof(uint32_t))) + \
+            (1 + EUI64_LENGTH) + \
+            STEREOTYPE_TAGS_CBOR_MAX_LEN + \
+            (1 + 1 + DTLS_EC_KEY_SIZE*2) \
+    )
+
 #define CERTIFICATE_CBOR_LENGTH ( \
         (1) + \
-            (1) + \
-                (1 + sizeof(uint32_t)) + \
-                (1 + EUI64_LENGTH) + \
-                (1 + (1 + sizeof(uint32_t)) + (1 + sizeof(uint32_t))) + \
-                (1 + EUI64_LENGTH) + \
-                STEREOTYPE_TAGS_CBOR_MAX_LEN + \
-                (1 + 1 + DTLS_EC_KEY_SIZE*2) + \
+            TBS_CERTIFICATE_CBOR_LENGTH + \
             (1 + 1 + DTLS_EC_SIG_SIZE) \
     )
 /*-------------------------------------------------------------------------------------------------------------------*/

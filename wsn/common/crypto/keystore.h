@@ -34,13 +34,7 @@ typedef enum {
     EVICT_OLDEST = 1,
 } keystore_eviction_policy_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
-public_key_item_t* keystore_add(const uip_ip6addr_t* addr,
-                                const certificate_t* cert,
-                                keystore_eviction_policy_t evict);
-/*-------------------------------------------------------------------------------------------------------------------*/
-public_key_item_t* keystore_add_unverified(
-                                const uip_ip6addr_t* addr,
-                                const certificate_t* cert);
+public_key_item_t* keystore_add(const certificate_t* cert);
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_find(const uint8_t* eui64);
 public_key_item_t* keystore_find_addr(const uip_ip6addr_t* addr);

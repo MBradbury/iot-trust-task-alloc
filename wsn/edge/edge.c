@@ -17,8 +17,8 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
 PROCESS_NAME(capability);
-PROCESS_NAME(keystore_req);
-PROCESS_NAME(keystore_unver);
+PROCESS_NAME(keystore_request);
+PROCESS_NAME(keystore_add_verifier);
 APPLICATION_PROCESSES_DECL;
 PROCESS(edge, "edge");
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -30,7 +30,9 @@ const stereotype_tags_t stereotype_tags = {
     .device_class = DEVICE_CLASS
 };
 /*-------------------------------------------------------------------------------------------------------------------*/
-AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process, &keystore_req, &keystore_unver, APPLICATION_PROCESSES);
+AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process,
+                    &keystore_request, &keystore_add_verifier,
+                    APPLICATION_PROCESSES);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int8_t
 index_of_application(const char* name)
