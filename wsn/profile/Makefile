@@ -21,7 +21,7 @@ CFLAGS += -DCRYPTO_SUPPORT_LOG_LEVEL=LOG_LEVEL_DBG
 CFLAGS += -DKEYSTORE_LOG_LEVEL=LOG_LEVEL_DBG
 
 # Include application modules
-MODULES_REL += ../common ${addprefix ../common/,crypto}
+MODULES_REL += ../common ${addprefix ../common/,crypto trust/stereotypes}
 
 include ../common/nanocbor/Makefile.include
 

@@ -6,6 +6,7 @@
 #include "sys/log.h"
 #include "oscore-crypto.h"
 #include "cose.h"
+#include "certificate.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "profile"
 #define LOG_LEVEL LOG_LEVEL_DBG
@@ -59,7 +60,7 @@ PROCESS_THREAD(profile_ecc_sign_verify, ev, data)
         queue_message_to_sign_done((messages_to_sign_entry_t*)data);
 
 
-        r = queue_message_to_verify(&profile_ecc_sign_verify, NULL, message, message_len + DTLS_EC_SIG_SIZE, &our_key.pub_key);
+        r = queue_message_to_verify(&profile_ecc_sign_verify, NULL, message, message_len + DTLS_EC_SIG_SIZE, &our_cert.public_key);
         assert(r);
 
         PROCESS_WAIT_EVENT_UNTIL(ev == pe_message_verified);
@@ -69,7 +70,7 @@ PROCESS_THREAD(profile_ecc_sign_verify, ev, data)
 
         static ecdh2_state_t state;
         state.ecc_multiply_state.process = &profile_ecc_sign_verify;
-        PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &our_key.pub_key));
+        PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &our_cert.public_key));
         assert(state.ecc_multiply_state.result == PKA_STATUS_SUCCESS);
     }
 

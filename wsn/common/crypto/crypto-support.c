@@ -92,7 +92,7 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static inline
-uint32_t dtls_uint8x4_to_uint32_left(const uint8_t* field)
+uint32_t ec_uint8x4_to_uint32_left(const uint8_t* field)
 {
   return ((uint32_t)field[0] << 24)
        | ((uint32_t)field[1] << 16)
@@ -109,12 +109,12 @@ ec_uint8v_to_uint32v(const uint8_t* data, size_t size_in_bytes, uint32_t* result
     */
     for (int i = (size_in_bytes / sizeof(uint32_t)) - 1; i >= 0 ; i--)
     {
-        *result = dtls_uint8x4_to_uint32_left(&data[i * sizeof(uint32_t)]);
+        *result = ec_uint8x4_to_uint32_left(&data[i * sizeof(uint32_t)]);
         result++;
     }
 }
 static inline
-void dtls_uint8x4_from_uint32_left(uint8_t* field, uint32_t data)
+void ec_uint8x4_from_uint32_left(uint8_t* field, uint32_t data)
 {
     field[0] = (uint8_t)((data & 0xFF000000) >> 24);
     field[1] = (uint8_t)((data & 0x00FF0000) >> 16);
@@ -130,7 +130,7 @@ ec_uint32v_to_uint8v(const uint32_t* data, size_t size_in_bytes, uint8_t* result
     */
     for (int i = (size_in_bytes / sizeof(uint32_t)) - 1; i >= 0 ; i--)
     {
-        dtls_uint8x4_from_uint32_left(result, data[i]);
+        ec_uint8x4_from_uint32_left(result, data[i]);
 
         result += sizeof(uint32_t);
     }
@@ -227,7 +227,8 @@ static PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_le
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_sign()...\n");
-    state->time = RTIMER_NOW();
+    static rtimer_clock_t time;
+    time = RTIMER_NOW();
 #endif
 
     pka_enable();
@@ -235,8 +236,8 @@ static PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_le
     pka_disable();
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
-    state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
+    time = RTIMER_NOW() - time;
+    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -537,7 +538,7 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecdh2()...\n");
-    static rtimer_clock_t start_time;
+    static rtimer_clock_t time;
     time = RTIMER_NOW();
 #endif
 
@@ -561,7 +562,7 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
     }
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
-    time = RTIMER_NOW() - start_time;
+    time = RTIMER_NOW() - time;
     LOG_DBG("ecdh2(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
 #endif
 
