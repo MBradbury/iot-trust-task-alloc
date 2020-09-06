@@ -8,8 +8,6 @@
 #include "dev/ecc-algorithm.h"
 #include "dev/ecc-curve.h"
 #include "dev/sha256.h"
-
-#include "rtimer.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef SHA256_DIGEST_LEN_BYTES
 #define SHA256_DIGEST_LEN_BYTES (256 / 8)
@@ -98,15 +96,10 @@ PT_THREAD(ecdh1(ecdh1_state_t* state));
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt      pt;
-    struct process *process;
 
     ecc_multiply_state_t ecc_multiply_state;
 
     uint8_t shared_secret[SHA256_DIGEST_LEN_BYTES];
-
-#ifdef CRYPTO_SUPPORT_TIME_METRICS
-    rtimer_clock_t time;
-#endif
 } ecdh2_state_t;
 
 PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubkey));

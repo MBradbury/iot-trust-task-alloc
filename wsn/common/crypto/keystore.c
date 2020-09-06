@@ -581,7 +581,7 @@ PROCESS_THREAD(keystore_request, ev, data)
                 keystore_pin(pkitem);
 
                 static ecdh2_state_t ecdh2_req_state;
-                ecdh2_req_state.process = &keystore_request;
+                ecdh2_req_state.ecc_multiply_state.process = &keystore_request;
                 PROCESS_PT_SPAWN(&ecdh2_req_state.pt, ecdh2(&ecdh2_req_state, &pkitem->cert.public_key));
 
                 if (ecdh2_req_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
@@ -625,7 +625,7 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
                 keystore_pin(pkitem);
 
                 static ecdh2_state_t ecdh2_unver_state;
-                ecdh2_unver_state.process = &keystore_add_verifier;
+                ecdh2_unver_state.ecc_multiply_state.process = &keystore_add_verifier;
                 PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->cert.public_key));
 
                 if (ecdh2_unver_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)

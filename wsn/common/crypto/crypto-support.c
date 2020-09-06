@@ -6,6 +6,7 @@
 #include "os/lib/assert.h"
 #include "os/lib/queue.h"
 #include "os/lib/memb.h"
+#include "rtimer.h"
 
 #include "random.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -20,7 +21,7 @@ static struct pt_sem crypto_processor_mutex;
 /*-------------------------------------------------------------------------------------------------------------------*/
 process_event_t pe_message_signed;
 process_event_t pe_message_verified;
-process_event_t pe_crypto_lock_released;
+static process_event_t pe_crypto_lock_released;
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(signer, "signer");
 PROCESS(verifier, "verifier");
@@ -50,29 +51,19 @@ crypto_support_init(void)
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt      pt;
-    struct process *process;
 
     ecc_dsa_sign_state_t ecc_sign_state;
-
-#ifdef CRYPTO_SUPPORT_TIME_METRICS
-    rtimer_clock_t time;
-#endif
 } sign_state_t;
 
-PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
+static PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt      pt;
-    struct process *process;
 
     ecc_dsa_verify_state_t ecc_verify_state;
-
-#ifdef CRYPTO_SUPPORT_TIME_METRICS
-    rtimer_clock_t time;
-#endif
 } verify_state_t;
 
-PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
+static PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool
 crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
@@ -200,7 +191,7 @@ end:
     return ret;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
+static PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))
 {
     PT_BEGIN(&state->pt);
 
@@ -227,7 +218,6 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 
     ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_sign_state.hash);
 
-    state->ecc_sign_state.process = state->process;
     state->ecc_sign_state.curve_info = &nist_p_256;
 
     // Set secret key from our private key
@@ -274,7 +264,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     PT_END(&state->pt);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len))
+static PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len))
 {
     PT_BEGIN(&state->pt);
 
@@ -311,7 +301,6 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
 
     ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_verify_state.hash);
 
-    state->ecc_verify_state.process = state->process;
     state->ecc_verify_state.curve_info = &nist_p_256;
 
     ec_uint8v_to_uint32v(pubkey->x, DTLS_EC_KEY_SIZE, state->ecc_verify_state.public.x);
@@ -319,7 +308,8 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_verify()...\n");
-    state->time = RTIMER_NOW();
+    static rtimer_clock_t time;
+    time = RTIMER_NOW();
 #endif
 
     pka_enable();
@@ -327,8 +317,8 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
     pka_disable();
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
-    state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
+    time = RTIMER_NOW() - time;
+    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
@@ -403,7 +393,7 @@ PROCESS_THREAD(signer, ev, data)
             sitem = (messages_to_sign_entry_t*)queue_dequeue(messages_to_sign);
 
             static sign_state_t sign_state;
-            sign_state.process = &signer;
+            sign_state.ecc_sign_state.process = &signer;
             PROCESS_PT_SPAWN(&sign_state.pt, ecc_sign(&sign_state, sitem->message, sitem->message_buffer_len, sitem->message_len));
 
             sitem->result = sign_state.ecc_sign_state.result;
@@ -467,7 +457,7 @@ PROCESS_THREAD(verifier, ev, data)
             vitem = (messages_to_verify_entry_t*)queue_dequeue(messages_to_verify);
 
             static verify_state_t verify_state;
-            verify_state.process = &verifier;
+            verify_state.ecc_verify_state.process = &verifier;
             PROCESS_PT_SPAWN(&verify_state.pt, ecc_verify(&verify_state, vitem->pubkey, vitem->message, vitem->message_len));
 
             vitem->result = verify_state.ecc_verify_state.result;
@@ -547,11 +537,11 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecdh2()...\n");
-    state->time = RTIMER_NOW();
+    static rtimer_clock_t start_time;
+    time = RTIMER_NOW();
 #endif
 
     // Prepare Points
-    state->ecc_multiply_state.process = state->process;
     state->ecc_multiply_state.curve_info = &nist_p_256;
 
     // Set point to be the input public key
@@ -571,8 +561,8 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
     }
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
-    state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecdh2(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
+    time = RTIMER_NOW() - start_time;
+    LOG_DBG("ecdh2(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
