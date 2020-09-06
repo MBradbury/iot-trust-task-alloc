@@ -436,6 +436,11 @@ request_public_key_callback_continued(messages_to_verify_entry_t* entry)
             return NULL;
         }
 
+        // TODO: instead of calling insert here, we should call keystore_add
+        // and have the digital certificate verified as well as the message.
+        // There is a risk that the adding may already be in use, so
+        // we would need to handle this case.
+
         item = keystore_insert(&cert, EVICT_OLDEST);
         if (item)
         {
@@ -496,16 +501,13 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
 #define OSCORE_ID_LEN 6
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret)
+generate_shared_secret(public_key_item_t* item)
 {
     LOG_INFO("Generated shared secret with ");
     LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
     LOG_INFO_(" value=");
-    LOG_INFO_BYTES(shared_secret, DTLS_EC_KEY_SIZE);
+    LOG_INFO_BYTES(item->shared_secret, DTLS_EC_KEY_SIZE);
     LOG_INFO_("\n");
-
-    // Set the shared secret
-    memcpy(item->shared_secret, shared_secret, DTLS_EC_KEY_SIZE);
 
 #ifdef WITH_OSCORE
     // Take the lower OSCORE_ID_LEN bytes as the ids
@@ -513,7 +515,7 @@ generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret)
     const uint8_t* receiver_id = &item->cert.subject[EUI64_LENGTH - OSCORE_ID_LEN];
 
     oscore_derive_ctx(&item->context,
-        shared_secret, DTLS_EC_KEY_SIZE,
+        item->shared_secret, DTLS_EC_KEY_SIZE,
         NULL, 0, //master_salt, sizeof(master_salt), // optional master salt
         COSE_Algorithm_AES_CCM_16_64_128, //COSE_ALGO_AESCCM_16_64_128,
         sender_id, OSCORE_ID_LEN, // Sender ID
@@ -582,11 +584,12 @@ PROCESS_THREAD(keystore_request, ev, data)
 
                 static ecdh2_state_t ecdh2_req_state;
                 ecdh2_req_state.ecc_multiply_state.process = &keystore_request;
+                ecdh2_req_state.shared_secret = pkitem->shared_secret;
                 PROCESS_PT_SPAWN(&ecdh2_req_state.pt, ecdh2(&ecdh2_req_state, &pkitem->cert.public_key));
 
                 if (ecdh2_req_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
-                    generate_shared_secret(pkitem, ecdh2_req_state.shared_secret);
+                    generate_shared_secret(pkitem);
                 }
                 else
                 {
@@ -626,11 +629,12 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
 
                 static ecdh2_state_t ecdh2_unver_state;
                 ecdh2_unver_state.ecc_multiply_state.process = &keystore_add_verifier;
+                ecdh2_unver_state.shared_secret = pkitem->shared_secret;
                 PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->cert.public_key));
 
                 if (ecdh2_unver_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
-                    generate_shared_secret(pkitem, ecdh2_unver_state.shared_secret);
+                    generate_shared_secret(pkitem);
                 }
                 else
                 {
@@ -649,7 +653,9 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
 #ifdef WITH_OSCORE
 void oscore_missing_security_context(const coap_endpoint_t *src)
 {
-    LOG_DBG("Missing OSCORE security context, requesting public key...\n");
+    LOG_INFO("Missing OSCORE security context, requesting public key for ");
+    LOG_INFO_6ADDR(&src->ipaddr);
+    LOG_INFO_("\n");
     // If the OSCORE security context was missing, we
     // need to request the public key of the sender in order to
     // process their further messages.
