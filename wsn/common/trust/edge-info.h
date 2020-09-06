@@ -33,7 +33,6 @@ typedef struct edge_capability
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define EDGE_RESOURCE_NO_FLAGS 0
 #define EDGE_RESOURCE_ACTIVE (1 << 0)
-#define EDGE_RESOURCE_STEREOTYPE_REQUEST (1 << 1)
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_resource
 {

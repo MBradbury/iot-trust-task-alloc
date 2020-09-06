@@ -18,3 +18,5 @@ int deserialise_stereotype_tags(nanocbor_value_t* dec, stereotype_tags_t* tags);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool stereotype_tags_equal(const stereotype_tags_t* a, const stereotype_tags_t* b);
 /*-------------------------------------------------------------------------------------------------------------------*/
+void stereotype_tags_print(const stereotype_tags_t* tags);
+/*-------------------------------------------------------------------------------------------------------------------*/

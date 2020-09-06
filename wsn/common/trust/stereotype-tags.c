@@ -51,3 +51,8 @@ bool stereotype_tags_equal(const stereotype_tags_t* a, const stereotype_tags_t* 
     return a->device_class == b->device_class;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void stereotype_tags_print(const stereotype_tags_t* tags)
+{
+    printf("StereotypeTags(device_class=%" PRIu8 ")", tags->device_class);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/

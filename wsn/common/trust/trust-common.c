@@ -109,7 +109,7 @@ process_certificate(const uint8_t* eui64, const certificate_t* cert)
     }
 
     // We should request stereotypes for this edge (if needed)
-    stereotypes_request(edge_resource, &cert->tags);
+    stereotypes_request(&cert->tags);
 
     // We should connect to the Edge resource that has announced themselves here
     // This means that if we are using DTLS, the handshake has already been performed,

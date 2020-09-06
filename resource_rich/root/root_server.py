@@ -63,7 +63,7 @@ def main(coap_target_port,
     bridge = MQTTCOAPBridge(mqtt_database, coap_target_port)
     coap_site.add_resource(['mqtt'], bridge.coap_connector)
 
-    stereotype = StereotypeServer(keystore)
+    stereotype = StereotypeServer()
     coap_site.add_resource(['stereotype'], stereotype)
 
     # May want to catch other signals too

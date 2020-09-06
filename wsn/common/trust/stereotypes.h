@@ -1,7 +1,7 @@
 #pragma once
 
-#include "edge-info.h"
 #include "stereotype-tags.h"
+#include "trust-model.h"
 
 // This should be the maximum number of tag combinations
 // Likely to get big, so try to keep small
@@ -22,7 +22,7 @@ typedef struct edge_stereotype {
 /*-------------------------------------------------------------------------------------------------------------------*/
 void stereotypes_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool stereotypes_request(edge_resource_t* edge, const stereotype_tags_t* tags);
+bool stereotypes_request(const stereotype_tags_t* tags);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_stereotype_t* edge_stereotype_find(const stereotype_tags_t* tags);
 /*-------------------------------------------------------------------------------------------------------------------*/

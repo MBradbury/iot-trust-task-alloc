@@ -29,20 +29,21 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(stereotypes_memb, edge_stereotype_t, MAX_NUM_STEREOTYPES);
 LIST(stereotypes);
+LIST(stereotypes_requesting);
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(stereotype, "stereotype");
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
 static timed_unlock_t coap_callback_in_use;
-static uint8_t msg_buf[(1) + (1) + IPV6ADDR_CBOR_MAX_LEN + STEREOTYPE_TAGS_CBOR_MAX_LEN];
+static uint8_t msg_buf[(1) + (1) + STEREOTYPE_TAGS_CBOR_MAX_LEN];
 
 _Static_assert(TRUST_MODEL_TAG >= NANOCBOR_MIN_TINY_INTEGER, "TRUST_MODEL_TAG too small");
 _Static_assert(TRUST_MODEL_TAG <= NANOCBOR_MAX_TINY_INTEGER, "TRUST_MODEL_TAG too large");
 /*-------------------------------------------------------------------------------------------------------------------*/
-edge_stereotype_t* edge_stereotype_find(const stereotype_tags_t* tags)
+static edge_stereotype_t* edge_stereotype_find_in_list(const stereotype_tags_t* tags, list_t stereotypes_list)
 {
-    for (edge_stereotype_t* s = list_head(stereotypes); s != NULL; s = list_item_next(s))
+    for (edge_stereotype_t* s = list_head(stereotypes_list); s != NULL; s = list_item_next(s))
     {
         if (stereotype_tags_equal(&s->tags, tags))
         {
@@ -53,30 +54,30 @@ edge_stereotype_t* edge_stereotype_find(const stereotype_tags_t* tags)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int serialise_request(nanocbor_encoder_t* enc, const edge_resource_t* edge, const public_key_item_t* item)
+edge_stereotype_t* edge_stereotype_find(const stereotype_tags_t* tags)
 {
-    nanocbor_fmt_array(enc, 3);
+    return edge_stereotype_find_in_list(tags, stereotypes);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static int serialise_request(nanocbor_encoder_t* enc, const stereotype_tags_t* tags)
+{
+    nanocbor_fmt_array(enc, 2);
 
     // Need to inform the server which trust model we are requesting information for
     NANOCBOR_CHECK(nanocbor_fmt_uint(enc, TRUST_MODEL_TAG));
 
-    // Send the identity of the edge
-    NANOCBOR_CHECK(nanocbor_fmt_ipaddr(enc, &edge->ep.ipaddr));
-
     // Send the Edge's tags
-    NANOCBOR_CHECK(serialise_stereotype_tags(enc, &item->cert.tags));
+    NANOCBOR_CHECK(serialise_stereotype_tags(enc, tags));
 
     return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static int deserialise_response(nanocbor_value_t* dec, uint32_t* model, const uip_ip6addr_t** ipaddr, edge_stereotype_t* stereotype)
+static int deserialise_response(nanocbor_value_t* dec, uint32_t* model, edge_stereotype_t* stereotype)
 {
     nanocbor_value_t arr;
     NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
 
     NANOCBOR_CHECK(nanocbor_get_uint32(&arr, model));
-
-    NANOCBOR_CHECK(nanocbor_get_ipaddr(&arr, ipaddr));
 
     NANOCBOR_CHECK(deserialise_stereotype_tags(&arr, &stereotype->tags));
 
@@ -111,28 +112,14 @@ process_sterotype_response(coap_message_t* response)
     }
 
     uint32_t model = TRUST_MODEL_INVALID_TAG;
-    const uip_ip6addr_t* addr = NULL;
     edge_stereotype_t stereotype;
 
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, payload, payload_len);
-    if (deserialise_response(&dec, &model, &addr, &stereotype) != NANOCBOR_OK)
+    if (deserialise_response(&dec, &model, &stereotype) != NANOCBOR_OK)
     {
         LOG_ERR("Failed to deserialise sterotype payload\n");
         return;
-    }
-
-    edge_resource_t* edge = edge_info_find_addr(addr);
-    if (edge)
-    {
-        // Clear that this edge needs stereotypes requested for it
-        edge->flags &= ~EDGE_RESOURCE_STEREOTYPE_REQUEST;
-    }
-    else
-    {
-        LOG_WARN("Received stereotype information for unknown edge: ");
-        LOG_WARN_6ADDR(addr);
-        LOG_WARN_("\n");
     }
 
     // Unlikely to reach here, as this will likely cause a parsing error earlier
@@ -141,29 +128,28 @@ process_sterotype_response(coap_message_t* response)
         LOG_WARN("Received stereotype for incorrect model %"PRIu32" != " CC_STRINGIFY(TRUST_MODEL_TAG) "\n", model);
         return;
     }
-    
-    // If there is a stereotype already added with the same set of
-    // tags then we need to update it.
-    edge_stereotype_t* s = edge_stereotype_find(&stereotype.tags);
+
+    edge_stereotype_t* s = edge_stereotype_find_in_list(&stereotype.tags, stereotypes_requesting);
     if (s != NULL)
     {
         s->tags = stereotype.tags;
         s->edge_tm = stereotype.edge_tm;
+
+        // Remove from request list and add to actual list
+        list_remove(stereotypes_requesting, s);
+        list_push(stereotypes, s);
+
+        LOG_DBG("Added stereotype for trust model %" PRIu32 " and tag: ", model);
+        stereotype_tags_print(&stereotype.tags);
+        LOG_DBG_("\n");
     }
-    // If not we need to add this sterotype.
     else
     {
-        s = memb_alloc(&stereotypes_memb);
-        if (s == NULL)
-        {
-            LOG_ERR("Insufficient memory for stereotype\n");
-            return;
-        }
-
-        s->tags = stereotype.tags;
-        s->edge_tm = stereotype.edge_tm;
-
-        list_push(stereotypes, s);
+        // At this point something odd has happened,
+        // we received a sterotype for tags that we did not request.
+        LOG_WARN("Received sterotype for tags we did not ask for: ");
+        stereotype_tags_print(&stereotype.tags);
+        LOG_WARN_("\n");
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -205,53 +191,42 @@ send_callback(coap_callback_request_state_t* callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool stereotypes_request(edge_resource_t* edge, const stereotype_tags_t* tags)
+bool stereotypes_request(const stereotype_tags_t* tags)
 {
-    /*public_key_item_t* item = keystore_find_addr(&edge->ep.ipaddr);
-    if (item == NULL)
-    {
-        LOG_ERR("Failed to find keystore entry for ");
-        LOG_ERR_6ADDR(&edge->ep.ipaddr);
-        LOG_ERR_("\n");
-        return false;
-    }*/
-
-    //if (edge_stereotype_find(&item->cert.tags) != NULL)
     if (edge_stereotype_find(tags) != NULL)
     {
         LOG_DBG("No need to request stereotypes for ");
-        LOG_DBG_6ADDR(&edge->ep.ipaddr);
+        stereotype_tags_print(tags);
         LOG_DBG_(" as we already have them\n");
         return false;
     }
 
-    // Set that this edge needs stereotypes requested for it
-    edge->flags |= EDGE_RESOURCE_STEREOTYPE_REQUEST;
+    if (edge_stereotype_find_in_list(tags, stereotypes_requesting) != NULL)
+    {
+        LOG_DBG("No need to request stereotypes for ");
+        stereotype_tags_print(tags);
+        LOG_DBG_(" as we are already requesting them\n");
+        return false;
+    }
+
+    edge_stereotype_t* s = memb_alloc(&stereotypes_memb);
+    if (s == NULL)
+    {
+        LOG_ERR("Insufficient memory for stereotype\n");
+        return false;
+    }
+
+    s->tags = *tags;
+
+    list_push(stereotypes_requesting, s);
 
     process_poll(&stereotype);
 
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool stereotypes_send_request(const edge_resource_t* edge)
+static bool stereotypes_send_request(const stereotype_tags_t* tags)
 {
-    public_key_item_t* item = keystore_find_addr(&edge->ep.ipaddr);
-    if (item == NULL)
-    {
-        LOG_ERR("Failed to find keystore entry for ");
-        LOG_ERR_6ADDR(&edge->ep.ipaddr);
-        LOG_ERR_("\n");
-        return false;
-    }
-
-    if (edge_stereotype_find(&item->cert.tags) != NULL)
-    {
-        LOG_DBG("No need to request stereotypes for ");
-        LOG_DBG_6ADDR(&edge->ep.ipaddr);
-        LOG_DBG_(" as we already have them\n");
-        return false;
-    }
-
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_WARN("Cannot generate a new message, as in process of sending one\n");
@@ -260,7 +235,7 @@ static bool stereotypes_send_request(const edge_resource_t* edge)
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, msg_buf, sizeof(msg_buf));
-    if (serialise_request(&enc, edge, item) != NANOCBOR_OK)
+    if (serialise_request(&enc, tags) != NANOCBOR_OK)
     {
         LOG_ERR("Failed to serialise the sterotype request\n");
         return false;
@@ -287,7 +262,7 @@ static bool stereotypes_send_request(const edge_resource_t* edge)
         LOG_DBG("Stereotype request message sent to ");
         LOG_DBG_COAP_EP(&root_ep);
         LOG_DBG_(" for ");
-        LOG_DBG_6ADDR(&edge->ep.ipaddr);
+        stereotype_tags_print(tags);
         LOG_DBG_("\n");
     }
     else
@@ -302,6 +277,7 @@ void stereotypes_init(void)
 {
     memb_init(&stereotypes_memb);
     list_init(stereotypes);
+    list_init(stereotypes_requesting);
 
     PROCESS_CONTEXT_BEGIN(&stereotype);
     timed_unlock_init(&coap_callback_in_use, "stereotypes", (1 * 60 * CLOCK_SECOND));
@@ -323,15 +299,10 @@ PROCESS_THREAD(stereotype, ev, data)
             // Do not expect this to be the case at this point
             if (!timed_unlock_is_locked(&coap_callback_in_use))
             {
-                // See if there is an edge resource we need to get stereotype information for
-                for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
+                edge_stereotype_t* s = list_head(stereotypes_requesting);
+                if (s)
                 {
-                    // Check if there is a request pending
-                    if ((iter->flags & EDGE_RESOURCE_STEREOTYPE_REQUEST) != 0)
-                    {
-                        stereotypes_send_request(iter);
-                        break;
-                    }
+                    stereotypes_send_request(&s->tags);
                 }
             }
         }
