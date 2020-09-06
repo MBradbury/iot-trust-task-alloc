@@ -54,8 +54,6 @@ typedef struct {
 
     ecc_dsa_sign_state_t ecc_sign_state;
 
-    uint16_t sig_len;
-
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     rtimer_clock_t time;
 #endif
@@ -217,8 +215,6 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     PT_SEM_WAIT(&state->pt, &crypto_processor_mutex);
     LOG_DBG("Crypto processor available (sign)!\n");
 
-    state->sig_len = 0;
-
     uint8_t digest[SHA256_DIGEST_LEN_BYTES];
     uint8_t sha256_ret = sha256_hash(buffer, msg_len, digest);
     if (sha256_ret != CRYPTO_SUCCESS)
@@ -266,13 +262,12 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     // Add signature into the message
     ec_uint32v_to_uint8v(state->ecc_sign_state.point_r.x,   DTLS_EC_KEY_SIZE, buffer + msg_len                   );
     ec_uint32v_to_uint8v(state->ecc_sign_state.signature_s, DTLS_EC_KEY_SIZE, buffer + msg_len + DTLS_EC_KEY_SIZE);
-    state->sig_len = DTLS_EC_KEY_SIZE * 2;
 
 #if 0
     LOG_DBG("Performing sign self-check...\n");
     static verify_state_t test;
     test.process = state->process;
-    PT_SPAWN(&state->pt, &test.pt, ecc_verify(&test, &our_key.pub_key, buffer, msg_len + state->sig_len));
+    PT_SPAWN(&state->pt, &test.pt, ecc_verify(&test, &our_key.pub_key, buffer, msg_len + DTLS_EC_SIG_SIZE));
     LOG_DBG("Sign self-check complete!\n");
 #endif
 
