@@ -72,14 +72,14 @@ int certificate_encode_tbs(nanocbor_encoder_t* enc, const certificate_t* certifi
 static int certificate_decode_tbs(nanocbor_value_t* dec, certificate_t* certificate)
 {
     nanocbor_value_t arr;
-    nanocbor_enter_array(dec, &arr);
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
 
     NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &certificate->serial_number));
 
     NANOCBOR_CHECK(nanocbor_get_bstr_of_len(&arr, certificate->issuer, sizeof(certificate->issuer)));
 
     nanocbor_value_t validity_arr;
-    nanocbor_enter_array(&arr, &validity_arr);
+    NANOCBOR_CHECK(nanocbor_enter_array(&arr, &validity_arr));
     NANOCBOR_CHECK(nanocbor_get_uint32(&validity_arr, &certificate->validity_not_before));
     NANOCBOR_CHECK(nanocbor_get_uint32(&validity_arr, &certificate->validity_not_after));
 
