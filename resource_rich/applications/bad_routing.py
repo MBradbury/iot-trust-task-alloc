@@ -4,7 +4,7 @@ import logging
 import random
 import asyncio
 
-from challenge_response import ChallengeResponseClient as ChallengeResponseClientGood, NAME
+from routing import RoutingClient as RoutingClientGood, NAME, _format_route
 import client_common
 from bad import PeriodicBad
 
@@ -13,8 +13,13 @@ logger = logging.getLogger(f"app-{NAME}-bad")
 logger.setLevel(logging.DEBUG)
 
 MISBEHAVE_CHOICES = ["bad-response", "no-response"]
+BAD_RESPONSE_CHOICES = ["success", "no_route", "gave_up"]
 
-class ChallengeResponseClientBad(ChallengeResponseClientGood):
+# From: https://gist.github.com/botzill/fc2a1581873200739f6dc5c1daf85a7d
+GBR_LAT_LONG_NOTH_EAST = (61.061, 2.0919117)
+GBR_LAT_LONG_SOUTH_WEST = (49.674, -14.015517)
+
+class RoutingClientBad(RoutingClientGood):
     def __init__(self, approach, duration):
         super().__init__()
 
@@ -46,9 +51,34 @@ class ChallengeResponseClientBad(ChallengeResponseClientGood):
             # 2. Don't send any response
 
             if selected_approach == "bad-response":
-                # A bad message response
-                message_response = (b'', 0)
-                await self._write_task_result(dest, message_response)
+                # Pick which bad response to send
+                selected_bad_response = random.choice(BAD_RESPONSE_CHOICES)
+
+                logger.debug(f"Selected bad response {selected_bad_response}")
+
+                if selected_bad_response == "success":
+                    # Need to generate some random points for the route
+
+                    route_length = random.randint(10, 20)
+
+                    route_coords = [
+                        (random.uniform(GBR_LAT_LONG_SOUTH_WEST[0], GBR_LAT_LONG_NOTH_EAST[0]),
+                         random.uniform(GBR_LAT_LONG_SOUTH_WEST[1], GBR_LAT_LONG_NOTH_EAST[1]))
+
+                        for x in range(route_length)
+                    ]
+
+                    message_response = (0, _format_route(route_coords))
+
+                elif selected_bad_response == "no_route":
+                    message_response = (1, None)
+                elif selected_bad_response == "gave_up":
+                    message_response = (2, None)
+                else:
+                    message_response = (3, None)
+
+                # Send the bad message response
+                await super()._send_result(dest, message_response)
 
             elif selected_approach == "no-response":
                 # Nothing to do
@@ -69,6 +99,6 @@ if __name__ == "__main__":
     parser.add_argument('--duration', type=float, required=True, help='How long will this application misbehave for in seconds')
     args = parser.parse_args()
 
-    client = ChallengeResponseClientBad(args.approach, args.duration)
+    client = RoutingClientBad(args.approach, args.duration)
 
     client_common.main(NAME, client)

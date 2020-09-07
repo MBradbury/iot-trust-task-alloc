@@ -9,13 +9,15 @@ import ipaddress
 from config import serial_sep
 import client_common
 
+NAME = "envmon"
+
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("app-monitoring")
+logger = logging.getLogger(f"app-{NAME}")
 logger.setLevel(logging.DEBUG)
 
 class MonitoringClient(client_common.Client):
     def __init__(self):
-        super().__init__("envmon")
+        super().__init__(NAME)
 
     async def receive(self, message: str):
         try:
@@ -39,4 +41,4 @@ class MonitoringClient(client_common.Client):
 if __name__ == "__main__":
     client = MonitoringClient()
 
-    client_common.main("monitoring", client)
+    client_common.main(NAME, client)

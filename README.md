@@ -42,7 +42,7 @@ cd iot-trust-task-alloc && git submodule update --init
 sudo apt-get install mosquitto mosquitto-clients
 sudo apt-get install libcoap2-bin
 sudo apt-get install build-essential git
-python3 -m pip install asyncio-mqtt cryptography
+python3 -m pip install asyncio-mqtt cryptography more_itertools
 python3 -m pip install --upgrade "git+https://github.com/chrysn/aiocoap#egg=aiocoap[all]"
 ```
 
@@ -90,7 +90,7 @@ pipenv install
 1. Install dependancies
 
 ```bash
-python3 -m pip install cbor2 pyroutelib3
+python3 -m pip install cbor2 pyroutelib3 more_itertools
 python3 -m pip install --upgrade "git+https://github.com/chrysn/aiocoap#egg=aiocoap[all]"
 ```
 

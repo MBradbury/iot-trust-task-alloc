@@ -16,8 +16,10 @@ import hashlib
 from config import application_edge_marker, serial_sep
 import client_common
 
+NAME = "cr"
+
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("app-challenge-response")
+logger = logging.getLogger(f"app-{NAME}")
 logger.setLevel(logging.DEBUG)
 
 class ChallengeResponseClient(client_common.Client):
@@ -26,7 +28,7 @@ class ChallengeResponseClient(client_common.Client):
     task_stats_prefix = f"app{serial_sep}stats{serial_sep}"
 
     def __init__(self):
-        super().__init__("cr")
+        super().__init__(NAME)
         self.stats = Statistics()
         self.executor = ProcessPoolExecutor(max_workers=1)
 
@@ -149,4 +151,4 @@ def _task_runner(task):
 if __name__ == "__main__":
     client = ChallengeResponseClient()
 
-    client_common.main("cr", client)
+    client_common.main(NAME, client)

@@ -13,19 +13,16 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 import math
 import base64
+from more_itertools import chunked
 
 from config import application_edge_marker, serial_sep
 import client_common
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("app-routing")
-logger.setLevel(logging.DEBUG)
+NAME = "routing"
 
-# From: https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(f"app-{NAME}")
+logger.setLevel(logging.DEBUG)
 
 class RoutingClient(client_common.Client):
 
@@ -34,7 +31,7 @@ class RoutingClient(client_common.Client):
     task_stats_prefix = f"app{serial_sep}stats{serial_sep}"
 
     def __init__(self):
-        super().__init__("routing")
+        super().__init__(NAME)
         self.stats = Statistics()
         self.executor = ProcessPoolExecutor(max_workers=1)
 
@@ -121,7 +118,7 @@ class RoutingClient(client_common.Client):
                 f"per_item_cost={per_item_cost}, "
                 f"per_item_cost_b64={per_item_cost_b64}]")
 
-            route_chunks = list(chunks(route, elements))
+            route_chunks = list(chunked(route, elements))
 
             await self._write_task_result_result(dest, status, len(route_chunks))
 
@@ -167,15 +164,15 @@ class RoutingClient(client_common.Client):
 
         return base64.b64encode(cbor2.dumps(data)).decode("utf-8")
 
+
+def truncate_float(x):
+    return struct.unpack("f", struct.pack("f", x))[0]
+
 def _format_route(route):
     # By default using canonical=True will try to format floats
     # in the smallest possible representation.
     # As we only plan on using 4 byte floats on the sensor nodes,
     # we can save space by forcing the coordinates to fit in a 4 byte float.
-
-    def truncate_float(x):
-        return struct.unpack("f", struct.pack("f", x))[0]
-
     return [
         (truncate_float(lat), truncate_float(lon))
         for (lat, lon)
@@ -214,4 +211,4 @@ def _task_runner(task):
 if __name__ == "__main__":
     client = RoutingClient()
 
-    client_common.main("routing", client)
+    client_common.main(NAME, client)

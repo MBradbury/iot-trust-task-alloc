@@ -22,7 +22,7 @@ parser.add_argument("--firmware_type", choices=["contiki", "riot"], default="con
 
 # From: https://stackoverflow.com/questions/8526675/python-argparse-optional-append-argument-with-choices
 class ApplicationAction(argparse.Action):
-    CHOICES = ["challenge_response", "monitoring", "routing", "bad_challenge_response"]
+    CHOICES = ["challenge_response", "monitoring", "routing", "bad_challenge_response", "bad_routing"]
     def __call__(self, parser, namespace, values, option_string=None):
         if values:
             value = values[0]
