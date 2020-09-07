@@ -216,10 +216,10 @@ challenge_response_timed_out(void)
         {
             LOG_WARN("Failed to receive challenge response from ");
             LOG_WARN_6ADDR(&next_challenge->edge->ep.ipaddr);
-            LOG_WARN_(" in a suitable time (gen=%lu,recv=%lu,diff=%lu,dur=%lu)\n",
+            LOG_WARN_(" in a suitable time (gen=%lu,recv=%lu,diff=%lu,dur=%ld)\n",
                 next_challenge->generated,
                 next_challenge->received,
-                next_challenge->received - next_challenge->generated,
+                (int32_t)(next_challenge->received - next_challenge->generated),
                 duration
             );
 
