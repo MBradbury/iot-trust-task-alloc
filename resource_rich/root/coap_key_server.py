@@ -23,7 +23,7 @@ logger.setLevel(logging.DEBUG)
 class InvalidAddressRequest(error.BadRequest):
     message = "Error: Invalid IP Address requested"
 
-class UnknownAddressRequest(error.NotFound):
+class UnknownAddressRequest(error.BadRequest):
     message = "Error: Unknown IP Address requested"
 
 class InvalidSignatureRequest(error.BadRequest):
