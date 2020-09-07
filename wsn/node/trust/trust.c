@@ -291,6 +291,11 @@ static void init(void)
 
     coap_activate_resource(&res_trust, TRUST_COAP_URI);
 
+    // TODO: once Group OSCORE is ready
+/*#ifdef WITH_OSCORE
+    oscore_protect_resource(&res_trust);
+#endif*/
+
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
 
     memb_init(&trust_tx_memb);

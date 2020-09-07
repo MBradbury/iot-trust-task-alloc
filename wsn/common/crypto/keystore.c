@@ -133,6 +133,7 @@ keystore_add(const certificate_t* cert)
     item = keystore_find_in_list(cert->subject, public_keys_to_verify);
     if (item)
     {
+        // Poll to ensure that the process is making progress with the certificates to verify
         process_poll(&keystore_add_verifier);
         return true;
     }
