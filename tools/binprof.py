@@ -107,7 +107,8 @@ def classify(symb, other="other"):
         if symb.name in ("pe_edge_capability_add", "pe_edge_capability_remove"):
             return "petras/trust"
 
-        if symb.name in ("pe_message_signed", "pe_message_signed", "pe_message_verified", "root_key", "our_key"):
+        if symb.name in ("pe_message_signed", "pe_message_signed", "pe_message_verified",
+                         "root_cert", "our_cert", "our_privkey"):
             return "petras/crypto"
         if symb.name.startswith(("verify_state.", "sign_state.", "ecdh2_unver_state.", "ecdh2_req_state.",
                                  "pkitem.", "sitem.", "vitem.")):
@@ -173,22 +174,31 @@ def classify_all(symbs, other="other"):
     for symb in symbs:
         result[classify(symb, other=other)].append(symb)
 
-    return result
+    return dict(result)
 
-classified_ram_symb = classify_all(ram_symb, other="contiki-ng")
+other = "contiki-ng"
+#other = "other"
+
+classified_ram_symb = classify_all(ram_symb, other=other)
 
 #pprint(classified_ram_symb)
-#pprint(classified_ram_symb["other"])
+try:
+    pprint(classified_ram_symb["other"])
+except KeyError:
+    pass
 
 summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
 #pprint(summarised_ram_symb)
 
 
 
-classified_flash_symb = classify_all(flash_symb, other="contiki-ng")
+classified_flash_symb = classify_all(flash_symb, other=other)
 
 #print(classified_flash_symb)
-#pprint(classified_flash_symb["other"])
+try:
+    pprint(classified_flash_symb["other"])
+except KeyError:
+    pass
 
 summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
 #pprint(summarised_flash_symb)
