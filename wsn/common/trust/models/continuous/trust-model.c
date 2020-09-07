@@ -134,11 +134,11 @@ void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, co
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info)
 {
-    LOG_INFO("Updating Edge %s Cap %s TM task_result (good=%d): ", edge_info_name(edge), cap->name, info->good);
+    LOG_INFO("Updating Edge %s Cap %s TM task_result (result=%d): ", edge_info_name(edge), cap->name, info->result);
     beta_dist_print(&edge->tm.task_result);
     LOG_INFO_(" -> ");
 
-    if (info->good)
+    if (info->result == TM_TASK_RESULT_INFO_SUCCESS)
     {
         beta_dist_add_good(&edge->tm.task_result);
     }

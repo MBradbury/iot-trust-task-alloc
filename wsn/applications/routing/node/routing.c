@@ -133,7 +133,10 @@ static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
     edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
-    edge_capability_t* cap = edge_info_capability_find(edge, MONITORING_APPLICATION_NAME);
+    assert(edge != NULL);
+
+    edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
+    assert(cap != NULL);
 
     tm_task_submission_info_t info = {
         .coap_status = NO_ERROR,
@@ -374,7 +377,7 @@ routing_response_process_status(coap_message_t *request)
 
         // Update trust model with notification of task success/failure
         const tm_task_result_info_t info = {
-            .good = (status == ROUTING_SUCCESS)
+            .result = (status == ROUTING_SUCCESS) ? TM_TASK_RESULT_INFO_SUCCESS : TM_TASK_RESULT_INFO_FAIL
         };
         tm_update_task_result(edge, cap, &info);
     }
@@ -384,6 +387,34 @@ routing_response_process_status(coap_message_t *request)
         LOG_ERR_6ADDR(&request->src_ep->ipaddr);
         LOG_ERR_(") to update trust of\n");
     }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+routing_process_task_timeout(void)
+{
+    LOG_WARN("Timed out while waiting for response for the routing task\n");
+
+    edge_resource_t* edge = (edge_resource_t*)coap_callback.state.user_data;
+    if (!edge)
+    {
+        LOG_ERR("Unable to find edge this task was sent to: ");
+        LOG_ERR_COAP_EP(coap_callback.state.remote_endpoint);
+        LOG_ERR_("\n");
+    }
+
+    edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
+    if (!cap)
+    {
+        LOG_ERR("Failed to find capability " ROUTING_APPLICATION_NAME " for edge ");
+        LOG_ERR_COAP_EP(coap_callback.state.remote_endpoint);
+        LOG_ERR_("\n");
+    }
+
+    // When the response times out, we need to log that an error occurred
+    const tm_task_result_info_t info = {
+        .result = TM_TASK_RESULT_INFO_TIMEOUT
+    };
+    tm_update_task_result(edge, cap, &info);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -413,6 +444,9 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
     LOG_DBG("Received routing data uri=%.*s, payload_len=%d from ", uri_len, uri_path, payload_len);
     LOG_DBG_COAP_EP(request->src_ep);
     LOG_DBG_("\n");
+
+    // Got a response within the time limit, so restart the timer for the next packet
+    timed_unlock_restart_timer(&task_in_use);
 
     if (!coap_is_option(request, COAP_OPTION_BLOCK1))
     {
@@ -545,7 +579,7 @@ init(void)
 
     capability_count = 0;
     timed_unlock_init(&coap_callback_in_use, "routing-coap", (1 * 60 * CLOCK_SECOND));
-    timed_unlock_init(&task_in_use, "routing-task", (4 * 60 * CLOCK_SECOND));
+    timed_unlock_init(&task_in_use, "routing-task", (1 * 60 * CLOCK_SECOND));
 
 #ifdef ROUTING_PERIODIC_TEST
     routing_periodic_test_init();
@@ -575,7 +609,7 @@ PROCESS_THREAD(routing_process, ev, data)
         }
 
         if (ev == pe_timed_unlock_unlocked && data == &task_in_use) {
-            // TODO: Need to consider how to handle giving up on receiving a task response
+            routing_process_task_timeout();
         }
     }
 

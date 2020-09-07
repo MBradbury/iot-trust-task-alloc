@@ -50,8 +50,14 @@ typedef struct {
     coap_request_status_t coap_request_status;
 } tm_task_submission_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
+typedef enum {
+    TM_TASK_RESULT_INFO_SUCCESS = 0,
+    TM_TASK_RESULT_INFO_FAIL = 1,
+    TM_TASK_RESULT_INFO_TIMEOUT = 2
+} tm_task_result_type_t;
+
 typedef struct {
-    bool good;
+    tm_task_result_type_t result;
 } tm_task_result_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
@@ -67,11 +73,11 @@ typedef struct {
 } tm_result_latency_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef enum {
-    TM_CHALLENGE_RESPONSE_ACK,
-    TM_CHALLENGE_RESPONSE_TIMEOUT,
-    TM_CHALLENGE_RESPONSE_RESP
+    TM_CHALLENGE_RESPONSE_ACK = 0,
+    TM_CHALLENGE_RESPONSE_TIMEOUT = 1,
+    TM_CHALLENGE_RESPONSE_RESP = 2
 } tm_challenge_response_type_t;
-/*-------------------------------------------------------------------------------------------------------------------*/
+
 typedef struct {
     tm_challenge_response_type_t type;
 

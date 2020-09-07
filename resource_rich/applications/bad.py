@@ -2,7 +2,7 @@ import logging
 import asyncio
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("periodic-bad")
+logger = logging.getLogger("bad-application")
 logger.setLevel(logging.DEBUG)
 
 class PeriodicBad:
