@@ -254,14 +254,6 @@ static PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_le
     ec_uint32v_to_uint8v(state->ecc_sign_state.point_r.x,   DTLS_EC_KEY_SIZE, buffer + msg_len                   );
     ec_uint32v_to_uint8v(state->ecc_sign_state.signature_s, DTLS_EC_KEY_SIZE, buffer + msg_len + DTLS_EC_KEY_SIZE);
 
-#if 0
-    LOG_DBG("Performing sign self-check...\n");
-    static verify_state_t test;
-    test.process = state->process;
-    PT_SPAWN(&state->pt, &test.pt, ecc_verify(&test, &our_key.pub_key, buffer, msg_len + DTLS_EC_SIG_SIZE));
-    LOG_DBG("Sign self-check complete!\n");
-#endif
-
     PT_END(&state->pt);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
