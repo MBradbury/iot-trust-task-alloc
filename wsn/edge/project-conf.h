@@ -27,8 +27,5 @@
 // TODO: Probably needs to be 512
 //#define SERIAL_LINE_CONF_BUFSIZE 256
 
-// Define device tags here
-#define DEVICE_CLASS DEVICE_CLASS_RASPBERRY_PI
-
 // We are using 256 bit ECC, so can decrease RAM cost a bit here
 #define ECC_MAXIMUM_LENGTH 8

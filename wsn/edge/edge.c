@@ -26,10 +26,6 @@ const char* const application_names[APPLICATION_NUM] = APPLICATION_NAMES;
 bool applications_available[APPLICATION_NUM];
 bool resource_rich_edge_started;
 /*-------------------------------------------------------------------------------------------------------------------*/
-const stereotype_tags_t stereotype_tags = {
-    .device_class = DEVICE_CLASS
-};
-/*-------------------------------------------------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process,
                     &keystore_request, &keystore_add_verifier,
                     APPLICATION_PROCESSES);
@@ -204,3 +200,4 @@ PROCESS_THREAD(edge, ev, data)
 
     PROCESS_END();
 }
+/*-------------------------------------------------------------------------------------------------------------------*/
