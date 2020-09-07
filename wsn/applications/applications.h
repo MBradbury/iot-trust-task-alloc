@@ -35,8 +35,10 @@ typedef struct {
 /*-------------------------------------------------------------------------------------------------------------------*/
 void application_stats_init(application_stats_t* application_stats);
 /*-------------------------------------------------------------------------------------------------------------------*/
-int format_application_stats(const application_stats_t* application_stats, uint8_t* buffer, size_t len);
-int format_nil_application_stats(uint8_t* buffer, size_t len);
+#define APPLICATION_STATS_MAX_CBOR_LENGTH ((1) + (1 + 4)*4)
+
+int application_stats_serialise(const application_stats_t* application_stats, uint8_t* buffer, size_t len);
+int application_stats_nil_serialise(uint8_t* buffer, size_t len);
 /*-------------------------------------------------------------------------------------------------------------------*/
-int get_application_stats(nanocbor_value_t* dec, application_stats_t* application_stats);
+int application_stats_deserialise(nanocbor_value_t* dec, application_stats_t* application_stats);
 /*-------------------------------------------------------------------------------------------------------------------*/

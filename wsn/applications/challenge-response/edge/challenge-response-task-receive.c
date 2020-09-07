@@ -39,7 +39,7 @@ RESOURCE(res_coap,
          NULL,                         /*PUT*/
          NULL                          /*DELETE*/);
 
-static uint8_t response_buffer[(1) + (1 + 4)*4];
+static uint8_t response_buffer[APPLICATION_STATS_MAX_CBOR_LENGTH];
 
 static void
 post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
@@ -67,11 +67,11 @@ post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer,
     // TODO: need to implement some sort of ack feature
 
     // Set response - the stats of how long jobs might take
-    int len = format_application_stats(&cr_stats, response_buffer, sizeof(response_buffer));
+    int len = application_stats_serialise(&cr_stats, response_buffer, sizeof(response_buffer));
     if (len <= 0)
     {
         LOG_ERR("Failed to include job stats in response\n");
-        len = format_nil_application_stats(response_buffer, sizeof(response_buffer));
+        len = application_stats_nil_serialise(response_buffer, sizeof(response_buffer));
     }
 
     if (len >= 0)

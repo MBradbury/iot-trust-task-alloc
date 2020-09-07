@@ -35,22 +35,22 @@ process_task_stats(const char* data, const char* data_end)
 {
     application_stats_t scn;
 
-    uint8_t buffer[(1) + (1 + 4)*4];
+    uint8_t buffer[APPLICATION_STATS_MAX_CBOR_LENGTH];
     size_t buffer_len = sizeof(buffer);
     if (!base64_decode(data, data_end - data, buffer, &buffer_len))
     {
-        LOG_ERR("!base64_decode 1\n");
+        LOG_ERR("!base64_decode\n");
         return -1;
     }
 
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, buffer, buffer_len);
 
-    NANOCBOR_CHECK(get_application_stats(&dec, &scn));
+    NANOCBOR_CHECK(application_stats_deserialise(&dec, &scn));
 
     if (!nanocbor_at_end(&dec))
     {
-        LOG_ERR("!nanocbor_at_end 3\n");
+        LOG_ERR("!nanocbor_at_end\n");
         return -1;
     }
 
@@ -125,7 +125,7 @@ process_task_resp_send_result(size_t len)
 {
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
-        LOG_ERR("CoAP coallback in use so cannot send task response\n");
+        LOG_ERR("CoAP callback in use so cannot send task response\n");
         return false;
     }
 
@@ -137,6 +137,10 @@ process_task_resp_send_result(size_t len)
     coap_set_payload(&msg, msg_buf, len);
 
     coap_set_random_token(&msg);
+
+#ifdef WITH_OSCORE
+    keystore_protect_coap_with_oscore(&msg, &ep);
+#endif
 
     ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)

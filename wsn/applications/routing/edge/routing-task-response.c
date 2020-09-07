@@ -35,7 +35,7 @@ process_task_stats(const char* data, const char* data_end)
 {
     application_stats_t scn;
 
-    uint8_t buffer[(1) + (1 + 4)*4];
+    uint8_t buffer[APPLICATION_STATS_MAX_CBOR_LENGTH];
     size_t buffer_len = sizeof(buffer);
     if (!base64_decode(data, data_end - data, buffer, &buffer_len))
     {
@@ -46,11 +46,11 @@ process_task_stats(const char* data, const char* data_end)
     nanocbor_value_t dec;
     nanocbor_decoder_init(&dec, buffer, buffer_len);
 
-    NANOCBOR_CHECK(get_application_stats(&dec, &scn));
+    NANOCBOR_CHECK(application_stats_deserialise(&dec, &scn));
 
     if (!nanocbor_at_end(&dec))
     {
-        LOG_ERR("!nanocbor_leave_container\n");
+        LOG_ERR("!nanocbor_at_end\n");
         return -1;
     }
 
@@ -185,6 +185,10 @@ process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
 
     coap_set_random_token(&msg);
 
+#ifdef WITH_OSCORE
+    keystore_protect_coap_with_oscore(&msg, &ep);
+#endif
+
     // i starts at 0
     const bool coap_block1_more = ((i + 1) != n);
 
@@ -301,11 +305,12 @@ routing_taskresp_process_serial_input(const char* data)
     }
     data += strlen(SERIAL_SEP);
 
+    bool should_ack = true;
+
     if (match_action(data, data_end, "stats" SERIAL_SEP))
     {
         data += strlen("stats" SERIAL_SEP);
         process_task_stats(data, data_end);
-        ack_serial_input();
     }
     else if (match_action(data, data_end, "resp1" SERIAL_SEP))
     {
@@ -314,10 +319,7 @@ routing_taskresp_process_serial_input(const char* data)
 
         // Only send an ack if we failed to send a message.
         // Do not ack here on success, as we need to do so after we are ready to send the next message.
-        if (!result)
-        {
-            ack_serial_input();
-        }
+        should_ack = !result;
     }
     else if (match_action(data, data_end, "resp2" SERIAL_SEP))
     {
@@ -326,14 +328,16 @@ routing_taskresp_process_serial_input(const char* data)
 
         // Only send an ack if we failed to send a message.
         // Do not ack here on success, as we need to do so after we are ready to send the next message.
-        if (!result)
-        {
-            ack_serial_input();
-        }
+        should_ack = !result;
     }
     else
     {
         LOG_ERR("Unknown action '%s'\n", data);
+    }
+
+    if (should_ack)
+    {
+        ack_serial_input();
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -82,7 +82,7 @@ void application_stats_init(application_stats_t* application_stats)
     application_stats->variance = 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-int format_application_stats(const application_stats_t* application_stats, uint8_t* buffer, size_t len)
+int application_stats_serialise(const application_stats_t* application_stats, uint8_t* buffer, size_t len)
 {
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, buffer, len);
@@ -96,7 +96,7 @@ int format_application_stats(const application_stats_t* application_stats, uint8
     return nanocbor_encoded_len(&enc);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-int format_nil_application_stats(uint8_t* buffer, size_t len)
+int application_stats_nil_serialise(uint8_t* buffer, size_t len)
 {
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, buffer, len);
@@ -106,7 +106,7 @@ int format_nil_application_stats(uint8_t* buffer, size_t len)
     return nanocbor_encoded_len(&enc);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-int get_application_stats(nanocbor_value_t* dec, application_stats_t* application_stats)
+int application_stats_deserialise(nanocbor_value_t* dec, application_stats_t* application_stats)
 {
     nanocbor_value_t arr;
     NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
@@ -118,7 +118,7 @@ int get_application_stats(nanocbor_value_t* dec, application_stats_t* applicatio
 
     if (!nanocbor_at_end(&arr))
     {
-        LOG_ERR("!nanocbor_leave_container\n");
+        LOG_ERR("!nanocbor_at_end\n");
         return -1;
     }
 
