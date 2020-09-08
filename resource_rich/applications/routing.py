@@ -2,20 +2,15 @@
 
 import cbor2
 from pyroutelib3 import Router
-from runstats import Statistics
 
-import asyncio
 import logging
-from datetime import datetime
-import ipaddress
 import struct
 import time
-from concurrent.futures import ProcessPoolExecutor
 import math
 import base64
 from more_itertools import chunked
 
-from config import application_edge_marker, serial_sep
+from config import serial_sep
 import client_common
 
 NAME = "routing"
@@ -24,60 +19,61 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(f"app-{NAME}")
 logger.setLevel(logging.DEBUG)
 
+def truncate_float(x: float) -> float:
+    return struct.unpack("f", struct.pack("f", x))[0]
+
+def _format_route(route):
+    # By default using canonical=True will try to format floats
+    # in the smallest possible representation.
+    # As we only plan on using 4 byte floats on the sensor nodes,
+    # we can save space by forcing the coordinates to fit in a 4 byte float.
+    return [
+        (truncate_float(lat), truncate_float(lon))
+        for (lat, lon)
+        in route
+    ]
+
+def _task_runner(task):
+    (src, dt, (node_time, routing_source, routing_destination)) = task
+
+    logger.debug(f"Received message at {dt} from {src} <node_time={node_time}, "
+            f"routing_source={routing_source}, "
+            f"routing_destination={routing_destination}>")
+
+    start_timer = time.perf_counter()
+
+    router = Router("car")
+
+    start = router.findNode(routing_source[0], routing_source[1])
+    end = router.findNode(routing_destination[0], routing_destination[1])
+
+    status, route = router.doRoute(start, end)
+    if status == "success":
+        route_coords = [router.nodeLatLon(x) for x in route]
+        encoded_route = (0, _format_route(route_coords))
+    elif status == "no_route":
+        encoded_route = (1, None)
+    elif status == "gave_up":
+        encoded_route = (2, None)
+    else:
+        logger.error(f"Unknown result '{status}'")
+        encoded_route = (3, None)
+
+    end_timer = time.perf_counter()
+    duration = end_timer - start_timer
+
+    encoded_route_len = 0 if encoded_route[1] is None else len(encoded_route[1])
+    logger.debug(f"Job {task} took {duration} seconds with status {status} route length = {encoded_route_len}")
+
+    return (src, encoded_route, duration)
+
 class RoutingClient(client_common.Client):
 
     task_resp1_prefix = f"app{serial_sep}resp1{serial_sep}"
     task_resp2_prefix = f"app{serial_sep}resp2{serial_sep}"
-    task_stats_prefix = f"app{serial_sep}stats{serial_sep}"
 
     def __init__(self):
-        super().__init__(NAME)
-        self.stats = Statistics()
-        self.executor = ProcessPoolExecutor(max_workers=1)
-
-        self.ack_cond = asyncio.Condition()
-
-    async def stop(self):
-        self.executor.shutdown()
-
-        await super().stop()
-
-    async def receive(self, message: str):
-        if message.endswith(f"{serial_sep}ack"):
-            async with self.ack_cond:
-                self.ack_cond.notify()
-            return
-
-        try:
-            dt, src, payload_len, payload = message.split(serial_sep, 3)
-
-            dt = datetime.fromisoformat(dt)
-            src = ipaddress.IPv6Address(src)
-            payload_len = int(payload_len)
-            payload = cbor2.loads(bytes.fromhex(payload))
-
-            (time, routing_source, routing_destination) = payload
-
-            logger.debug(f"Received message at {dt} from {src} <time={time}, "
-                f"routing_source={routing_source}, "
-                f"routing_destination={routing_destination}>")
-
-        except Exception as ex:
-            logger.error(f"Failed to parse message '{message}' with {ex}")
-            return
-
-        task = (src, routing_source, routing_destination)
-
-        loop = asyncio.get_running_loop()
-        task_result = await loop.run_in_executor(self.executor, _task_runner, task)
-
-        (dest, message_response, duration) = task_result
-        
-        # Update the average time taken to perform jobs
-        # TODO: should this be EWMA
-        self.stats.push(duration)
-
-        await self._send_result(dest, message_response)
+        super().__init__(NAME, task_runner=_task_runner, max_workers=2)
 
     async def _send_result(self, dest, message_response):
         status, route = message_response
@@ -128,10 +124,6 @@ class RoutingClient(client_common.Client):
         else:
             await self._write_task_result_result(dest, status, 0)
 
-    async def _write_task_stats(self):
-        await self._write_to_application(f"{self.task_stats_prefix}{self._stats_string()}")
-        await self._receive_ack()
-
     async def _write_task_result_result(self, dest, status, n):
         await self._write_to_application(f"{self.task_resp1_prefix}{dest}{serial_sep}{n}{serial_sep}{status}")
         await self._receive_ack()
@@ -146,67 +138,6 @@ class RoutingClient(client_common.Client):
         await self._write_to_application(f"{self.task_resp2_prefix}{i}/{n}{serial_sep}{encoded}")
         await self._receive_ack()
 
-    async def _receive_ack(self):
-        async with self.ack_cond:
-            await self.ack_cond.wait()
-
-    def _stats_string(self):
-        try:
-            variance = int(math.ceil(self.stats.variance()))
-        except ZeroDivisionError:
-            variance = 0
-
-        mean = int(math.ceil(self.stats.mean()))
-        maximum = int(math.ceil(self.stats.maximum()))
-        minimum = int(math.ceil(self.stats.minimum()))
-
-        data = [mean, maximum, minimum, variance]
-
-        return base64.b64encode(cbor2.dumps(data)).decode("utf-8")
-
-
-def truncate_float(x):
-    return struct.unpack("f", struct.pack("f", x))[0]
-
-def _format_route(route):
-    # By default using canonical=True will try to format floats
-    # in the smallest possible representation.
-    # As we only plan on using 4 byte floats on the sensor nodes,
-    # we can save space by forcing the coordinates to fit in a 4 byte float.
-    return [
-        (truncate_float(lat), truncate_float(lon))
-        for (lat, lon)
-        in route
-    ]
-
-def _task_runner(task):
-    (src, routing_source, routing_destination) = task
-
-    start_timer = time.perf_counter()
-
-    router = Router("car")
-
-    start = router.findNode(routing_source[0], routing_source[1])
-    end = router.findNode(routing_destination[0], routing_destination[1])
-
-    status, route = router.doRoute(start, end)
-    if status == "success":
-        route_coords = [router.nodeLatLon(x) for x in route]
-        encoded_route = (0, _format_route(route_coords))
-    elif status == "no_route":
-        encoded_route = (1, None)
-    elif status == "gave_up":
-        encoded_route = (2, None)
-    else:
-        logger.error(f"Unknown result '{status}'")
-        encoded_route = (3, None)
-
-    end_timer = time.perf_counter()
-
-    encoded_route_len = 0 if encoded_route[1] is None else len(encoded_route[1])
-    logger.debug(f"Job {task} took {end_timer - start_timer} seconds with status {status} route length = {encoded_route_len}")
-
-    return (src, encoded_route, end_timer - start_timer)
 
 if __name__ == "__main__":
     client = RoutingClient()

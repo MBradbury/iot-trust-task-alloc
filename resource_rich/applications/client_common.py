@@ -1,6 +1,14 @@
 import logging
 import asyncio
 import signal
+import ipaddress
+from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor
+import math
+import base64
+
+import cbor2
+from runstats import Statistics
 
 from config import application_edge_marker, serial_sep, edge_server_port
 
@@ -9,19 +17,26 @@ logger = logging.getLogger("app-client")
 logger.setLevel(logging.DEBUG)
 
 class Client:
-    def __init__(self, name):
+
+    # This comes from Contiki-NG's circular buffer
+    # Currently there is no way to increase this value
+    max_serial_len = 128
+
+    task_stats_prefix = f"app{serial_sep}stats{serial_sep}"
+
+    def __init__(self, name, task_runner, max_workers=2):
         self.name = name
         self.reader = None
         self.writer = None
 
-        # This comes from Contiki-NG's circular buffer
-        # Currently there is no way to increase this value
-        self.max_serial_len = 128
-
         self.message_prefix = f"{application_edge_marker}{self.name}{serial_sep}"
 
-    async def receive(self, message: str):
-        raise NotImplementedError()
+        self.stats = Statistics()
+        self.executor = ProcessPoolExecutor(max_workers=max_workers)
+        self._task_runner = task_runner
+
+        self.ack_cond = asyncio.Condition()
+        self.response_lock = asyncio.Lock()
 
     async def start(self):
         self.reader, self.writer = await asyncio.open_connection('localhost', edge_server_port)
@@ -43,11 +58,19 @@ class Client:
 
             line = line.decode("utf-8").rstrip()
 
+            # Process ack
+            if line.endswith(f"{serial_sep}ack"):
+                async with self.ack_cond:
+                    self.ack_cond.notify()
+                continue
+
             # Create task here to allow multiple jobs from clients to be
-            # processed simultaneously (fi they wish)
+            # processed simultaneously (if they wish)
             asyncio.create_task(self.receive(line))
 
     async def stop(self):
+        self.executor.shutdown()
+
         # When stopping, we need to inform the edge that this application is no longer available
         await self._inform_application_stopped()
 
@@ -56,6 +79,47 @@ class Client:
 
         self.reader = None
         self.writer = None
+
+    async def receive(self, message: str):
+        try:
+            dt, src, payload_len, payload = message.split(serial_sep, 3)
+
+            dt = datetime.fromisoformat(dt)
+            src = ipaddress.IPv6Address(src)
+            payload_len = int(payload_len)
+            payload = bytes.fromhex(payload)
+
+            if len(payload) != payload_len:
+                logger.error(f"Incorrect payload length, expected {payload_len}, actual {len(payload)}")
+                return
+
+            payload = cbor2.loads(payload)
+
+            logger.debug(f"Received task at {dt} from {src} <payload={payload}>")
+
+        except Exception as ex:
+            logger.error(f"Failed to parse message '{message}' with {ex}")
+            return
+
+        loop = asyncio.get_running_loop()
+        task_result = await loop.run_in_executor(self.executor, self._task_runner, (src, dt, payload))
+
+        (dest, message_response, duration) = task_result
+
+        # Update the average time taken to perform jobs
+        # TODO: should this be EWMA?
+        self.stats.push(duration)
+
+        # Only 1 response can be sent at a given time
+        async with self.response_lock:
+            await self._send_result(dest, message_response)
+
+    async def _send_result(self, dest, message_response):
+        raise NotImplementedError()
+
+    async def _receive_ack(self):
+        async with self.ack_cond:
+            await self.ack_cond.wait()
 
     async def write(self, message: str):
         logger.debug(f"Writing {message!r} of length {len(message)}")
@@ -75,6 +139,25 @@ class Client:
 
     async def _inform_application_stopped(self):
         await self._write_to_application("stop")
+
+
+    async def _write_task_stats(self):
+        await self._write_to_application(f"{self.task_stats_prefix}{self._stats_string()}")
+        await self._receive_ack()
+
+    def _stats_string(self) -> str:
+        try:
+            variance = int(math.ceil(self.stats.variance()))
+        except ZeroDivisionError:
+            variance = 0
+
+        mean = int(math.ceil(self.stats.mean()))
+        maximum = int(math.ceil(self.stats.maximum()))
+        minimum = int(math.ceil(self.stats.minimum()))
+
+        data = (mean, maximum, minimum, variance)
+
+        return base64.b64encode(cbor2.dumps(data)).decode("utf-8")
 
 
 async def do_run(service):

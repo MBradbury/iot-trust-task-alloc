@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 
 import cbor2
-from runstats import Statistics
 
-import asyncio
 import logging
-from datetime import datetime
-import ipaddress
 import time
-from concurrent.futures import ProcessPoolExecutor
 import math
 import base64
 import hashlib
 
-from config import application_edge_marker, serial_sep
+from config import serial_sep
 import client_common
 
 NAME = "cr"
@@ -22,95 +17,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(f"app-{NAME}")
 logger.setLevel(logging.DEBUG)
 
-class ChallengeResponseClient(client_common.Client):
-
-    task_resp_prefix = f"app{serial_sep}resp{serial_sep}"
-    task_stats_prefix = f"app{serial_sep}stats{serial_sep}"
-
-    def __init__(self):
-        super().__init__(NAME)
-        self.stats = Statistics()
-        self.executor = ProcessPoolExecutor(max_workers=1)
-
-        self.ack_cond = asyncio.Condition()
-
-    async def stop(self):
-        self.executor.shutdown()
-
-        await super().stop()
-
-    async def receive(self, message: str):
-        if message.endswith(f"{serial_sep}ack"):
-            async with self.ack_cond:
-                self.ack_cond.notify()
-            return
-
-        try:
-            dt, src, payload_len, payload = message.split(serial_sep, 3)
-
-            dt = datetime.fromisoformat(dt)
-            src = ipaddress.IPv6Address(src)
-            payload_len = int(payload_len)
-            payload = cbor2.loads(bytes.fromhex(payload))
-
-            (difficulty, data, max_duration) = payload
-
-            logger.debug(f"Received challenge at {dt} from {src} <"
-                f"difficulty={difficulty}, "
-                f"data={data}>")
-
-        except Exception as ex:
-            logger.error(f"Failed to parse message '{message}' with {ex}")
-            return
-
-        task = (src, difficulty, data, max_duration)
-
-        loop = asyncio.get_running_loop()
-        task_result = await loop.run_in_executor(self.executor, _task_runner, task)
-
-        (dest, prefix, duration) = task_result
-        
-        # Update the average time taken to perform jobs
-        # TODO: should this be EWMA
-        self.stats.push(duration)
-
-        await self._send_result(dest, (prefix, int(math.ceil(duration))))
-
-    async def _send_result(self, dest, message_response):
-        # Push the updated stats to the node, this is used to inform the expected time to perform the task
-        await self._write_task_stats()
-        await self._write_task_result(dest, message_response)
-
-    async def _write_task_stats(self):
-        await self._write_to_application(f"{self.task_stats_prefix}{self._stats_string()}")
-        await self._receive_ack()
-
-    async def _write_task_result(self, dest, message_response):
-        encoded = base64.b64encode(cbor2.encoder.dumps(message_response)).decode("utf-8")
-
-        await self._write_to_application(f"{self.task_resp_prefix}{dest}{serial_sep}{encoded}")
-        await self._receive_ack()
-
-    async def _receive_ack(self):
-        async with self.ack_cond:
-            await self.ack_cond.wait()
-
-    def _stats_string(self):
-        try:
-            variance = int(math.ceil(self.stats.variance()))
-        except ZeroDivisionError:
-            variance = 0
-
-        mean = int(math.ceil(self.stats.mean()))
-        maximum = int(math.ceil(self.stats.maximum()))
-        minimum = int(math.ceil(self.stats.minimum()))
-
-        data = [mean, maximum, minimum, variance]
-
-        return base64.b64encode(cbor2.dumps(data)).decode("utf-8")
-
 def _task_runner(task):
-    (src, difficulty, data, max_duration) = task
+    (src, dt, (difficulty, data, max_duration)) = task
 
     start_timer = time.perf_counter()
 
@@ -146,7 +54,27 @@ def _task_runner(task):
     else:
         logger.info(f"Job {task} took {duration} seconds and {prefix_int} iterations and found prefix {prefix}")
 
-    return (src, prefix if not timeout else b"", duration)
+    response = (prefix if not timeout else b"", int(math.ceil(duration)))
+
+    return (src, response, duration)
+
+class ChallengeResponseClient(client_common.Client):
+
+    task_resp_prefix = f"app{serial_sep}resp{serial_sep}"
+
+    def __init__(self):
+        super().__init__(NAME, task_runner=_task_runner, max_workers=2)
+
+    async def _send_result(self, dest, message_response):
+        # Push the updated stats to the node, this is used to inform the expected time to perform the task
+        await self._write_task_stats()
+        await self._write_task_result(dest, message_response)
+
+    async def _write_task_result(self, dest, message_response):
+        encoded = base64.b64encode(cbor2.encoder.dumps(message_response)).decode("utf-8")
+
+        await self._write_to_application(f"{self.task_resp_prefix}{dest}{serial_sep}{encoded}")
+        await self._receive_ack()
 
 if __name__ == "__main__":
     client = ChallengeResponseClient()
