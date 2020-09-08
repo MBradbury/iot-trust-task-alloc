@@ -61,8 +61,6 @@ static process_event_t pe_state_machine;
 #define MAX_QUERY_LEN               128
 #define MAX_COAP_PAYLOAD            COAP_MAX_CHUNK_SIZE
 /*-------------------------------------------------------------------------------------------------------------------*/
-static char client_id[12 + 1];
-/*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static char uri_query[MAX_QUERY_LEN];
 static uint8_t coap_payload[MAX_COAP_PAYLOAD];
@@ -71,7 +69,6 @@ static timed_unlock_t coap_callback_in_use;
 static uint16_t coap_callback_i;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer;
-//static struct etimer ping_mqtt_over_coap_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Parent RSSI functionality */
 static struct uip_icmp6_echo_reply_notification echo_reply_notification;
@@ -107,21 +104,6 @@ topic_init(void)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static bool
-construct_client_id(void)
-{
-    int len = snprintf(client_id, sizeof(client_id), "%02x%02x%02x%02x%02x%02x",
-                                         linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
-                                         linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
-                                         linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
-    if (len < 0 || len >= sizeof(client_id)) {
-        LOG_ERR("Insufficient length for client ID: %d, Buffer %d\n", len, sizeof(client_id));
-        return false;
-    }
-
-    return true;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 publish_callback(coap_callback_request_state_t *callback_state);
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -137,11 +119,10 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
     }
 
 #if 0
-    // Need space for 2 signatures in future packets
-    if (data_len > MAX_COAP_PAYLOAD - DTLS_EC_SIG_SIZE*2)
+    if (data_len > MAX_COAP_PAYLOAD - DTLS_EC_SIG_SIZE)
     {
-        LOG_ERR("data_len (%u) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_SIG_SIZE*2 (%u)\n",
-            data_len, MAX_COAP_PAYLOAD, DTLS_EC_SIG_SIZE*2);
+        LOG_ERR("data_len (%u) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_SIG_SIZE (%u)\n",
+            data_len, MAX_COAP_PAYLOAD, DTLS_EC_SIG_SIZE);
         return false;
     }
 #endif
@@ -446,14 +427,6 @@ ping_parent(void)
     etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-/*static void
-ping_mqtt_over_coap(void)
-{
-    // As per https://github.com/emqx/emqx-coap#coap-client-keep-alive
-    // To keep MQTT sessions online, a periodic GET needs to be sent.
-    //mqtt_over_coap_subscribe("ping", -1);
-}*/
-/*-------------------------------------------------------------------------------------------------------------------*/
 static void
 state_machine(void)
 {
@@ -481,18 +454,12 @@ state_machine(void)
 static bool
 init(void)
 {
-    if (!construct_client_id())
-    {
-        return false;
-    }
-
     topic_init();
 
     timed_unlock_init(&coap_callback_in_use, "mqtt-over-coap", (1 * 60 * CLOCK_SECOND));
 
     uip_icmp6_echo_reply_callback_add(&echo_reply_notification, echo_reply_handler);
     etimer_set(&echo_request_timer, DEFAULT_PING_INTERVAL);
-    //etimer_set(&ping_mqtt_over_coap_timer, DEFAULT_KEEP_ALIVE_TIMER);
 
     coap_activate_resource(&res_coap_mqtt, MQTT_URI_PATH);
 
@@ -520,10 +487,6 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
         if (ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) {
             ping_parent();
         }
-
-        /*if (ev == PROCESS_EVENT_TIMER && data == &ping_mqtt_over_coap_timer) {
-            ping_mqtt_over_coap();
-        }*/
 
         /*if (ev == pe_message_signed) {
             mqtt_over_coap_publish_continue(data);
