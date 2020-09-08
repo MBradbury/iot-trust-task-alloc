@@ -199,6 +199,11 @@ bool request_public_key(const uip_ip6addr_t* addr)
 
     coap_set_random_token(&msg);
 
+    // TODO: with group OSCORE signing
+/*#ifdef WITH_OSCORE
+    keystore_protect_coap_with_oscore(&msg, &ep);
+#endif*/
+
     memcpy(key_req_payload, addr, sizeof(*addr));
 
     if (!queue_message_to_sign(&keystore_request, NULL, key_req_payload, sizeof(key_req_payload), sizeof(*addr)))

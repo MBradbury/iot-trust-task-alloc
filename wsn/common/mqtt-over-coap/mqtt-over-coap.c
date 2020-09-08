@@ -184,6 +184,11 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
     // Will need to be enabled again in the future when enabling OSCORE for this message.
     //coap_set_random_token(&msg);
 
+    // TODO: When aiocoap supports OSCORE
+/*#ifdef WITH_OSCORE
+    keystore_protect_coap_with_oscore(&msg, &ep);
+#endif*/
+
     ret = coap_send_request(&coap_callback, &root_ep, &msg, publish_callback);
     if (ret)
     {
