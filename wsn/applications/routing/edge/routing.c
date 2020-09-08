@@ -42,7 +42,7 @@ PROCESS_THREAD(routing_process, ev, data)
 
         if (ev == pe_data_from_resource_rich_node)
         {
-            LOG_INFO("Received pe_data_from_resource_rich_node %s\n", (const char*)data);
+            //LOG_INFO("Received pe_data_from_resource_rich_node %s\n", (const char*)data);
             routing_taskresp_process_serial_input((const char*)data);
         }
     }

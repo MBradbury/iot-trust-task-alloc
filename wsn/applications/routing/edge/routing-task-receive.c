@@ -52,7 +52,7 @@ post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer,
 
     LOG_DBG("Received routing data uri=%.*s, payload_len=%d from ", uri_len, uri_path, payload_len);
     LOG_DBG_COAP_EP(request->src_ep);
-    LOG_DBG_("\n");
+    LOG_DBG_(" sending to edge\n");
 
     // Send data to connected edge node for processing
     printf(APPLICATION_SERIAL_PREFIX ROUTING_APPLICATION_NAME SERIAL_SEP);

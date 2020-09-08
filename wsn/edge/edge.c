@@ -154,7 +154,8 @@ process_serial_message(const char* data)
 {
     const char* const data_end = data + strlen(data);
 
-    LOG_DBG("Received serial message %s of length %u\n", data, data_end - data);
+    //LOG_DBG("Received serial message %s of length %u\n", data, data_end - data);
+    LOG_DBG("Received serial message of length %u\n", data_end - data);
 
     // Check that the input is from the edge
     if (match_action(data, data_end, APPLICATION_SERIAL_PREFIX))
