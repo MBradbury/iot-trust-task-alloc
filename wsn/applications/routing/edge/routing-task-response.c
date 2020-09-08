@@ -80,6 +80,7 @@ static coap_endpoint_t ep;
 static coap_callback_request_state_t coap_callback;
 static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[COAP_MAX_CHUNK_SIZE];
+static uint16_t msg_buf_offset;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 send_callback(coap_callback_request_state_t* callback_state)
@@ -138,12 +139,14 @@ process_task_resp_send_status(pyroutelib3_status_t status)
 
     NANOCBOR_CHECK(nanocbor_fmt_uint(&enc, status));
 
+    const size_t length = nanocbor_encoded_len(&enc);
+
     int ret;
 
     coap_init_message(&msg, COAP_TYPE_CON, COAP_POST, 0);
     coap_set_header_uri_path(&msg, ROUTING_APPLICATION_URI);
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
-    coap_set_payload(&msg, msg_buf, nanocbor_encoded_len(&enc));
+    coap_set_payload(&msg, msg_buf, length);
 
     coap_set_random_token(&msg);
 
@@ -155,9 +158,9 @@ process_task_resp_send_status(pyroutelib3_status_t status)
     if (ret)
     {
         timed_unlock_lock(&coap_callback_in_use);
-        LOG_DBG("Message sent to ");
+        LOG_DBG("Status message sent to ");
         LOG_DBG_COAP_EP(&ep);
-        LOG_DBG_("\n");
+        LOG_DBG_(" of length %zu\n", length);
     }
     else
     {
@@ -172,7 +175,7 @@ process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
 {
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
-        LOG_ERR("CoAP coallback in use so cannot send task response\n");
+        LOG_ERR("CoAP callback in use so cannot send task response\n");
         return false;
     }
 
@@ -192,24 +195,25 @@ process_task_resp_send_success(unsigned long i, unsigned long n, size_t len)
     // i starts at 0
     const bool coap_block1_more = ((i + 1) != n);
 
-    // TODO: block len should be a power of 2 (i.e.,64)
-    ret = coap_set_header_block1(&msg, i, coap_block1_more, 64);
+    // block len should be a power of 2 (i.e.,64)
+    // Ideally block len would reflect the size of the packet, but this is not possible with routing
+    ret = coap_set_header_block1(&msg, i, coap_block1_more, 256);
     if (!ret)
     {
-        LOG_ERR("coap_set_header_block1 failed (%lu, %" PRIu8 ", %zu)\n", i, coap_block1_more, len);
+        LOG_ERR("coap_set_header_block1 failed (%lu, %" PRIu8 ", %zu)\n", i+1, coap_block1_more, len);
     }
 
     ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)
     {
         timed_unlock_lock(&coap_callback_in_use);
-        LOG_DBG("Message sent to ");
+        LOG_DBG("Message %lu/%lu sent to ", i+1, n);
         LOG_DBG_COAP_EP(&ep);
-        LOG_DBG_("\n");
+        LOG_DBG_(" of length %zu\n", len);
     }
     else
     {
-        LOG_ERR("Failed to send message with %d\n", ret);
+        LOG_ERR("Failed to send message %lu/%lu of length %zu with %d\n", i+1, n, len, ret);
     }
 
     return ret != 0;
@@ -227,13 +231,6 @@ process_task_resp1(const char* data, const char* data_end)
         return false;
     }
 
-    const char* sep2 = strchr(sep1+1, '|');
-    if (sep2 == NULL)
-    {
-        LOG_ERR("strchr 2\n");
-        return false;
-    }
-
     char uip_buffer[UIPLIB_IPV6_MAX_STR_LEN];
     memset(uip_buffer, 0, sizeof(uip_buffer));
     strncpy(uip_buffer, data, sep1 - data);
@@ -247,7 +244,14 @@ process_task_resp1(const char* data, const char* data_end)
     ep.secure = 0;
     ep.port = UIP_HTONS(COAP_DEFAULT_PORT);
 
-    const unsigned long n = strtoul(sep1+1, NULL, 10);
+    char* sep2 = NULL;
+    const unsigned long n = strtoul(sep1+1, &sep2, 10);
+
+    if (!sep2 || *sep2 != '|')
+    {
+        LOG_ERR("strchr 2\n");
+        return false;
+    }
 
     const pyroutelib3_status_t status = (pyroutelib3_status_t)strtoul(sep2+1, NULL, 10);
 
@@ -261,37 +265,77 @@ process_task_resp1(const char* data, const char* data_end)
 static bool
 process_task_resp2(const char* data, const char* data_end)
 {
-    // <i>/<n>|<message>
+    // <i>/<n>|<j>/<m>|<message>
+    // i - current coap message, n - total coap messages
+    // j - current serial message, m - total serial messages
 
-    const char* slashpos = strchr(data, '/');
-    if (slashpos == NULL)
+    char* sep = NULL;
+
+    unsigned long i = strtoul(data, &sep, 10);
+
+    if (!sep || *sep != '/')
     {
-        LOG_ERR("strchr 1\n");
+        LOG_ERR("sep 1\n");
         return false;
     }
 
-    const char* seppos = strchr(data, '|');
-    if (seppos == NULL)
+    unsigned long n = strtoul(sep+1, &sep, 10);
+
+    if (!sep || *sep != '|')
     {
-        LOG_ERR("strchr 2\n");
+        LOG_ERR("sep 2\n");
         return false;
     }
 
-    unsigned long i = strtoul(data, NULL, 10);
-    unsigned long n = strtoul(slashpos+1, NULL, 10);
+    unsigned long j = strtoul(sep+1, &sep, 10);
 
-    size_t len = sizeof(msg_buf);
-    if (!base64_decode(seppos+1, data_end - (seppos+1), msg_buf, &len))
+    if (!sep || *sep != '/')
     {
-        LOG_ERR("base64_decode 3 (ret=%d)\n", len);
+        LOG_ERR("sep 3\n");
         return false;
     }
 
-    LOG_DBG("Sending task response %lu/%lu of length %zu\n", i, n, len);
+    unsigned long m = strtoul(sep+1, &sep, 10);
 
-    // Send the buffer back to the target node
-    // Use block1 to send the data in multiple packets
-    return process_task_resp_send_success(i, n, len);
+    if (!sep || *sep != '|')
+    {
+        LOG_ERR("sep 4\n");
+        return false;
+    }
+
+    size_t len = sizeof(msg_buf) - msg_buf_offset;
+    if (!base64_decode(sep+1, data_end - (sep+1), msg_buf + msg_buf_offset, &len))
+    {
+        LOG_ERR("base64_decode (ret=%d) msg_buf_offset=%" PRIu16 ", len=%zu\n", len, msg_buf_offset, len);
+        return false;
+    }
+
+    msg_buf_offset += len;
+
+    // j starts at 0
+    if ((j+1) == m)
+    {
+        LOG_DBG("Sending task response coap=%lu/%lu of length %zu\n", i+1, n, msg_buf_offset);
+
+        // Send the buffer back to the target node
+        // Use block1 to send the data in multiple packets
+        const bool r = process_task_resp_send_success(i, n, msg_buf_offset);
+
+        // reset the offset
+        msg_buf_offset = 0;
+
+        return r;
+    }
+    else
+    {
+        LOG_DBG("Building task response coap=%lu/%lu serial=%lu/%lu added length %zu now %zu\n",
+            i+1, n, j+1, m, len, msg_buf_offset);
+
+        // Need to ack this intermediate input
+        ack_serial_input();
+
+        return true;
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void
@@ -345,5 +389,7 @@ void
 routing_taskresp_init(void)
 {
     timed_unlock_init(&coap_callback_in_use, "routing-task-response", (1 * 60 * CLOCK_SECOND));
+
+    msg_buf_offset = 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

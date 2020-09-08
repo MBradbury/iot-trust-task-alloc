@@ -72,6 +72,8 @@ class RoutingClient(client_common.Client):
     task_resp1_prefix = f"app{serial_sep}resp1{serial_sep}"
     task_resp2_prefix = f"app{serial_sep}resp2{serial_sep}"
 
+    coap_max_chunk_size = 256
+
     def __init__(self):
         super().__init__(NAME, task_runner=_task_runner, max_workers=2)
 
@@ -88,39 +90,21 @@ class RoutingClient(client_common.Client):
         # when the message has been successfully received
 
         if status == 0:
-            # Find the maximum number of messages we will need to send
-            prefix_len = len(f"{self.message_prefix}{self.task_resp2_prefix}")
-            suffix_len = 1 # newline character
+            route_encoded_length = len(cbor2.encoder.dumps(route, canonical=True))
 
-            # How much space there is left to include a message
-            available = self.max_serial_len - prefix_len - suffix_len
+            # We need to set this sufficiently high to prevent crashes in the client
+            # I think this is because the code below leads to longer than expected packet lengths
+            assumed_coap_chunk_overhead = 50
 
-            # Take away initial array marker
-            available = available - 2
+            num_coap_packets = route_encoded_length / (self.coap_max_chunk_size - assumed_coap_chunk_overhead)
+            elements_per_coap_packet = math.floor(len(route) / num_coap_packets)
 
-            # Take away counter (assume XX/XX|)
-            available = available - 6
-
-            # 1 byte for array marker (assuming small chunks)
-            # 1 array marker and pair of lat,lon 4 byte floats 
-            per_item_cost = 1 + 4*2
-            per_item_cost_b64 = math.ceil(per_item_cost / 6) * 8
-
-            elements = int(math.floor(available / per_item_cost_b64))
-
-            logger.debug(f"Sending routes chunk with {elements} items each ["
-                f"prefix_len={prefix_len}, "
-                f"available={available}, "
-                f"per_item_cost={per_item_cost}, "
-                f"per_item_cost_b64={per_item_cost_b64}]")
-
-            route_chunks = list(chunked(route, elements))
+            route_chunks = list(chunked(route, elements_per_coap_packet))
 
             await self._write_task_result_result(dest, status, len(route_chunks))
 
             for i, route_chunk in enumerate(route_chunks):
                 await self._write_task_result_chunk(i, len(route_chunks), route_chunk)
-
         else:
             await self._write_task_result_result(dest, status, 0)
 
@@ -132,11 +116,35 @@ class RoutingClient(client_common.Client):
         # Need canonical to fit floats into smallest space possible
         # Could considuer using https://github.com/allthingstalk/cbor/blob/master/CBOR-Tag103-Geographic-Coordinates.md
         # but is likely best to avoid the additional overhead
-        encoded = base64.b64encode(cbor2.encoder.dumps(route_chunk, canonical=True)).decode("utf-8")
+        cbor_encoded = cbor2.encoder.dumps(route_chunk, canonical=True)
 
-        # Send task response back to edge sensor node
-        await self._write_to_application(f"{self.task_resp2_prefix}{i}/{n}{serial_sep}{encoded}")
-        await self._receive_ack()
+        if len(cbor_encoded) > self.coap_max_chunk_size:
+            logger.error(f"Encoded CBOR is too long ({cbor_encoded} > {self.coap_max_chunk_size}")
+
+        b64_encoded = base64.b64encode(cbor_encoded).decode("utf-8")
+
+        # Each coap packet route chunk now needs to be split up into multiple serial writes
+        prefix_len = len(f"{self.message_prefix}{self.task_resp2_prefix}")
+        # 1 character for suffix newline character
+        # 2 characters for initial array marker
+        # 6 characters for coap chunk counter (assume XX/XX|)
+        # 4 characters for serial chunk counter (assume X/X|)
+        # 1 character for base64 overhead
+        assumed_serial_write_overhead = prefix_len + 1 + 2 + 6 + 4 + 1
+
+        num_serial_writes = len(b64_encoded) / (self.max_serial_len - assumed_serial_write_overhead)
+        elements_per_serial_write = math.floor(len(cbor_encoded) / num_serial_writes)
+
+        chunks = list(chunked(cbor_encoded, elements_per_serial_write))
+
+        for j, serial_chunk in enumerate(chunks):
+
+            # chunked makes the bytes a list of ints, so we need to put it back together, encode and convert to a string
+            serial_chunk = base64.b64encode(bytes(serial_chunk)).decode("utf-8")
+
+            # Send task response back to edge sensor node
+            await self._write_to_application(f"{self.task_resp2_prefix}{i}/{n}{serial_sep}{j}/{len(chunks)}{serial_sep}{serial_chunk}")
+            await self._receive_ack()
 
 
 if __name__ == "__main__":

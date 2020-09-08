@@ -445,6 +445,12 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
     LOG_DBG_COAP_EP(request->src_ep);
     LOG_DBG_("\n");
 
+    if (!timed_unlock_is_locked(&task_in_use))
+    {
+        LOG_ERR("Received a task response that we were not expecting\n");
+        return;
+    }
+
     // Got a response within the time limit, so restart the timer for the next packet
     timed_unlock_restart_timer(&task_in_use);
 
@@ -464,7 +470,11 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
         ret = coap_get_header_block1(request, &b1_num, &b1_more, &b1_size, &b1_offset);
 
         // Must be okay as we've already checked if the block1 header is present
-        assert(ret);
+        if (!ret)
+        {
+            LOG_ERR("coap_get_header_block1 failed (with %d) but we already checked for block1...\n", ret);
+            return;
+        }
 
         LOG_DBG("block1: num=%" PRIu32 " more=%" PRIu8 " size=%" PRIu16 " offset=%" PRIu32 "\n",
             b1_num, b1_more, b1_size, b1_offset);
@@ -477,6 +487,7 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
         ret = coap_block1_handler(request, response, NULL, NULL, UINT32_MAX);
         if (ret < 0)
         {
+            LOG_ERR("coap_block1_handler failed with %d\n", ret);
             return;
         }
 
@@ -579,7 +590,7 @@ init(void)
 
     capability_count = 0;
     timed_unlock_init(&coap_callback_in_use, "routing-coap", (1 * 60 * CLOCK_SECOND));
-    timed_unlock_init(&task_in_use, "routing-task", (1 * 60 * CLOCK_SECOND));
+    timed_unlock_init(&task_in_use, "routing-task", (2 * 60 * CLOCK_SECOND));
 
 #ifdef ROUTING_PERIODIC_TEST
     routing_periodic_test_init();
