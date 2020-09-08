@@ -18,11 +18,11 @@
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef GENERATE_ROUTE_MIN_PERIOD
-#define GENERATE_ROUTE_MIN_PERIOD (5 * 60)
+#define GENERATE_ROUTE_MIN_PERIOD (2 * 60)
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef GENERATE_ROUTE_MAX_PERIOD
-#define GENERATE_ROUTE_MAX_PERIOD (15 * 60)
+#define GENERATE_ROUTE_MAX_PERIOD (3 * 60)
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" ROUTING_APPLICATION_NAME
@@ -47,6 +47,8 @@ static bool init(void)
     uint16_t rnd_period = random_in_range_unbiased(GENERATE_ROUTE_MIN_PERIOD, GENERATE_ROUTE_MAX_PERIOD);
     etimer_set(&generate_route_timer, rnd_period * CLOCK_SECOND);
 
+    LOG_INFO("Started timer to generate route request in %" PRIu16 " seconds\n", rnd_period);
+
     routing_application = find_process_with_name(ROUTING_APPLICATION_NAME);
     if (routing_application == NULL)
     {
@@ -59,6 +61,8 @@ static bool init(void)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void periodic_event(void)
 {
+    LOG_INFO("Periodic timer triggered, generating fake routing request\n");
+
     // UoW to Warwick Castle
     const char* buf = APPLICATION_SERIAL_PREFIX ROUTING_SUBMIT_TASK "52.384057,-1.561737:52.280302,-1.586839";
 
@@ -68,6 +72,8 @@ static void periodic_event(void)
     // Restart timer
     uint16_t rnd_period = random_in_range_unbiased(GENERATE_ROUTE_MIN_PERIOD, GENERATE_ROUTE_MAX_PERIOD);
     etimer_reset_with_new_interval(&generate_route_timer, rnd_period * CLOCK_SECOND);
+
+    LOG_INFO("Restarted timer to generate route request in %" PRIu16 " seconds\n", rnd_period);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(routing_test_process, ev, data)
