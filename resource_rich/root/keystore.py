@@ -1,8 +1,12 @@
 import logging
 import os
+import ipaddress
+
+from common.certificate import SignedCertificate
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("keystore")
@@ -17,6 +21,14 @@ class Keystore:
 
         # Load the server's public/private key
         self.privkey = self._load_privkey(os.path.join(key_dir, "private.pem"))
+
+    def list_addresses(self):
+        with os.scandir(self.key_dir) as it:
+            for entry in it:
+                if entry.name.endswith("-public.pem"):
+                    prefix = entry.name[:-len("-public.pem")].replace("_", ":")
+
+                    yield ipaddress.ip_address(prefix)
 
     def _load_privkey(self, path):
         with open(path, 'rb') as f:
@@ -57,3 +69,15 @@ class Keystore:
             logger.info(f"Using cached public cert for {request_address} as response")
 
         return cert
+
+    def oscore_ident(self, request_address) -> bytes:
+        cert = SignedCertificate.decode(self.get_cert(request_address))
+
+        # OSCORE IDs are the last 6 bytes of the EUI-64
+        return cert.subject[-6:]
+
+    def shared_secret(self, request_address) -> bytes:
+        their_pubkey = self.get_pubkey(request_address)
+        shared_key = self.privkey.exchange(ec.ECDH(), their_pubkey)
+
+        return shared_key

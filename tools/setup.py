@@ -125,6 +125,35 @@ certs = {
     in sorted(ips.items(), key=lambda x: x[0])
 }
 
+print("Creating OSCORE contexts")
+
+oscore_context_dir = "setup/keystore/oscore-contexts"
+
+for ip, cert in certs.items():
+    # Skip root ip
+    if ip == root_ip:
+        continue
+
+    sender_id = certs[root_ip].subject[-6:]
+    recipient_id = cert.subject[-6:]
+
+    shared_secret = keys[root_ip].exchange(ec.ECDH(), keys[ip].public_key())
+
+    pathlib.Path(f"{oscore_context_dir}/{recipient_id.hex()}").mkdir(parents=True, exist_ok=False)
+
+    with open(f"{oscore_context_dir}/{recipient_id.hex()}/secret.json", "w") as secret:
+        print("{", file=secret)
+        print("    'algorithm': 'AES-CCM-16-64-128',", file=secret)
+        print("    'kdf-hashfun': 'sha256',", file=secret)
+        print("    'window': 32,", file=secret)
+        print(f"    'sender-id_hex': '{sender_id.hex()}',", file=secret)
+        print(f"    'recipient-id_hex': '{recipient_id.hex()}',", file=secret)
+        print(f"    'secret_hex': '{shared_secret.hex()}'", file=secret)
+        # No master salt
+        # No id-context
+        print("}", file=secret)
+
+
 def create_static_keys(ip):
     with open("setup/static-keys.c", "w") as static_keys:
         print(f'// Generated at {datetime.now()}', file=static_keys)
@@ -195,7 +224,6 @@ for (target, ip) in ips.items():
 
             result = conn.put(src, dest)
             print("Uploaded {0.local} to {0.remote} for {1}".format(result, conn))
-
 
 print("Tidying up keystore")
 

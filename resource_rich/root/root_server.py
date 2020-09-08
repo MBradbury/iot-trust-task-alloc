@@ -3,6 +3,7 @@
 import logging
 import asyncio
 import signal
+import ipaddress
 
 from .coap_key_server import COAPKeyServer
 from .mqtt_coap_bridge import MQTTCOAPBridge
@@ -12,6 +13,8 @@ from .keystore import Keystore
 
 import aiocoap
 import aiocoap.resource as resource
+from aiocoap.oscore_sitewrapper import OscoreSiteWrapper
+from aiocoap.credentials import CredentialsMap
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("root-server")
@@ -39,8 +42,31 @@ async def shutdown(signal, loop, bridge):
 
     loop.stop()
 
-async def start(coap_site, bridge):
-    bridge.context = await aiocoap.Context.create_server_context(coap_site)
+def keystore_aiocoap_oscore_credentials(keystore):
+    root_address = ipaddress.ip_address("fd00::1")
+
+    credentials_dict = {
+        f":{keystore.oscore_ident(addr).hex()}": {
+            "oscore": {
+                "contextfile": f"keystore/oscore-contexts/{keystore.oscore_ident(addr).hex()}/"
+            }
+        }
+
+        for addr in keystore.list_addresses()
+        if addr != root_address
+    }
+
+    server_credentials = CredentialsMap()
+    server_credentials.load_from_dict(credentials_dict)
+    return server_credentials
+
+async def start(coap_site, bridge, keystore):
+    server_credentials = keystore_aiocoap_oscore_credentials(keystore)
+
+    oscore_coap_site = OscoreSiteWrapper(coap_site, server_credentials)
+
+    bridge.context = await aiocoap.Context.create_server_context(oscore_coap_site)
+
     await bridge.start()
 
 def main(coap_target_port,
@@ -72,7 +98,7 @@ def main(coap_target_port,
         loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, bridge)))
 
     try:
-        loop.create_task(start(coap_site, bridge))
+        loop.create_task(start(coap_site, bridge, keystore))
         loop.run_forever()
     finally:
         loop.close()
