@@ -463,6 +463,11 @@ init(void)
 
     coap_activate_resource(&res_coap_mqtt, MQTT_URI_PATH);
 
+    // TODO: once aiocoap supports OSCORE
+/*#ifdef WITH_OSCORE
+    oscore_protect_resource(&res_coap_mqtt);
+#endif*/
+
     pe_state_machine = process_alloc_event();
 
     return true;
