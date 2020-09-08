@@ -57,13 +57,30 @@ class Task:
     time: datetime
     details: Union[MonitoringTask, RoutingTask]
 
+@dataclass(frozen=True)
+class TrustValue:
+    target: str
+    capability: str
+    time: datetime
+    value: float
+
+class TrustChoose:
+    pass
+
+class TrustChooseBanded(TrustChoose):
+    def __init__(self):
+        self.values = []
+
 class ChallengeResponseAnalyser:
-    RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\)')
+    RE_TRUST_UPDATING_CR = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\)')
+    #RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([0-9A-Za-z]+) TM ([0-9A-Za-z_]+) \((.*)\)\)')
 
     RE_ROUTING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\) for path from \(([0-9.-]+),([0-9.-]+)\) to \(([0-9.-]+),([0-9.-]+)\)')
     RE_MONITORING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\)')
 
     RE_TASK_SENT = re.compile(r'Message sent to coap://\[(.+)\]:5683')
+
+    RE_CHOOSE_BANDED_TRUST_VALUE = re.compile(r'Trust value for edge ([0-9A-Fa-f]+) and capability ([0-9A-Za-z]+)=([0-9.-]+) at ([0-9]+)/([0-9]+)')
 
     def __init__(self, hostname):
         self.hostname = hostname
@@ -73,12 +90,18 @@ class ChallengeResponseAnalyser:
         self.tasks = []
         self._pending_tasks = {}
 
+        self.trust_choose = None
+
     def analyse(self, f):
         for (time, log_level, module, line) in parse_contiki(f):
 
             if module == "trust-comm":
                 if line.startswith("Updating Edge"):
-                    self._process_updating_edge(time, log_level, module, line)
+                    if "TM cr" in line:
+                        self._process_updating_edge_cr(time, log_level, module, line)
+                    else:
+                        # Other trust model
+                        pass
                 else:
                     pass
 
@@ -126,13 +149,27 @@ class ChallengeResponseAnalyser:
                     t = Task(m_target, time, task_details)
                     self.tasks.append(t)
 
+            elif module == "trust-band":
+                if self.trust_choose is None:
+                    self.trust_choose = TrustChooseBanded()
+
+                if line.startswith("Trust value for edge"):
+                    m = self.RE_CHOOSE_BANDED_TRUST_VALUE.match(line)
+                    m_edge = m.group(1)
+                    m_capability = m.group(2)
+                    m_value = float(m.group(3))
+
+                    v = TrustValue(m_edge, m_capability, time, m_value)
+                    self.trust_choose.values.append(v)
+
+
             #if module not in ("A-cr", "trust-comm"):
             #    continue
 
             #print((time, module, line))
 
-    def _process_updating_edge(self, time, log_level, module, line):
-        m = self.RE_TRUST_UPDATING.match(line)
+    def _process_updating_edge_cr(self, time, log_level, module, line):
+        m = self.RE_TRUST_UPDATING_CR.match(line)
         if m is None:
             raise RuntimeError(f"Failed to parse '{line}'")
 

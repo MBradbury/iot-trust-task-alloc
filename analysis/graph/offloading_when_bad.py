@@ -113,7 +113,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Offloading when bad')
-    parser.add_argument('--log-dir', type=str, default="results", nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=str, default=["results"], nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 
