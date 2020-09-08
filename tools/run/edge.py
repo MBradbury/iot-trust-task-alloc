@@ -31,11 +31,21 @@ class ApplicationAction(argparse.Action):
                 message = f"invalid choice: {value!r} (choose from {', '.join(self.CHOICES)})"
                 raise argparse.ArgumentError(self, message)
 
+            # If no niceness is provided, supply the default of 0
             if len(values) == 1:
+                values.append(0)
+
+            # If no arguments are provided, supply a default of no arguments
+            if len(values) == 2:
                 values.append("")
 
-            if len(values) > 2:
+            if len(values) > 3:
                 raise argparse.ArgumentError(self, f"too many application arguments {values}")
+
+            # Make sure the niceness is an int and in a valid range
+            values[1] = int(values[1])
+            if values[1] < -20 or values[1] > 19:
+                raise argparse.ArgumentError(self, f"invalid nice value {values[1]} not in range [-20, 19]")
 
             attr = getattr(namespace, self.dest)
             if attr is None:
@@ -43,7 +53,7 @@ class ApplicationAction(argparse.Action):
             else:
                 setattr(namespace, self.dest, attr + [values])
 
-parser.add_argument("--application", nargs='*', metavar=('application-name', 'application-params'),
+parser.add_argument("--application", nargs='*', metavar='application-name nice params',
                     action=ApplicationAction,
                     help="The applications to start")
 
@@ -106,7 +116,7 @@ with open(edge_bridge_log_path, 'w') as edge_bridge, \
 
     apps = []
 
-    for (application, params) in args.application:
+    for (application, niceness, params) in args.application:
         app_specific_log_path = application_log_path.format(application)
 
         print(f"Logging application {application} to {app_specific_log_path}", flush=True)
@@ -114,7 +124,7 @@ with open(edge_bridge_log_path, 'w') as edge_bridge, \
         app_log = open(app_specific_log_path, 'w')
 
         p = Popen(
-            f"./{application}.py {params}",
+            f"nice -n {niceness} python3 {application}.py {params}",
             cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/applications"),
             shell=True,
             stdout=subprocess.PIPE,
