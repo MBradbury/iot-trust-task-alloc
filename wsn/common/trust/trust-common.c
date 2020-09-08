@@ -94,10 +94,6 @@ process_certificate(const uint8_t* eui64, const certificate_t* cert)
         LOG_DBG_("\n");
 
         edge_resource->flags |= EDGE_RESOURCE_ACTIVE;
-
-        // Check this
-        // TODO: remove this
-        assert(edge_info_find_addr(&ipaddr) == edge_info_find_eui64(cert->subject));
     }
     else
     {
