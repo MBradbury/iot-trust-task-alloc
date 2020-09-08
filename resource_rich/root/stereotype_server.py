@@ -90,20 +90,20 @@ class StereotypeServer(resource.Resource):
 
     def _basic_trust_model(self, payload: StereotypeRequest):
         # All classes of nodes are expected to be good at acknowledging tasks
-        task_submission = [10, 1]
+        task_submission = [20, 1]
 
         # More capable devices are expected to be better a delivering a result
         if payload.tags.device_class == DeviceClass.RASPBERRY_PI:
-            task_result = [4, 1]
-
-        elif payload.tags.device_class == DeviceClass.PHONE:
-            task_result = [6, 1]
-
-        elif payload.tags.device_class == DeviceClass.LAPTOP:
             task_result = [8, 1]
 
+        elif payload.tags.device_class == DeviceClass.PHONE:
+            task_result = [12, 1]
+
+        elif payload.tags.device_class == DeviceClass.LAPTOP:
+            task_result = [16, 1]
+
         elif payload.tags.device_class == DeviceClass.SERVER:
-            task_result = [10, 1]
+            task_result = [20, 1]
 
         else:
             raise error.BadRequest(f"Unknown device class {payload.tags.device_class}")
