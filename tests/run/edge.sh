@@ -8,7 +8,10 @@ rm -rf logs
 
 rm -f nohup.out
 
-nohup python3 -m tools.run.edge --application monitoring -2 --application routing 1 --application challenge_response -2 &
+# Cannot set negative niceness without running at higher privilege, so just use higher positive numbers to indicate
+# a lower priority relative to each application.
+
+nohup python3 -m tools.run.edge --application monitoring 2 --application routing 0 --application challenge_response 1 &
 
 # Wait for nohup.out to be created
 sleep 1
