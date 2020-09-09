@@ -10,9 +10,7 @@ import aiocoap.numbers.codes as codes
 from aiocoap.numbers import media_types_rev
 import aiocoap.resource as resource
 
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec, utils
+import cbor2
 
 from .keystore import Keystore
 
@@ -26,15 +24,6 @@ class InvalidAddressRequest(error.BadRequest):
 class UnknownAddressRequest(error.BadRequest):
     message = "Error: Unknown IP Address requested"
 
-class InvalidSignatureRequest(error.BadRequest):
-    message = "Error: Invalid signature requested"
-
-# This is the curve used by the sensor nodes to sign and verify messages
-curve = ec.SECP256R1
-
-# key_size is in bits. Convert to bytes and round up
-curve_byte_len = (curve.key_size + 7) // 8
-
 ipv6_byte_len = 16
 sig_endianness = "big"
 
@@ -42,11 +31,6 @@ class COAPKeyServer(resource.Resource):
     def __init__(self, keystore: Keystore):
         super().__init__()
         self.keystore = keystore
-
-    def _cert_to_message(self, addr, key):
-        payload = self.sign_message(key)
-
-        return aiocoap.Message(payload=payload, content_format=media_types_rev['application/octet-stream'])
 
     async def render_get(self, request):
         """An MQTT Subscribe request"""
@@ -58,13 +42,11 @@ class COAPKeyServer(resource.Resource):
             elif request.opt.content_format == media_types_rev['application/octet-stream']:
                 request_address = ipaddress.IPv6Address(request.payload[0:ipv6_byte_len])
 
-                if len(request.payload) == ipv6_byte_len + curve_byte_len*2:
-                    self.verify_request(request)
+            elif request.opt.content_format == media_types_rev['application/cbor']:
+                request_address = ipaddress.IPv6Address(cbor2.loads(request.payload))
+
             else:
                 raise error.UnsupportedContentFormat()
-
-        except InvalidSignature:
-            raise InvalidSignatureRequest()
 
         except (ValueError, UnicodeDecodeError):
             raise InvalidAddressRequest()
@@ -84,37 +66,7 @@ class COAPKeyServer(resource.Resource):
         except FileNotFoundError:
             raise UnknownAddressRequest()
 
-        return self._cert_to_message(request_address, cert)
-
-
-    def verify_request(self, request):
-        remote_addr = ipaddress.IPv6Address(request.remote.sockaddr[0])
-        pubkey = self.keystore.get_pubkey(remote_addr)
-
-        payload = request.payload[0:-curve_byte_len*2]
-        payload_len = len(payload)
-
-        r = request.payload[payload_len               :payload_len+curve_byte_len  ]
-        s = request.payload[payload_len+curve_byte_len:payload_len+curve_byte_len*2]
-
-        r = int.from_bytes(r, byteorder=sig_endianness)
-        s = int.from_bytes(s, byteorder=sig_endianness)
-
-        sig = utils.encode_dss_signature(r, s)
-
-        pubkey.verify(sig, payload, ec.ECDSA(hashes.SHA256()))
-        
-
-    def sign_message(self, payload):
-        # Raw signature (64 bytes)
-        sig = self.keystore.privkey.sign(payload, ec.ECDSA(hashes.SHA256()))
-
-        (r, s) = utils.decode_dss_signature(sig)
-
-        r = r.to_bytes(curve_byte_len, byteorder=sig_endianness)
-        s = s.to_bytes(curve_byte_len, byteorder=sig_endianness)
-
-        return payload + r + s
+        return aiocoap.Message(payload=cert, content_format=media_types_rev['application/cbor'])
 
 
 def main(key_dir, coap_target_port):

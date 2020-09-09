@@ -2,6 +2,7 @@
 #include "base16.h"
 #include "linkaddr.h"
 #include "uip-ds6.h"
+#include "root-endpoint.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 const uint8_t* current_eui64(void)
 {
@@ -13,6 +14,12 @@ void eui64_from_ipaddr(const uip_ip6addr_t* ipaddr, uint8_t* eui64)
     uip_lladdr_t lladdr;
     uip_ds6_set_lladdr_from_iid(&lladdr, ipaddr);
 
+    // Need to unset this value
+    if (uip_ip6addr_cmp(ipaddr, &root_ep.ipaddr))
+    {
+        lladdr.addr[0] ^= 0x02;
+    }
+
     memcpy(eui64, &lladdr, EUI64_LENGTH);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -20,6 +27,12 @@ void eui64_to_ipaddr(const uint8_t* eui64, uip_ip6addr_t* ipaddr)
 {
     uip_lladdr_t lladdr;
     memcpy(&lladdr, eui64, EUI64_LENGTH);
+
+    // Need to unset this value
+    if (uip_ip6addr_cmp(ipaddr, &root_ep.ipaddr))
+    {
+        lladdr.addr[0] ^= 0x02;
+    }
 
     memset(ipaddr, 0, sizeof(*ipaddr));
 

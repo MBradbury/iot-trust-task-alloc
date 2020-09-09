@@ -248,12 +248,10 @@ static bool stereotypes_send_request(const stereotype_tags_t* tags)
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, msg_buf, nanocbor_encoded_len(&enc));
 
-    // Not yet with aiocoap
-    //coap_set_random_token(&msg);
-
-/*#ifdef WITH_OSCORE
+#if defined(WITH_OSCORE) && defined(AIOCOAP_SUPPORTS_OSCORE)
+    coap_set_random_token(&msg);
     keystore_protect_coap_with_oscore(&msg, &root_ep);
-#endif*/
+#endif
 
     int ret = coap_send_request(&coap_callback, &root_ep, &msg, send_callback);
     if (ret)

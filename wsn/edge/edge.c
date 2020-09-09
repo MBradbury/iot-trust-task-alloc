@@ -10,14 +10,12 @@
 #include "stereotype-tags.h"
 #include "timed-unlock.h"
 #include "root-endpoint.h"
-
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "edge"
 #define LOG_LEVEL LOG_LEVEL_DBG
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
 PROCESS_NAME(capability);
-PROCESS_NAME(keystore_request);
 PROCESS_NAME(keystore_add_verifier);
 APPLICATION_PROCESSES_DECL;
 PROCESS(edge, "edge");
@@ -27,7 +25,7 @@ bool applications_available[APPLICATION_NUM];
 bool resource_rich_edge_started;
 /*-------------------------------------------------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process,
-                    &keystore_request, &keystore_add_verifier,
+                    &keystore_add_verifier,
                     APPLICATION_PROCESSES);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int8_t
@@ -179,6 +177,10 @@ process_event_t pe_data_from_resource_rich_node;
 PROCESS_THREAD(edge, ev, data)
 {
     PROCESS_BEGIN();
+
+#ifdef BUILD_NUMBER
+    LOG_INFO("BUILD NUMBER = %u\n", BUILD_NUMBER);
+#endif
 
     timed_unlock_global_init();
     root_endpoint_init();

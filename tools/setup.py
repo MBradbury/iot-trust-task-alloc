@@ -139,19 +139,19 @@ for ip, cert in certs.items():
 
     shared_secret = keys[root_ip].exchange(ec.ECDH(), keys[ip].public_key())
 
-    pathlib.Path(f"{oscore_context_dir}/{recipient_id.hex()}").mkdir(parents=True, exist_ok=False)
+    pathlib.Path(f'{oscore_context_dir}/{recipient_id.hex()}').mkdir(parents=True, exist_ok=False)
 
-    with open(f"{oscore_context_dir}/{recipient_id.hex()}/secret.json", "w") as secret:
-        print("{", file=secret)
-        print("    'algorithm': 'AES-CCM-16-64-128',", file=secret)
-        print("    'kdf-hashfun': 'sha256',", file=secret)
-        print("    'window': 32,", file=secret)
-        print(f"    'sender-id_hex': '{sender_id.hex()}',", file=secret)
-        print(f"    'recipient-id_hex': '{recipient_id.hex()}',", file=secret)
-        print(f"    'secret_hex': '{shared_secret.hex()}'", file=secret)
+    with open(f'{oscore_context_dir}/{recipient_id.hex()}/secret.json', 'w') as secret:
+        print('{', file=secret)
+        print('    "algorithm": "AES-CCM-16-64-128",', file=secret)
+        print('    "kdf-hashfun": "sha256",', file=secret)
+        print('    "window": 32,', file=secret)
+        print(f'    "sender-id_hex": "{sender_id.hex()}",', file=secret)
+        print(f'    "recipient-id_hex": "{recipient_id.hex()}",', file=secret)
+        print(f'    "secret_hex": "{shared_secret.hex()}"', file=secret)
         # No master salt
         # No id-context
-        print("}", file=secret)
+        print('}', file=secret)
 
 
 def create_static_keys(ip):

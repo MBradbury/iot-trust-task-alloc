@@ -17,6 +17,7 @@ import aiocoap
 import aiocoap.error as error
 import aiocoap.numbers.codes as codes
 import aiocoap.resource as resource
+from aiocoap.transports.oscore import OSCOREAddress
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mqtt-coap-bridge")
@@ -284,8 +285,10 @@ class MQTTCOAPBridge:
         raise MissingMQTTTopic()
 
     def _coap_request_extract_host(self, request):
-        return request.remote.sockaddr[0]
-
+        if isinstance(request.remote, OSCOREAddress):
+            return request.remote.underlying_address.sockaddr[0]
+        else:
+            return request.remote.sockaddr[0]
 
 
 async def shutdown(signal, loop, bridge):

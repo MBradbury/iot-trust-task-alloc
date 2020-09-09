@@ -22,3 +22,5 @@
 
 // We are using 256 bit ECC, so can decrease RAM cost a bit here
 #define ECC_MAXIMUM_LENGTH 8
+
+#define AIOCOAP_SUPPORTS_OSCORE

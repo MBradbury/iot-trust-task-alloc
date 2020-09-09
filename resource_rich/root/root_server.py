@@ -48,7 +48,7 @@ def keystore_aiocoap_oscore_credentials(keystore):
     credentials_dict = {
         f":{keystore.oscore_ident(addr).hex()}": {
             "oscore": {
-                "contextfile": f"keystore/oscore-contexts/{keystore.oscore_ident(addr).hex()}/"
+                "contextfile": f"{keystore.key_dir}/oscore-contexts/{keystore.oscore_ident(addr).hex()}/"
             }
         }
 
@@ -58,6 +58,16 @@ def keystore_aiocoap_oscore_credentials(keystore):
 
     server_credentials = CredentialsMap()
     server_credentials.load_from_dict(credentials_dict)
+
+    #logger.debug("Credentials:")
+    #for k, item in server_credentials.items():
+    #    logger.debug(f"{k}:")
+    #    logger.debug(f"\tSender ID    : {item.sender_id.hex()}")
+    #    logger.debug(f"\tSender Key   : {item.sender_key.hex()}")
+    #    logger.debug(f"\tRecipient ID : {item.recipient_id.hex()}")
+    #    logger.debug(f"\tRecipient Key: {item.recipient_key.hex()}")
+    #    logger.debug(f"\tCommon IV    : {item.common_iv.hex()}")
+
     return server_credentials
 
 async def start(coap_site, bridge, keystore):

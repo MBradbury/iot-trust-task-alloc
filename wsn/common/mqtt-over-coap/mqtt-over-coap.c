@@ -9,6 +9,7 @@
 
 #include "coap.h"
 #include "coap-callback-api.h"
+#include "oscore.h"
 
 #include "crypto-support.h"
 #include "keystore-oscore.h"
@@ -149,26 +150,13 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
 
     memcpy(coap_payload, data, data_len);
 
-    /*if (!queue_message_to_sign(&mqtt_client_process, NULL, coap_payload, sizeof(coap_payload), data_len))
-    {
-        LOG_ERR("trust mqtt_over_coap_publish: Unable to sign message\n");
-        timed_unlock_unlock(&coap_callback_in_use);
-        return false;
-    }
-
-    return true;*/
-
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_payload(&msg, coap_payload, data_len);
 
-    // TODO: This prevents aiocoap from properly responding, disable for now.
-    // Will need to be enabled again in the future when enabling OSCORE for this message.
-    //coap_set_random_token(&msg);
-
-    // TODO: When aiocoap supports OSCORE
-/*#ifdef WITH_OSCORE
-    keystore_protect_coap_with_oscore(&msg, &ep);
-#endif*/
+#if defined(WITH_OSCORE) && defined(AIOCOAP_SUPPORTS_OSCORE)
+    coap_set_random_token(&msg);
+    keystore_protect_coap_with_oscore(&msg, &root_ep);
+#endif
 
     ret = coap_send_request(&coap_callback, &root_ep, &msg, publish_callback);
     if (ret)
@@ -305,6 +293,11 @@ mqtt_over_coap_subscribe(const char* topic, uint16_t msg_id)
     coap_set_header_uri_path(&msg, MQTT_URI_PATH);
     coap_set_header_uri_query(&msg, uri_query);
 
+#if defined(WITH_OSCORE) && defined(AIOCOAP_SUPPORTS_OSCORE)
+    coap_set_random_token(&msg);
+    keystore_protect_coap_with_oscore(&msg, &root_ep);
+#endif
+
     ret = coap_send_request(&coap_callback, &root_ep, &msg, &subscribe_callback);
     if (ret)
     {
@@ -406,8 +399,6 @@ res_coap_mqtt_post_handler(coap_message_t *request, coap_message_t *response, ui
 
     LOG_DBG("Received publish topic=%.*s, payload len=%d\n", topic_len, topic, payload_len);
 
-    // TODO: verify message signature
-
     // Forward the publish back up to the clients
     mqtt_publish_handler(topic, topic + topic_len, payload, payload_len);
 }
@@ -463,10 +454,9 @@ init(void)
 
     coap_activate_resource(&res_coap_mqtt, MQTT_URI_PATH);
 
-    // TODO: once aiocoap supports OSCORE
-/*#ifdef WITH_OSCORE
+#if defined(WITH_OSCORE) && defined(AIOCOAP_SUPPORTS_OSCORE)
     oscore_protect_resource(&res_coap_mqtt);
-#endif*/
+#endif
 
     pe_state_machine = process_alloc_event();
 

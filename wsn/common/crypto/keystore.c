@@ -22,7 +22,6 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(keystore_request, "keystore_request"); // Processes sign/verify of messages requesting the key
 PROCESS(keystore_add_verifier, "keystore_add_verifier"); // Processes verifying the certificate
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(public_keys_memb, public_key_item_t, PUBLIC_KEYSTORE_SIZE);
@@ -77,15 +76,7 @@ keystore_find_addr(const uip_ip6addr_t* addr)
 /*-------------------------------------------------------------------------------------------------------------------*/
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
 {
-    uip_ip6addr_t norm_addr;
-    uip_ip6addr_normalise(addr, &norm_addr);
-
-    if (uip_ip6addr_cmp(&norm_addr, &root_ep.ipaddr))
-    {
-        return &root_cert.public_key;
-    }
-
-    public_key_item_t* item = keystore_find_addr(&norm_addr);
+    public_key_item_t* item = keystore_find_addr(addr);
     if (!item)
     {
         return NULL;
@@ -162,11 +153,9 @@ keystore_add(const certificate_t* cert)
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static uint8_t req_resp[CERTIFICATE_CBOR_LENGTH + DTLS_EC_SIG_SIZE];
-/*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
-static uint8_t key_req_payload[sizeof(uip_ip6addr_t) + DTLS_EC_SIG_SIZE];
+static uint8_t key_req_payload[sizeof(uip_ip6addr_t)];
 static timed_unlock_t in_use;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void request_public_key_callback(coap_callback_request_state_t* callback_state);
@@ -193,66 +182,30 @@ bool request_public_key(const uip_ip6addr_t* addr)
     LOG_DBG_6ADDR(addr);
     LOG_DBG_("\n");
 
+    memcpy(key_req_payload, addr, sizeof(*addr));
+
     coap_init_message(&msg, COAP_TYPE_CON, COAP_GET, 0);
     coap_set_header_uri_path(&msg, "key");
     coap_set_header_content_format(&msg, APPLICATION_OCTET_STREAM);
+    coap_set_payload(&msg, key_req_payload, sizeof(*addr));
 
+#if defined(WITH_OSCORE) && defined(AIOCOAP_SUPPORTS_OSCORE)
     coap_set_random_token(&msg);
+    keystore_protect_coap_with_oscore(&msg, &root_ep);
+#endif
 
-    // TODO: with group OSCORE signing
-/*#ifdef WITH_OSCORE
-    keystore_protect_coap_with_oscore(&msg, &ep);
-#endif*/
-
-    memcpy(key_req_payload, addr, sizeof(*addr));
-
-    if (!queue_message_to_sign(&keystore_request, NULL, key_req_payload, sizeof(key_req_payload), sizeof(*addr)))
+    int ret = coap_send_request(&coap_callback, &root_ep, &msg, &request_public_key_callback);
+    if (ret)
     {
-        LOG_ERR("request_public_key: Unable to sign message\n");
-        return false;
-    }
-
-    timed_unlock_lock(&in_use);
-
-    return true;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static void request_public_key_continued(void* data)
-{
-    messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
-
-    // If the message was signed successfully, then we need to inform coap
-    // of the extra data that needsa to be sent.
-    if (entry->result == PKA_STATUS_SUCCESS)
-    {
-        int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
-        int coap_payload_len = coap_set_payload(&msg, key_req_payload, payload_len);
-        if (coap_payload_len < payload_len)
-        {
-            LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
-            timed_unlock_unlock(&in_use);
-        }
-        else
-        {
-            int ret = coap_send_request(&coap_callback, &root_ep, &msg, &request_public_key_callback);
-            if (ret)
-            {
-                LOG_DBG("coap_send_request req pk done\n");
-            }
-            else
-            {
-                LOG_ERR("coap_send_request req pk failed %d\n", ret);
-                timed_unlock_unlock(&in_use);
-            }
-        }
+        LOG_DBG("coap_send_request req pk done\n");
+        timed_unlock_lock(&in_use);
     }
     else
     {
-        LOG_ERR("Sign of pk req failed %d\n", entry->result);
-        timed_unlock_unlock(&in_use);
+        LOG_ERR("coap_send_request req pk failed %d\n", ret);
     }
-
-    queue_message_to_sign_done(entry);
+    
+    return ret != 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -278,21 +231,29 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         }
         else
         {
-            if (req_resp_len <= sizeof(req_resp))
-            {
-                memcpy(req_resp, payload, req_resp_len);
+            nanocbor_value_t dec;
+            nanocbor_decoder_init(&dec, payload, req_resp_len);
 
-                LOG_DBG("Queuing public key request response to be verified\n");
-                if (!queue_message_to_verify(&keystore_request, NULL, req_resp, req_resp_len, &root_cert.public_key))
+            certificate_t cert;
+            int ret = certificate_decode(&dec, &cert);
+            if (ret == NANOCBOR_OK)
+            {
+                if (keystore_add(&cert))
                 {
-                    LOG_ERR("request_public_key_callback: enqueue failed\n");
-                    timed_unlock_unlock(&in_use);
+                    LOG_INFO("Sucessfully added public key for ");
+                    LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
+                    LOG_INFO_("\n");
+                }
+                else
+                {
+                    LOG_ERR("Failed to add public key for ");
+                    LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
+                    LOG_ERR_(" (out of memory)\n");
                 }
             }
             else
             {
-                LOG_ERR("req_resp is not the expected length %d > %d\n", req_resp_len, sizeof(req_resp));
-                timed_unlock_unlock(&in_use);
+                LOG_ERR("Failed to decode certificate\n");
             }
         }
     } break;
@@ -309,46 +270,6 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         timed_unlock_unlock(&in_use);
     } break;
     }
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static void
-request_public_key_callback_continued(messages_to_verify_entry_t* entry)
-{
-    if (entry->result != PKA_STATUS_SUCCESS)
-    {
-        LOG_ERR("Failed to add public key (sig verification failed)\n");
-        goto end;
-    }
-
-    nanocbor_value_t dec;
-    nanocbor_decoder_init(&dec, entry->message, entry->message_len - DTLS_EC_SIG_SIZE);
-
-    certificate_t cert;
-    int ret = certificate_decode(&dec, &cert);
-    if (ret != NANOCBOR_OK)
-    {
-        LOG_ERR("Failed to decode certificate\n");
-        goto end;
-    }
-
-    // Message verified, now need to verify certificate
-    if (keystore_add(&cert))
-    {
-        LOG_INFO("Sucessfully added public key for ");
-        LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
-        LOG_INFO_("\n");
-    }
-    else
-    {
-        LOG_ERR("Failed to add public key for ");
-        LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
-        LOG_ERR_(" (out of memory)\n");
-    }
-
-end:
-    queue_message_to_verify_done(entry);
-
-    timed_unlock_unlock(&in_use);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static uint8_t add_buffer[TBS_CERTIFICATE_CBOR_LENGTH + DTLS_EC_SIG_SIZE];
@@ -466,11 +387,13 @@ generate_shared_secret(public_key_item_t* item)
     LOG_DBG_BYTES(receiver_id, OSCORE_ID_LEN);
     LOG_DBG_("\n\tReceiver Key: ");
     LOG_DBG_BYTES(item->context.recipient_context.recipient_key, CONTEXT_KEY_LEN);
+    LOG_DBG_("\n\tCommon IV: ");
+    LOG_DBG_BYTES(item->context.common_iv, CONTEXT_INIT_VECT_LEN);
     LOG_DBG_("\n");
 #endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static void
+static bool
 keystore_init(void)
 {
     crypto_support_init();
@@ -481,48 +404,27 @@ keystore_init(void)
 
     timed_unlock_init(&in_use, "keystore", (1 * 60 * CLOCK_SECOND));
     add_buffer_in_use = false;
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS_THREAD(keystore_request, ev, data)
-{
-    // This process processes events for keys that were requested
 
-    PROCESS_BEGIN();
-
-#ifdef BUILD_NUMBER
-    LOG_INFO("BUILD NUMBER = %u\n", BUILD_NUMBER);
-#endif
-
-    keystore_init();
-
-    while (1)
+    // Need to add the root certificate to the keystore in order to
+    // generate the shared secret with it
+    if (!keystore_add(&root_cert))
     {
-        PROCESS_WAIT_EVENT();
-
-        // Sign key request
-        if (ev == pe_message_signed)
-        {
-            request_public_key_continued(data);
-        }
-
-        // Verify key response
-        if (ev == pe_message_verified)
-        {
-            messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
-            assert(entry->data == NULL);
-
-            // Message verified now need to verify certificate
-            request_public_key_callback_continued(entry);
-        }
+        LOG_ERR("Adding the root certificate to the keystore failed\n");
+        return false;
     }
 
-    PROCESS_END();
+    return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(keystore_add_verifier, ev, data)
 {
     // This process processes events for keys that were unsolicitied
     PROCESS_BEGIN();
+
+    if (!keystore_init())
+    {
+        PROCESS_EXIT();
+    }
 
     while (1)
     {
