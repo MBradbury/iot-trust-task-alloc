@@ -90,7 +90,7 @@ void keystore_pin(public_key_item_t* item)
     item->pin_count += 1;
 
     LOG_DBG("Key ");
-    LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
+    LOG_DBG_BYTES(&item->cert.subject, EUI64_LENGTH);
     LOG_DBG_(" pin count=%u (+)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -101,7 +101,7 @@ void keystore_unpin(public_key_item_t* item)
     item->pin_count -= 1;
 
     LOG_DBG("Key ");
-    LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
+    LOG_DBG_BYTES(&item->cert.subject, EUI64_LENGTH);
     LOG_DBG_(" pin count=%u (-)\n", item->pin_count);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
