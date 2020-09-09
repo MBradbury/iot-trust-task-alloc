@@ -18,6 +18,8 @@ parser.add_argument("--mote", default="/dev/ttyUSB0", help="The mote to flash.")
 parser.add_argument("--mote_type", choices=["zolertia", "telosb"], default="zolertia", help="The type of mote.")
 parser.add_argument("--firmware_type", choices=["contiki", "riot"], default="contiki", help="The OS that was used to create the firmware.")
 
+parser.add_argument("--no-flush-oscore", action="store_true", default=False, help="Disable flushing OSCORE cache")
+
 args = parser.parse_args()
 
 if args.log_dir.startswith("~"):
@@ -56,6 +58,18 @@ with open(flash_log_path, 'w') as flash_log:
     print("Flashing finished!", flush=True)
 
 time.sleep(0.1)
+
+# By default we need to remove the OSCORE state storing the cached sequence numbers
+if not args.no_flush_oscore:
+    print("Removing cached OSCORE state")
+
+    oscore_contexts_dir = "resource_rich/root/keystore/oscore-contexts"
+    for content in os.listdir(oscore_contexts_dir):
+        print(f"Removing {oscore_contexts_dir}/{content}/sequence.json")
+        try:
+            os.remove(f"{oscore_contexts_dir}/{content}/sequence.json")
+        except FileNotFoundError:
+            pass
 
 with open(tunslip_log_path, 'w') as tunslip_log, \
      open(service_log_path, 'w') as service_log, \
