@@ -164,7 +164,9 @@ bool request_public_key(const uip_ip6addr_t* addr)
 {
     if (keystore_find_addr(addr) != NULL)
     {
-        //LOG_DBG("Already have this public key, do not need to request it.\n");
+        LOG_DBG("Already have the public key for ");
+        LOG_DBG_6ADDR(addr);
+        LOG_DBG_(", do not need to request it.\n");
         return false;
     }
 
