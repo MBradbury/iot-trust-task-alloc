@@ -48,7 +48,7 @@ class MonitorBase:
 
         self.pcap_log_file.write(packet)
 
-    def _process_out(self, length: int, message: bytes, now):
+    def _process_out(self, length: int, message: bytes, now: datetime):
         if length != len(message):
             logger.warning("Inconsistent length of sent message")
 
@@ -56,7 +56,7 @@ class MonitorBase:
 
         self.previous_out = (now, length, message)
 
-    def _process_out_res(self, length: int, result: int, now):
+    def _process_out_res(self, length: int, result: int, now: datetime):
         print(f"{now},outres,{length},{result}", file=self.packet_log_file, flush=True)
 
         if self.previous_out is None:
@@ -70,7 +70,8 @@ class MonitorBase:
 
         self.previous_out = None
 
-        if result == 0:
+        # 0 is RADIO_TX_OK
+        if result != 0:
             return
 
         packet = Dot15d4(message)
