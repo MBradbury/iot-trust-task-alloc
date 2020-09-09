@@ -18,8 +18,6 @@ typedef struct public_key_item {
 
     certificate_t cert;
 
-    uint8_t shared_secret[DTLS_EC_KEY_SIZE];
-
 #ifdef WITH_OSCORE
     oscore_ctx_t context;
 #endif

@@ -99,7 +99,7 @@ typedef struct {
 
     ecc_multiply_state_t ecc_multiply_state;
 
-    uint8_t* shared_secret;
+    uint8_t shared_secret[DTLS_EC_KEY_SIZE];
 } ecdh2_state_t;
 
 PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubkey));

@@ -359,12 +359,12 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
 #define OSCORE_ID_LEN 6
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-generate_shared_secret(public_key_item_t* item)
+generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret, size_t shared_secret_len)
 {
     LOG_INFO("Generated shared secret with ");
     LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
     LOG_INFO_(" value=");
-    LOG_INFO_BYTES(item->shared_secret, DTLS_EC_KEY_SIZE);
+    LOG_INFO_BYTES(shared_secret, shared_secret_len);
     LOG_INFO_("\n");
 
 #ifdef WITH_OSCORE
@@ -393,7 +393,7 @@ generate_shared_secret(public_key_item_t* item)
 
     oscore_derive_ctx(&item->context,
         // The shared secret between these two nodes
-        item->shared_secret, DTLS_EC_KEY_SIZE,
+        shared_secret, shared_secret_len,
 
         // optional master salt
         master_salt, master_salt_len,
@@ -494,12 +494,12 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
 
                 static ecdh2_state_t ecdh2_unver_state;
                 ecdh2_unver_state.ecc_multiply_state.process = &keystore_add_verifier;
-                ecdh2_unver_state.shared_secret = pkitem->shared_secret;
                 PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->cert.public_key));
 
                 if (ecdh2_unver_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
                 {
-                    generate_shared_secret(pkitem);
+                    generate_shared_secret(pkitem,
+                        ecdh2_unver_state.shared_secret, sizeof(ecdh2_unver_state.shared_secret));
                 }
                 else
                 {
