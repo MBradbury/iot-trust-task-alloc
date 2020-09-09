@@ -39,6 +39,16 @@ else
     CFLAGS += -DTRUST_CHOOSE=TRUST_CHOOSE_$(shell echo $(TRUST_CHOOSE) | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 endif
 
+ifneq ($(OSCORE_MASTER_SALT),)
+    $(info "Using master salt of $(OSCORE_MASTER_SALT)")
+    CFLAGS += -DOSCORE_MASTER_SALT="${OSCORE_MASTER_SALT}"
+endif
+
+ifneq ($(OSCORE_ID_CONTEXT),)
+    $(info "Using id context of $(OSCORE_ID_CONTEXT)")
+    CFLAGS += -DOSCORE_ID_CONTEXT="${OSCORE_ID_CONTEXT}"
+endif
+
 # Include Contiki-NG system modules
 #MODULES += os/services/shell
 

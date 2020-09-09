@@ -370,13 +370,44 @@ generate_shared_secret(public_key_item_t* item)
     const uint8_t* sender_id = &our_cert.subject[EUI64_LENGTH - OSCORE_ID_LEN];
     const uint8_t* receiver_id = &item->cert.subject[EUI64_LENGTH - OSCORE_ID_LEN];
 
+    // The master salt might have been provided as a compile time option
+    // if so define it and use it to derive the context
+#ifdef OSCORE_MASTER_SALT
+    const uint8_t master_salt[] = OSCORE_MASTER_SALT;
+    const uint8_t master_salt_len = sizeof(master_salt);
+#else
+    const uint8_t* master_salt = NULL;
+    const uint8_t master_salt_len = 0;
+#endif
+
+    // Same for the ID context
+#ifdef OSCORE_ID_CONTEXT
+    const uint8_t id_context[] = OSCORE_ID_CONTEXT;
+    const uint8_t id_context_len = sizeof(id_context);
+#else
+    const uint8_t* id_context = NULL;
+    const uint8_t id_context_len = 0;
+#endif
+
     oscore_derive_ctx(&item->context,
+        // The shared secret between these two nodes
         item->shared_secret, DTLS_EC_KEY_SIZE,
-        NULL, 0, //master_salt, sizeof(master_salt), // optional master salt
-        COSE_Algorithm_AES_CCM_16_64_128, //COSE_ALGO_AESCCM_16_64_128,
-        sender_id, OSCORE_ID_LEN, // Sender ID
-        receiver_id, OSCORE_ID_LEN, // Receiver ID
-        NULL, 0); // optional ID context
+
+        // optional master salt
+        master_salt, master_salt_len,
+
+        // Algorithm
+        COSE_Algorithm_AES_CCM_16_64_128,
+
+        // Sender ID
+        sender_id, OSCORE_ID_LEN,
+
+        // Receiver ID
+        receiver_id, OSCORE_ID_LEN,
+
+        // optional ID context
+        id_context, id_context_len
+    );
 
     LOG_DBG("Created oscore context with: ");
     LOG_DBG_("\n\tSender ID   : ");
@@ -389,7 +420,16 @@ generate_shared_secret(public_key_item_t* item)
     LOG_DBG_BYTES(item->context.recipient_context.recipient_key, CONTEXT_KEY_LEN);
     LOG_DBG_("\n\tCommon IV: ");
     LOG_DBG_BYTES(item->context.common_iv, CONTEXT_INIT_VECT_LEN);
+#ifdef OSCORE_MASTER_SALT
+    LOG_DBG_("\n\tMaster Salt: ");
+    LOG_DBG_BYTES(master_salt, master_salt_len);
+#endif
+#ifdef OSCORE_ID_CONTEXT
+    LOG_DBG_("\n\tID Context: ");
+    LOG_DBG_BYTES(id_context, id_context_len);
+#endif
     LOG_DBG_("\n");
+
 #endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

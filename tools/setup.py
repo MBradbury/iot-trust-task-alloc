@@ -9,6 +9,8 @@ import getpass
 import os
 import sys
 import ipaddress
+import secrets
+from more_itertools import chunked
 
 import fabric
 import patchwork.transfers
@@ -17,6 +19,9 @@ from common.stereotype_tags import StereotypeTags, DeviceClass
 from tools.keygen.keygen import generate_and_save_key
 from tools.keygen.contiking_format import *
 from common.certificate import TBSCertificate
+
+def bytes_to_c_array(b: bytes) -> str:
+    return '"{' + ', '.join(f"0x{''.join(h)}" for h in chunked(b.hex(), 2)) + '}"'
 
 available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
 available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]
@@ -125,6 +130,15 @@ certs = {
     in sorted(ips.items(), key=lambda x: x[0])
 }
 
+print("Generating cryptographic input")
+
+oscore_master_salt = secrets.token_bytes(16)
+print(f"OSCORE Master Salt: {oscore_master_salt.hex()}")
+
+#oscore_id_context = b"\x01"
+#print(f"OSCORE ID Context: {oscore_id_context.hex()}")
+
+
 print("Creating OSCORE contexts")
 
 oscore_context_dir = "setup/keystore/oscore-contexts"
@@ -148,9 +162,9 @@ for ip, cert in certs.items():
         print('    "window": 32,', file=secret)
         print(f'    "sender-id_hex": "{sender_id.hex()}",', file=secret)
         print(f'    "recipient-id_hex": "{recipient_id.hex()}",', file=secret)
-        print(f'    "secret_hex": "{shared_secret.hex()}"', file=secret)
-        # No master salt
-        # No id-context
+        print(f'    "secret_hex": "{shared_secret.hex()}",', file=secret)
+        print(f'    "salt_hex": "{oscore_master_salt.hex()}"', file=secret)
+        #print(f'    "id-context_hex": "{oscore_id_context.hex()}"', file=secret)
         print('}', file=secret)
 
 
@@ -188,6 +202,8 @@ for (target, ip) in ips.items():
         "BUILD_NUMBER": build_number,
         "TRUST_MODEL": args.trust_model,
         "TRUST_CHOOSE": args.trust_choose,
+        "OSCORE_MASTER_SALT": bytes_to_c_array(oscore_master_salt),
+        #"OSCORE_ID_CONTEXT": bytes_to_c_array(oscore_id_context),
     }
 
     if args.with_pcap:

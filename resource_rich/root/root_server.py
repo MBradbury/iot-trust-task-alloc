@@ -42,7 +42,7 @@ async def shutdown(signal, loop, bridge):
 
     loop.stop()
 
-def keystore_aiocoap_oscore_credentials(keystore):
+def keystore_aiocoap_oscore_credentials(keystore: Keystore) -> CredentialsMap:
     root_address = ipaddress.ip_address("fd00::1")
 
     credentials_dict = {
@@ -70,7 +70,7 @@ def keystore_aiocoap_oscore_credentials(keystore):
 
     return server_credentials
 
-async def start(coap_site, bridge, keystore):
+async def start(coap_site: resource.Site, bridge: MQTTCOAPBridge, keystore: Keystore):
     server_credentials = keystore_aiocoap_oscore_credentials(keystore)
 
     oscore_coap_site = OscoreSiteWrapper(coap_site, server_credentials)
