@@ -21,8 +21,14 @@ ips = {
 if not os.path.isdir("results"):
     os.makedirs("results")
 
+# Also very important to fetch the keystore, in order to faciltate decrypting the results
+print("Fetching keystore")
+subprocess.run(
+    f'rsync -avz pi@wsn1:/home/pi/iot-trust-task-alloc/resource_rich/root/keystore/ ./results/keystore',
+    shell=True)
+
 for hostname in ips.keys():
     print(f"Fetching results for {hostname}...")
     subprocess.run(
-        f'rsync pi@{hostname}:/home/pi/iot-trust-task-alloc/logs/* ./results',
+        f'rsync -avz pi@{hostname}:/home/pi/iot-trust-task-alloc/logs/* ./results',
         shell=True)
