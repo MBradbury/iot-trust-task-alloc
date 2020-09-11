@@ -130,10 +130,13 @@ certs = {
     in sorted(ips.items(), key=lambda x: x[0])
 }
 
+# Clarify the root server's private key
+shutil.copy(f"setup/keystore/{ip_name(root_ip)}-private.pem", "setup/keystore/private.pem")
+
 print("Generating cryptographic input")
 
-oscore_master_salt = secrets.token_bytes(16)
-print(f"OSCORE Master Salt: {oscore_master_salt.hex()}")
+#oscore_master_salt = secrets.token_bytes(16)
+#print(f"OSCORE Master Salt: {oscore_master_salt.hex()}")
 
 #oscore_id_context = b"\x01"
 #print(f"OSCORE ID Context: {oscore_id_context.hex()}")
@@ -202,7 +205,7 @@ for (target, ip) in ips.items():
         "BUILD_NUMBER": build_number,
         "TRUST_MODEL": args.trust_model,
         "TRUST_CHOOSE": args.trust_choose,
-        "OSCORE_MASTER_SALT": bytes_to_c_array(oscore_master_salt),
+        #"OSCORE_MASTER_SALT": bytes_to_c_array(oscore_master_salt),
         #"OSCORE_ID_CONTEXT": bytes_to_c_array(oscore_id_context),
     }
 
@@ -243,19 +246,16 @@ for (target, ip) in ips.items():
 
 print("Tidying up keystore")
 
-# Clarify the root server's private key
-shutil.move(f"setup/keystore/{ip_name(root_ip)}-private.pem", "setup/keystore/private.pem")
-
 # Remove its public key (as this is contained within the private key file)
-os.remove(f"setup/keystore/{ip_name(root_ip)}-public.pem")
+#os.remove(f"setup/keystore/{ip_name(root_ip)}-public.pem")
 
 # Remove the private keys of the sensor nodes
-for ip in ips.values():
+"""for ip in ips.values():
     # Skip root ip
     if ip == root_ip:
         continue
 
-    os.remove(f"setup/keystore/{ip_name(ip)}-private.pem")
+    os.remove(f"setup/keystore/{ip_name(ip)}-private.pem")"""
 
 print("Deploying keystore to root")
 
