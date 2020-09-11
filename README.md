@@ -33,6 +33,21 @@ git clone https://github.com/MBradbury/iot-trust-task-alloc.git
 cd iot-trust-task-alloc && git submodule update --init
 ```
 
+4. Install Wireshark
+
+Install the latest version of wireshark to be able to analyse OSCORE packets. Instructions originated from [here](https://ask.wireshark.org/question/9916/wireshark-302-linux-for-debianubuntu/)
+
+```bash
+cd ~
+mkdir wireshark
+git clone https://gitlab.com/wireshark/wireshark.git
+cd wireshark
+sudo tools/debian-setup.sh --install-optional --install-deb-deps --install-test-deps
+dpkg-buildpackage -b -uc -us -jauto
+cd ..
+rm wireshark-{doc,dev,dbg}_*.deb
+sudo dpkg -i *.deb
+```
 
 ## Root Node
 
