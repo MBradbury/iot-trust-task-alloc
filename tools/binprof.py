@@ -19,12 +19,12 @@ from collections import defaultdict
     shell=True,
     cwd="wsn/node",
 )"""
-subprocess.run(
+"""subprocess.run(
     "make node TRUST_MODEL=basic TRUST_CHOOSE=banded",
     check=True,
     shell=True,
     cwd="wsn/node",
-)
+)"""
 
 result = subprocess.run(
     "nm --print-size --size-sort --radix=d --line-numbers node.zoul",
@@ -105,20 +105,20 @@ def classify(symb, other="other"):
             return "contiki-ng/coap"
 
         if symb.name in ("pe_edge_capability_add", "pe_edge_capability_remove"):
-            return "petras/trust"
+            return "system/trust"
 
         if symb.name in ("pe_message_signed", "pe_message_signed", "pe_message_verified",
                          "root_cert", "our_cert", "our_privkey"):
-            return "petras/crypto"
+            return "system/crypto"
         if symb.name.startswith(("verify_state.", "sign_state.", "ecdh2_unver_state.", "ecdh2_req_state.",
                                  "pkitem.", "sitem.", "vitem.")):
-            return "petras/crypto"
+            return "system/crypto"
 
         if symb.name in ("mqtt_client_process"):
-            return "petras/mqtt-over-coap"
+            return "system/mqtt-over-coap"
 
         if symb.name in ("pe_timed_unlock_unlocked", "root_ep", "autostart_processes"):
-            return "petras/common"
+            return "system/common"
 
         if symb.name in ("_C_numeric_locale", "__mprec_bigtens", "__mprec_tinytens", "__mprec_tens",
                          "__hexdig", "_ctype_", "_impure_ptr"):
@@ -154,16 +154,16 @@ def classify(symb, other="other"):
         return "contiki-ng"
 
     if "crypto" in symb.location:
-        return "petras/crypto"
+        return "system/crypto"
 
     if "trust" in symb.location:
-        return "petras/trust"
+        return "system/trust"
 
     if "mqtt-over-coap" in symb.location:
-        return "petras/mqtt-over-coap"
+        return "system/mqtt-over-coap"
 
     if "wsn/node" in symb.location or "wsn/edge" in symb.location:
-        return "petras/common"
+        return "system/common"
 
     return other
 
