@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from monitor_impl import MonitorBase
+from monitor_impl import ScapyMonitor
 
 import logging
 import asyncio
@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("monitor")
 logger.setLevel(logging.DEBUG)
 
-class Monitor(MonitorBase):
+class Monitor(ScapyMonitor):
     def __init__(self, name, log_dir=".", mote="/dev/ttyUSB0", no_dbg_log=False):
         super().__init__(name, log_dir=log_dir)
 

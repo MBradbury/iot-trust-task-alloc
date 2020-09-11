@@ -19,6 +19,8 @@ class Keystore:
         self.keystore = {}
         self.certstore = {}
 
+        self._privkeystore = {}
+
         # Load the server's public/private key
         self.privkey = self._load_privkey(os.path.join(key_dir, "private.pem"))
 
@@ -31,24 +33,43 @@ class Keystore:
                     yield ipaddress.ip_address(prefix)
 
     def _load_privkey(self, path):
+        logger.info(f"Loading key from file {path}")
         with open(path, 'rb') as f:
             return serialization.load_pem_private_key(f.read(), password=None, backend=default_backend())
 
     def _load_pubkey(self, path):
+        logger.info(f"Loading key from file {path}")
         with open(path, 'rb') as f:
             return serialization.load_pem_public_key(f.read(), backend=default_backend())
+
+    def _addr_to_path(self, request_address, suffix):
+        file = str(request_address).replace(":", "_") + suffix
+        path = os.path.join(self.key_dir, file)
+        return path
+
+    def _load_privkey_from_address(self, addr):
+        return self._load_privkey(self._addr_to_path(addr, "-private.pem"))
+
+    def _load_pubkey_from_address(self, addr):
+        return self._load_pubkey(self._addr_to_path(addr, "-public.pem"))
 
     def get_pubkey(self, request_address):
         key = self.keystore.get(request_address, None)
         if key is None:
-            file = str(request_address).replace(":", "_") + "-public.pem"
-
-            logger.info(f"Loading key for {request_address} from file {file}")
-
-            self.keystore[request_address] = key = self._load_pubkey(os.path.join(self.key_dir, file))
+            self.keystore[request_address] = key = self._load_pubkey_from_address(request_address)
 
         else:
             logger.info(f"Using cached public key for {request_address} as response")
+
+        return key
+
+    def _get_privkey(self, request_address):
+        key = self._privkeystore.get(request_address, None)
+        if key is None:
+            self._privkeystore[request_address] = key = self._load_privkey_from_address(request_address)
+
+        else:
+            logger.info(f"Using cached private key for {request_address} as response")
 
         return key
 
@@ -76,7 +97,9 @@ class Keystore:
         # OSCORE IDs are the last 6 bytes of the EUI-64
         return cert.subject[-6:]
 
-    def shared_secret(self, request_address) -> bytes:
+    def shared_secret(self, request_address, from_address=None) -> bytes:
+        private_key = self.privkey if from_address is None else self._get_privkey(from_address)
+
         their_pubkey = self.get_pubkey(request_address)
         shared_key = self.privkey.exchange(ec.ECDH(), their_pubkey)
 

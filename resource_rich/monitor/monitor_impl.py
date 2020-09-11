@@ -25,7 +25,6 @@ class MonitorBase:
         self._stop = False
 
         self.packet_log_file = open(f"{log_dir}/{name}.packet.log", "w")
-        self.pcap_log_file = PcapWriter(f"{log_dir}/{name}.data.pcap", sync=True)
 
     def __enter__(self):
         return self
@@ -35,7 +34,6 @@ class MonitorBase:
 
     def close(self):
         self.packet_log_file.close()
-        self.pcap_log_file.close()
 
     def _process_in(self, length: int, message: bytes, now: datetime):
         if length != len(message):
@@ -43,10 +41,7 @@ class MonitorBase:
 
         print(f"{now},in,{length},{message.hex()}", file=self.packet_log_file, flush=True)
 
-        packet = Dot15d4(message)
-        packet.time = now.timestamp()
-
-        self.pcap_log_file.write(packet)
+        self._output_packet(message, "rx", now)
 
     def _process_out(self, length: int, message: bytes, now: datetime):
         if length != len(message):
@@ -74,11 +69,10 @@ class MonitorBase:
         if result != 0:
             return
 
-        packet = Dot15d4(message)
-        packet.time = previous_now.timestamp()
+        self._output_packet(message, "tx", previous_now)
 
-        self.pcap_log_file.write(packet)
-
+    def _output_packet(self, message: bytes, kind: str, now: datetime):
+        raise NotImplementedException()
 
     def write(self, line: str):
         line = line.rstrip()
@@ -115,4 +109,23 @@ class MonitorBase:
 
     def flush(self):
         self.packet_log_file.flush()
+
+
+class ScapyMonitor(MonitorBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pcap_log_file = PcapWriter(f"{log_dir}/{name}.data.pcap", sync=True)
+
+    def close(self):
+        self.pcap_log_file.close()
+        super().close()
+
+    def _output_packet(self, message: bytes, kind: str, now: datetime):
+        packet = Dot15d4(message)
+        packet.time = now.timestamp()
+
+        self.pcap_log_file.write(packet)
+
+    def flush(self):
         self.pcap_log_file.flush()
+        super().flush()

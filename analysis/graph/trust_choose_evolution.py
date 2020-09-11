@@ -123,15 +123,15 @@ def main(log_dir):
             ax.plot(X, Y, label=f"{hostname} eval {edge_ids_to_names[target]}")
 
         ax.set_xlabel('Time')
-        ax.set_ylabel('Trust Value')
-        ax2.set_ylabel('Number of tasks submitted')
+        ax.set_ylabel('Trust Value (lines)')
+        ax2.set_ylabel('Number of tasks submitted (bars)')
 
         ax.set_ylim(0, 1)
-        ax2.set_ylim(0, 20)
+        ax2.set_ylim(0, 6)
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
-        ax.legend(ncol=3, fontsize="x-small", loc="center")
+        ax.legend(ncol=3, fontsize="small", loc="center", bbox_to_anchor=(0.5,1.075))
 
         target = f"{log_dir}/graphs/banded_trust_value_vs_time_{capability}.pdf"
         fig.savefig(target, bbox_inches='tight')
