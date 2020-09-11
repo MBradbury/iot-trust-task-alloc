@@ -170,8 +170,7 @@ class MQTTConnector:
 
 
 class MQTTCOAPBridge:
-    def __init__(self, database, coap_target_port):
-        self.coap_target_port = coap_target_port
+    def __init__(self, database):
         self.coap_connector = COAPConnector(self)
         self.mqtt_connector = MQTTConnector(self)
         self.manager = SubscriptionManager(database)
@@ -204,11 +203,8 @@ class MQTTCOAPBridge:
         result = aiocoap.Message(payload=b"", code=codes.CREATED)
 
         # Update local table of clients who are subscribed
-        if result.code == codes.CREATED:
-            logger.info(f"Subscribed {host} to {topic}")
-            await self.manager.subscribe(topic, host)
-        else:
-            logger.error(f"Failed to subscribe {host} to {topic} ({result})")
+        logger.info(f"Subscribed {host} to {topic}")
+        await self.manager.subscribe(topic, host)
 
         return result
 
@@ -219,16 +215,13 @@ class MQTTCOAPBridge:
         if await self.manager.should_unsubscribe(topic, host):
             await self.mqtt_connector.client.unsubscribe(topic)
 
-        # Ubsubscribe succeeded, or
+        # Unsubscribe succeeded, or
         # Not currently subscribed, so just say things were fine.
         result = aiocoap.Message(payload=b"", code=codes.DELETED)
 
         # Update local table of clients who are subscribed
-        if result.code == codes.DELETED:
-            logger.info(f"Unsubscribed {host} from {topic}")
-            await self.manager.unsubscribe(topic, host)
-        else:
-            logger.error(f"Failed to subscribe {host} to {topic} ({result})")
+        logger.info(f"Unsubscribed {host} from {topic}")
+        await self.manager.unsubscribe(topic, host)
 
         return result
 
@@ -260,7 +253,7 @@ class MQTTCOAPBridge:
     async def forward_mqtt(self, payload, topic, target):
         """Forward an MQTT message to a coap target"""
         message = aiocoap.Message(code=codes.POST, payload=payload,
-                                  uri=f"coap://[{target}]:{self.coap_target_port}/mqtt?t={topic}")
+                                  uri=f"coap://{target}/mqtt?t={topic}")
 
         logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
@@ -313,7 +306,7 @@ async def start(coap_site, bridge):
     bridge.context = await aiocoap.Context.create_server_context(coap_site)
     await bridge.start()
 
-def main(database, coap_target_port, flush=False):
+def main(database, flush=False):
     logger.info("Starting mqtt-coap bridge")
 
     loop = asyncio.get_event_loop()
@@ -328,7 +321,7 @@ def main(database, coap_target_port, flush=False):
     coap_site.add_resource(['.well-known', 'core'],
         resource.WKCResource(coap_site.get_resources_as_linkheader, impl_info=None))
     
-    bridge = MQTTCOAPBridge(database, coap_target_port)
+    bridge = MQTTCOAPBridge(database)
     coap_site.add_resource(['mqtt'], bridge.coap_connector)
 
     # May want to catch other signals too
@@ -348,10 +341,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='MQTT-CoAP Bridge')
-    parser.add_argument('-p', '--coap-target-port', type=int, default=5683, help='The target port for CoAP messages to be POSTed to')
     parser.add_argument('-d', '--mqtt-database', type=str, default="mqtt_coap_bridge.pickle", help='The location of serialised database')
     parser.add_argument('-f', '--mqtt-flush', action="store_true", default=False, help='Clear previous mqtt subscription database')
 
     args = parser.parse_args()
 
-    main(database=args.mqtt_database, coap_target_port=args.coap_target_port, flush=args.mqtt_flush)
+    main(database=args.mqtt_database, flush=args.mqtt_flush)
