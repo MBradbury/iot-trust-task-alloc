@@ -45,19 +45,32 @@ async def shutdown(signal, loop, bridge):
 def keystore_aiocoap_oscore_credentials(keystore: Keystore) -> CredentialsMap:
     root_address = ipaddress.ip_address("fd00::1")
 
-    credentials_dict = {
+    addresses = [addr for addr in keystore.list_addresses() if addr != root_address]
+
+    server_credentials_dict = {
         f":{keystore.oscore_ident(addr).hex()}": {
             "oscore": {
                 "contextfile": f"{keystore.key_dir}/oscore-contexts/{keystore.oscore_ident(addr).hex()}/"
             }
         }
 
-        for addr in keystore.list_addresses()
-        if addr != root_address
+        for addr in addresses
     }
 
+    # TODO: Fix this so it works
+
+    # In order for messages sent from this application to others to be protected
+    # we need to add this additional credential link in
+    client_credentials_dict = {
+        f"coap://{addr}/*": f":{keystore.oscore_ident(addr).hex()}"
+
+        for addr in addresses
+    }
+    client_credentials_dict = {}
+
+
     server_credentials = CredentialsMap()
-    server_credentials.load_from_dict(credentials_dict)
+    server_credentials.load_from_dict({**server_credentials_dict, **client_credentials_dict})
 
     #logger.debug("Credentials:")
     #for k, item in server_credentials.items():
@@ -79,8 +92,7 @@ async def start(coap_site: resource.Site, bridge: MQTTCOAPBridge, keystore: Keys
 
     await bridge.start()
 
-def main(coap_target_port,
-         mqtt_database,
+def main(mqtt_database,
          mqtt_flush,
          key_directory):
     logger.info("Starting root server")
@@ -96,7 +108,7 @@ def main(coap_target_port,
     key_server = COAPKeyServer(keystore)
     coap_site.add_resource(['key'], key_server)
 
-    bridge = MQTTCOAPBridge(mqtt_database, coap_target_port)
+    bridge = MQTTCOAPBridge(mqtt_database)
     coap_site.add_resource(['mqtt'], bridge.coap_connector)
 
     stereotype = StereotypeServer()
@@ -120,8 +132,6 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Root Server')
-    parser.add_argument('-p', '--coap-target-port', type=int, default=5683, help='The target port for CoAP messages to be POSTed to')
-
     # MQTT-over-coap options
     parser.add_argument('-d', '--mqtt-database', type=str, default="mqtt_coap_bridge.pickle", help='The location of serialised database')
     parser.add_argument('-f', '--mqtt-flush', action="store_true", default=False, help='Clear previous mqtt subscription database')
@@ -131,7 +141,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(coap_target_port=args.coap_target_port,
-         mqtt_database=args.mqtt_database,
+    main(mqtt_database=args.mqtt_database,
          mqtt_flush=args.mqtt_flush,
          key_directory=args.key_directory)
