@@ -1,17 +1,17 @@
 import logging
 from datetime import datetime, timezone
 
-from scapy.all import UDP, IPv6, ICMP
-from scapy.layers.inet6 import *
-from scapy.layers.dot15d4 import Dot15d4
-from scapy.layers.sixlowpan import *
-from scapy.contrib.coap import CoAP
-from scapy.contrib.rpl import *
-from scapy.contrib.rpl_metrics import *
-from scapy.utils import PcapWriter
-from scapy.config import conf
-
-conf.dot15d4_protocol = 'sixlowpan'
+#from scapy.all import UDP, IPv6, ICMP
+#from scapy.layers.inet6 import *
+#from scapy.layers.dot15d4 import Dot15d4
+#from scapy.layers.sixlowpan import *
+#from scapy.contrib.coap import CoAP
+#from scapy.contrib.rpl import *
+#from scapy.contrib.rpl_metrics import *
+#from scapy.utils import PcapWriter
+#from scapy.config import conf
+#
+#conf.dot15d4_protocol = 'sixlowpan'
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("monitor")
@@ -111,7 +111,7 @@ class MonitorBase:
         self.packet_log_file.flush()
 
 
-class ScapyMonitor(MonitorBase):
+"""class ScapyMonitor(MonitorBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pcap_log_file = PcapWriter(f"{log_dir}/{name}.data.pcap", sync=True)
@@ -128,4 +128,4 @@ class ScapyMonitor(MonitorBase):
 
     def flush(self):
         self.pcap_log_file.flush()
-        super().flush()
+        super().flush()"""
