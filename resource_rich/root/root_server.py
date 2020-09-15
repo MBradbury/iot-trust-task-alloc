@@ -11,6 +11,8 @@ from .stereotype_server import StereotypeServer
 
 from .keystore import Keystore
 
+from common.configuration import root_node, hostname_to_ips
+
 import aiocoap
 import aiocoap.resource as resource
 from aiocoap.oscore_sitewrapper import OscoreSiteWrapper
@@ -43,7 +45,7 @@ async def shutdown(signal, loop, bridge):
     loop.stop()
 
 def keystore_aiocoap_oscore_credentials(keystore: Keystore) -> CredentialsMap:
-    root_address = ipaddress.ip_address("fd00::1")
+    root_address = ipaddress.ip_address(hostname_to_ips[root_node])
 
     addresses = [addr for addr in keystore.list_addresses() if addr != root_address]
 
