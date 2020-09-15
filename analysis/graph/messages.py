@@ -128,6 +128,48 @@ def main(log_dir):
 
     # TODO: Draw some bar graphs of which nodes tasks were submitted to
 
+    # Table of the percentage of bytes in each category
+    hostnames = sorted(set(XYs_tx.keys()) | set(XYs_rx.keys()))
+
+    for hostname in hostnames:
+        #print(hostname)
+
+        print("\\begin{table}[t]")
+        print("\\centering")
+        print("\\begin{tabular}{l S[table-format=6] S[table-format=3.1] S[table-format=6] S[table-format=3.1]}")
+        print("    \\toprule")
+        print("    ~ & \\multicolumn{2}{c}{Tx} & \\multicolumn{2}{c}{Rx} \\\\")
+        print("    Category & {(\\si{\\byte})} & {(\\%)} & {(\\si{\\byte})} & {(\\%)} \\\\")
+        print("    \\midrule")
+
+        XY_tx = XYs_tx.get(hostname, [])
+        XY_rx = XYs_rx.get(hostname, [])
+
+        XY_tx = {
+            name: sum(lengths)
+            for (name, dates, lengths) in XY_tx
+        }
+        total_tx = sum(XY_tx.values())
+
+        XY_rx = {
+            name: sum(lengths)
+            for (name, dates, lengths) in XY_rx
+        }
+        total_rx = sum(XY_rx.values())
+
+        names = sorted(set(XY_tx.keys()) | set(XY_rx.keys()))
+
+        for name in names:
+            print(f"{name} & {XY_tx.get(name, 0)} & {round(100*XY_tx.get(name, 0)/total_tx,1)} & {XY_rx.get(name, 0)} & {round(100*XY_rx.get(name, 0)/total_rx,1)} \\\\")
+        print("\\midrule")
+        print(f"Total & {total_tx} & 100 & {total_rx} & 100 \\\\")
+
+        print("\\bottomrule")
+        print("\\end{tabular}")
+        print(f"\\caption{{Message tx and rx for {hostname}}}")
+        #print("\\label{tab:ram-flash-usage}")
+        print("\\end{table}")
+
 
 if __name__ == "__main__":
     import argparse
