@@ -198,17 +198,21 @@ class Setup:
         if os.path.exists("wsn/common/crypto/static-keys.c.orig"):
             shutil.move("wsn/common/crypto/static-keys.c.orig", "wsn/common/crypto/static-keys.c")
 
-    def _deploy(self, password):
+    def _deploy(self, password: str):
         for (target, ip) in ips.items():
-            # Skip deploying binaries for root ip
-            if ip == root_ip:
-                continue
-
-            name = self.ip_name(ip)
-
             with fabric.Connection(f'pi@{target}', connect_kwargs={"password": password}) as conn:
+                # Now upload the configuration
+                src = f"common/configuration.py"
+                dest = os.path.join("/home/pi/iot-trust-task-alloc", src)
+                result = conn.put(src, dest)
+                print("Uploaded {0.local} to {0.remote} for {1}".format(result, conn))
+
+                # Skip deploying binaries for root ip
+                if ip == root_ip:
+                    continue
+
                 for binary in self.binaries:
-                    src = f"setup/{name}/{binary}.bin"
+                    src = f"setup/{self.ip_name(ip)}/{binary}.bin"
                     dest = os.path.join("/home/pi/pi-client", os.path.basename(src))
 
                     result = conn.put(src, dest)
