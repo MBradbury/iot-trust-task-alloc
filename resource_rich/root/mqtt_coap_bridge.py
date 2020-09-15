@@ -102,24 +102,6 @@ class COAPConnector(resource.Resource):
         super().__init__()
         self.bridge = bridge
 
-    """async def start(self):
-        pass
-        #self.context = await aiocoap.Context.create_server_context(self.bridge.coap_site)
-
-        # See: https://github.com/chrysn/aiocoap/blob/master/aiocoap/transports/tinydtls.py#L29
-        "" "self.context.client_credentials.load_from_dict({
-            'coaps://localhost/*': {
-                'dtls': {
-                    'psk': b'secretPSK',
-                    'client-identity': b'client_Identity',
-                }
-            }
-        })"""
-
-    #async def stop(self):
-    #    pass
-    #    #await self.context.shutdown()
-
     async def render_get(self, request):
         """An MQTT Subscribe request"""
         try:
