@@ -235,7 +235,7 @@ class MQTTCOAPBridge:
     async def forward_mqtt(self, payload, topic, target):
         """Forward an MQTT message to a coap target"""
         message = aiocoap.Message(code=codes.POST, payload=payload,
-                                  uri=f"coap://{target}/mqtt?t={topic}")
+                                  uri=f"coap://[{target}]/mqtt?t={topic}")
 
         logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
 
