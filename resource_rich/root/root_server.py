@@ -68,7 +68,6 @@ def keystore_aiocoap_oscore_credentials(keystore: Keystore) -> CredentialsMap:
 
         for addr in addresses
     }
-    client_credentials_dict = {}
 
 
     server_credentials = CredentialsMap()
@@ -85,12 +84,8 @@ def keystore_aiocoap_oscore_credentials(keystore: Keystore) -> CredentialsMap:
 
     return server_credentials
 
-async def start(coap_site: resource.Site, bridge: MQTTCOAPBridge, keystore: Keystore):
-    server_credentials = keystore_aiocoap_oscore_credentials(keystore)
-
-    oscore_coap_site = OscoreSiteWrapper(coap_site, server_credentials)
-
-    bridge.context = await aiocoap.Context.create_server_context(oscore_coap_site)
+async def start(oscore_site: OscoreSiteWrapper, bridge: MQTTCOAPBridge):
+    bridge.context = await aiocoap.Context.create_server_context(oscore_site)
 
     await bridge.start()
 
@@ -102,19 +97,22 @@ def main(mqtt_database,
     loop = asyncio.get_event_loop()
 
     keystore = Keystore(key_directory)
+    server_credentials = keystore_aiocoap_oscore_credentials(keystore)
 
     coap_site = resource.Site()
     coap_site.add_resource(['.well-known', 'core'],
         resource.WKCResource(coap_site.get_resources_as_linkheader, impl_info=None))
 
     key_server = COAPKeyServer(keystore)
-    coap_site.add_resource(['key'], key_server)
+    coap_site.add_resource(['key'], OscoreSiteWrapper(key_server, server_credentials))
 
     bridge = MQTTCOAPBridge(mqtt_database)
-    coap_site.add_resource(['mqtt'], bridge.coap_connector)
+    coap_site.add_resource(['mqtt'], OscoreSiteWrapper(bridge.coap_connector, server_credentials))
 
     stereotype = StereotypeServer()
-    coap_site.add_resource(['stereotype'], stereotype)
+    coap_site.add_resource(['stereotype'], OscoreSiteWrapper(stereotype, server_credentials))
+
+    oscore_site = OscoreSiteWrapper(coap_site, server_credentials)
 
     # May want to catch other signals too
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
@@ -122,7 +120,7 @@ def main(mqtt_database,
         loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, bridge)))
 
     try:
-        loop.create_task(start(coap_site, bridge, keystore))
+        loop.create_task(start(oscore_site, bridge))
         loop.run_forever()
     finally:
         loop.close()
