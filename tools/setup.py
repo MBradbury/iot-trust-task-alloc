@@ -18,7 +18,7 @@ import patchwork.transfers
 from common.stereotype_tags import StereotypeTags, DeviceClass
 from tools.keygen.keygen import generate_and_save_key
 from tools.keygen.contiking_format import *
-from common.certificate import TBSCertificate
+from common.certificate import TBSCertificate, SignedCertificate
 
 def bytes_to_c_array(b: bytes) -> str:
     return '"{' + ', '.join(f"0x{''.join(h)}" for h in chunked(b.hex(), 2)) + '}"'
@@ -41,6 +41,15 @@ ips = {
     "wsn4": "fd00::212:4b00:14d5:2be6", # 00:12:4B:00:14:D5:2B:E6
     "wsn5": "fd00::212:4b00:14b5:da27", # 00:12:4B:00:14:B5:DA:27
     "wsn6": "fd00::212:4b00:14d5:2f05", # 00:12:4B:00:14:D5:2F:05
+}
+
+device_stereotypes: {
+    "wsn1": StereotypeTags(device_class=DeviceClass.SERVER),         # Root
+    "wsn2": StereotypeTags(device_class=DeviceClass.RASPBERRY_PI),   # Edge
+    "wsn3": StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
+    "wsn4": StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
+    "wsn5": StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
+    "wsn6": StereotypeTags(device_class=DeviceClass.RASPBERRY_PI),   # Edge
 }
 
 binaries = ["node", "edge"]
@@ -67,7 +76,7 @@ print("Cleaning directories")
 for binary in binaries:
     subprocess.run(f"make distclean -C wsn/{binary} TRUST_MODEL={args.trust_model} TRUST_CHOOSE={args.trust_choose}", shell=True, check=True, capture_output=True)
 
-def ip_name(ip):
+def ip_name(ip: str) -> str:
     return ip.replace(":", "_")
 
 print("Building keystore")
@@ -77,7 +86,7 @@ keys = {
     in ips.values()
 }
 
-def ip_to_eui64(subject):
+def ip_to_eui64(subject: str) -> bytes:
     ip = ipaddress.ip_address(subject)
 
     # Last 8 bytes of the ip address
@@ -91,12 +100,8 @@ def ip_to_eui64(subject):
 
 serial_number = 0
 
-def create_certificate(subject):
+def create_certificate(subject: str, stereotype_tags: StereotypeTags) -> SignedCertificate:
     global serial_number
-
-    tags = StereotypeTags(
-        device_class=DeviceClass.RASPBERRY_PI
-    )
 
     tbscert = TBSCertificate(
         serial_number=serial_number,
@@ -104,7 +109,7 @@ def create_certificate(subject):
         validity_from=0,
         validity_to=None,
         subject=ip_to_eui64(subject),
-        stereotype_tags=tags,
+        stereotype_tags=stereotype_tags,
         public_key=keys[subject].public_key(),
     )
 
@@ -112,8 +117,8 @@ def create_certificate(subject):
 
     return tbscert.build(keys[root_ip])
 
-def create_and_save_certificate(keystore_dir, subject):
-    cert = create_certificate(subject)
+def create_and_save_certificate(keystore_dir: str, subject: str, stereotype_tags: StereotypeTags) -> SignedCertificate:
+    cert = create_certificate(subject, stereotype_tags)
 
     pathlib.Path(keystore_dir).mkdir(parents=True, exist_ok=True)
 
@@ -125,7 +130,7 @@ def create_and_save_certificate(keystore_dir, subject):
     return cert
 
 certs = {
-    ip: create_and_save_certificate("setup/keystore", ip)
+    ip: create_and_save_certificate("setup/keystore", ip, device_stereotypes[name])
     for name, ip
     in sorted(ips.items(), key=lambda x: x[0])
 }

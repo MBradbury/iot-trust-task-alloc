@@ -8,6 +8,10 @@ class DeviceClass(IntEnum):
     DESKTOP = 4
     SERVER = 5
 
+    IOT_LOW = 6
+    IOT_MEDIUM = 7
+    IOT_HIGH = 8
+
     def encode(self):
         return int(self)
 
