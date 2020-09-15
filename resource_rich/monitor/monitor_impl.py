@@ -82,7 +82,7 @@ class MonitorBase:
         self._output_packet(message, "tx", previous_now)
 
     def _output_packet(self, message: bytes, kind: str, now: datetime):
-        raise NotImplementedException()
+        pass
 
     def write(self, line: str):
         line = line.rstrip()
