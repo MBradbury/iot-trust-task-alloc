@@ -2,7 +2,7 @@
 
 import argparse
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 import shutil
 import pathlib
 import getpass
@@ -136,7 +136,8 @@ shutil.copy(f"setup/keystore/{ip_name(root_ip)}-private.pem", "setup/keystore/pr
 print("Generating cryptographic input")
 
 #oscore_master_salt = secrets.token_bytes(16)
-#print(f"OSCORE Master Salt: {oscore_master_salt.hex()}")
+oscore_master_salt = bytes.fromhex("642b2b8e9d0c4263924ceafcf7038b26")
+print(f"OSCORE Master Salt: {oscore_master_salt.hex()}")
 
 #oscore_id_context = b"\x01"
 #print(f"OSCORE ID Context: {oscore_id_context.hex()}")
@@ -173,7 +174,7 @@ for ip, cert in certs.items():
 
 def create_static_keys(ip):
     with open("setup/static-keys.c", "w") as static_keys:
-        print(f'// Generated at {datetime.now()}', file=static_keys)
+        print(f'// Generated at {datetime.now(timezone.utc)}', file=static_keys)
         print('#include "certificate.h"', file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
         print(contiking_format_our_privkey(keys[ip], ip), file=static_keys)

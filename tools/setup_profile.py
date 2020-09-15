@@ -2,7 +2,7 @@
 
 import argparse
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 import shutil
 import pathlib
 import getpass
@@ -43,7 +43,7 @@ def ip_name(ip):
 
 def create_static_keys(ip):
     with open("setup/static-keys.c", "w") as static_keys:
-        print(f'// Generated at {datetime.now()}', file=static_keys)
+        print(f'// Generated at {datetime.now(timezone.utc)}', file=static_keys)
         print('#include "keys.h"', file=static_keys)
         print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
         print(eckeygen.contiking_format_our_key(keys[ip], ip), file=static_keys)
