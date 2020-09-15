@@ -18,6 +18,9 @@ from common.stereotype_tags import StereotypeTags, DeviceClass
 from tools.keygen.keygen import generate_and_save_key
 from tools.keygen.contiking_format import *
 from common.certificate import TBSCertificate, SignedCertificate
+from common.configuration import hostname_to_ips as ips, root_node, device_stereotypes
+
+root_ip = ips[root_node]
 
 class Setup:
     def __init__(self, trust_model: str, trust_choose: str, with_pcap: bool):
@@ -27,28 +30,7 @@ class Setup:
 
         self.build_number = 1
 
-        self.ips = {
-            "wsn1": "fd00::1",
-            "wsn2": "fd00::212:4b00:14d5:2bd6", # 00:12:4B:00:14:D5:2B:D6
-            "wsn3": "fd00::212:4b00:14d5:2ddb", # 00:12:4B:00:14:D5:2D:DB
-            "wsn4": "fd00::212:4b00:14d5:2be6", # 00:12:4B:00:14:D5:2B:E6
-            "wsn5": "fd00::212:4b00:14b5:da27", # 00:12:4B:00:14:B5:DA:27
-            "wsn6": "fd00::212:4b00:14d5:2f05", # 00:12:4B:00:14:D5:2F:05
-        }
-
-        self.device_stereotypes = {
-            "wsn1": StereotypeTags(device_class=DeviceClass.SERVER),         # Root
-            "wsn2": StereotypeTags(device_class=DeviceClass.RASPBERRY_PI),   # Edge
-            "wsn3": StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
-            "wsn4": StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
-            "wsn5": StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
-            "wsn6": StereotypeTags(device_class=DeviceClass.RASPBERRY_PI),   # Edge
-        }
-
         self.binaries = ["node", "edge"]
-
-        self.root_node = "wsn1"
-        self.root_ip = "fd00::1"
 
         self.keys = None
         self.certs = None
@@ -124,11 +106,11 @@ class Setup:
         self.keys = {
             ip: generate_and_save_key("setup/keystore", ip)
             for ip
-            in self.ips.values()
+            in ips.values()
         }
 
         # Clarify the root server's private key
-        shutil.copy(f"setup/keystore/{self.ip_name(self.root_ip)}-private.pem", "setup/keystore/private.pem")
+        shutil.copy(f"setup/keystore/{self.ip_name(root_ip)}-private.pem", "setup/keystore/private.pem")
 
     def ip_to_eui64(self, subject: str) -> bytes:
         ip = ipaddress.ip_address(subject)
@@ -137,7 +119,7 @@ class Setup:
         eui64 = bytearray(int(ip).to_bytes(16, byteorder='big')[-8:])
 
         # See: uip_ds6_set_lladdr_from_iid
-        if subject != self.root_ip:
+        if subject != root_ip:
             eui64[0] ^= 0x02
 
         return bytes(eui64)
@@ -145,7 +127,7 @@ class Setup:
     def create_certificate(self, subject: str, stereotype_tags: StereotypeTags) -> SignedCertificate:
         tbscert = TBSCertificate(
             serial_number=self.certificate_serial_number,
-            issuer=self.ip_to_eui64(self.root_ip),
+            issuer=self.ip_to_eui64(root_ip),
             validity_from=0,
             validity_to=None,
             subject=self.ip_to_eui64(subject),
@@ -155,7 +137,7 @@ class Setup:
 
         self.certificate_serial_number += 1
 
-        return tbscert.build(self.keys[self.root_ip])
+        return tbscert.build(self.keys[root_ip])
 
     def create_and_save_certificate(self, keystore_dir: str, subject: str, stereotype_tags: StereotypeTags) -> SignedCertificate:
         cert = self.create_certificate(subject, stereotype_tags)
@@ -171,9 +153,9 @@ class Setup:
 
     def _create_certificates(self):
         self.certs = {
-            ip: self.create_and_save_certificate("setup/keystore", ip, self.device_stereotypes[name])
+            ip: self.create_and_save_certificate("setup/keystore", ip, device_stereotypes[name])
             for name, ip
-            in sorted(self.ips.items(), key=lambda x: x[0])
+            in sorted(ips.items(), key=lambda x: x[0])
         }
 
     def _create_oscore_contexts(self):
@@ -186,13 +168,13 @@ class Setup:
 
         for ip, cert in self.certs.items():
             # Skip root ip
-            if ip == self.root_ip:
+            if ip == root_ip:
                 continue
 
-            sender_id = self.certs[self.root_ip].subject[-self.oscore_id_len:]
+            sender_id = self.certs[root_ip].subject[-self.oscore_id_len:]
             recipient_id = cert.subject[-self.oscore_id_len:]
 
-            shared_secret = self.keys[self.root_ip].exchange(ec.ECDH(), self.keys[ip].public_key())
+            shared_secret = self.keys[root_ip].exchange(ec.ECDH(), self.keys[ip].public_key())
 
             pathlib.Path(f'{oscore_context_dir}/{recipient_id.hex()}').mkdir(parents=True, exist_ok=False)
 
@@ -220,7 +202,7 @@ class Setup:
             print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
             print(contiking_format_our_privkey(self.keys[ip], ip), file=static_keys)
             print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
-            print(contiking_format_certificate(self.certs[self.root_ip], "root_cert", self.root_ip), file=static_keys)
+            print(contiking_format_certificate(self.certs[root_ip], "root_cert", root_ip), file=static_keys)
             print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
             print(contiking_format_certificate(self.certs[ip], "our_cert", ip), file=static_keys)
             print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
@@ -230,9 +212,9 @@ class Setup:
         if os.path.exists("wsn/common/crypto/static-keys.c"):
             shutil.move("wsn/common/crypto/static-keys.c", "wsn/common/crypto/static-keys.c.orig")
 
-        for (target, ip) in self.ips.items():
+        for (target, ip) in ips.items():
             # Skip building for root ip
-            if ip == self.root_ip:
+            if ip == root_ip:
                 continue
 
             print(f"Building for {ip} attached to {target}")
@@ -273,9 +255,9 @@ class Setup:
             shutil.move("wsn/common/crypto/static-keys.c.orig", "wsn/common/crypto/static-keys.c")
 
     def _deploy(self, password):
-        for (target, ip) in self.ips.items():
+        for (target, ip) in ips.items():
             # Skip deploying binaries for root ip
-            if ip == self.root_ip:
+            if ip == root_ip:
                 continue
 
             name = self.ip_name(ip)
@@ -292,18 +274,18 @@ class Setup:
         print("Tidying up keystore")
 
         # Remove its public key (as this is contained within the private key file)
-        #os.remove(f"setup/keystore/{self.ip_name(self.root_ip)}-public.pem")
+        #os.remove(f"setup/keystore/{self.ip_name(root_ip)}-public.pem")
 
         # Remove the private keys of the sensor nodes
-        for ip in self.ips.values():
+        for ip in ips.values():
             # Skip root ip
-            if ip == self.root_ip:
+            if ip == root_ip:
                 continue
 
             os.remove(f"setup/keystore/{ip_name(ip)}-private.pem")
 
     def _deploy_keystore(self, password):
-        with fabric.Connection(f'pi@{self.root_node}', connect_kwargs={"password": password}) as conn:
+        with fabric.Connection(f'pi@{root_node}', connect_kwargs={"password": password}) as conn:
             src = "./setup/keystore"
             dest = "/home/pi/iot-trust-task-alloc/resource_rich/root"
 

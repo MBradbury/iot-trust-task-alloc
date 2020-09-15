@@ -15,3 +15,5 @@ __pycache__
 tilescache
 *.pickle
 *.pcap
+
+common/configuration.py
