@@ -119,15 +119,6 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
         return false;
     }
 
-#if 0
-    if (data_len > MAX_COAP_PAYLOAD - DTLS_EC_SIG_SIZE)
-    {
-        LOG_ERR("data_len (%u) > MAX_COAP_PAYLOAD (%u) - DTLS_EC_SIG_SIZE (%u)\n",
-            data_len, MAX_COAP_PAYLOAD, DTLS_EC_SIG_SIZE);
-        return false;
-    }
-#endif
-
     if (!coap_endpoint_is_connected(&root_ep))
     {
         LOG_ERR("Cannot perform mqtt_over_coap_publish as the coap endpoint is not connected\n");
@@ -171,41 +162,6 @@ mqtt_over_coap_publish(const char* topic, const void* data, size_t data_len)
 
     return ret != 0;
 }
-/*-------------------------------------------------------------------------------------------------------------------*/
-/*static void
-mqtt_over_coap_publish_continue(void* data)
-{
-    messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
-
-    if (entry->result == PKA_STATUS_SUCCESS)
-    {
-        int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
-        int coap_payload_len = coap_set_payload(&msg, coap_payload, payload_len);
-        if (coap_payload_len < payload_len)
-        {
-            LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
-            // TODO: how to handle block-wise transfer?
-        }
-
-        int ret = coap_send_request(&coap_callback, &root_ep, &msg, publish_callback);
-        if (ret)
-        {
-            LOG_DBG("coap_send_request mqtt done\n");
-        }
-        else
-        {
-            LOG_ERR("coap_send_request mqtt failed %d\n", ret);
-            timed_unlock_unlock(&coap_callback_in_use);
-        }
-    }
-    else
-    {
-        LOG_ERR("Sign of mqtt information failed %d\n", entry->result);
-        timed_unlock_unlock(&coap_callback_in_use);
-    }
-
-    queue_message_to_sign_done(entry);
-}*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 publish_callback(coap_callback_request_state_t *callback_state)
@@ -482,14 +438,6 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
         if (ev == PROCESS_EVENT_TIMER && data == &echo_request_timer) {
             ping_parent();
         }
-
-        /*if (ev == pe_message_signed) {
-            mqtt_over_coap_publish_continue(data);
-        }
-
-        if (ev == pe_message_verified) {
-
-        }*/
     }
 
     PROCESS_END();
