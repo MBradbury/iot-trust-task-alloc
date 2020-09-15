@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from enum import IntEnum
 
 #from scapy.all import UDP, IPv6, ICMP
 #from scapy.layers.inet6 import *
@@ -18,6 +19,16 @@ logger = logging.getLogger("monitor")
 logger.setLevel(logging.DEBUG)
 
 PCAP_LOG_MARKER = "#"
+
+class RadioStatus(IntEnum):
+    """
+    Contiki-NG Radio Status
+    See os/dev/radio.h
+    """
+    RADIO_TX_OK = 0
+    RADIO_TX_ERR = 1
+    RADIO_TX_COLLISION = 2
+    RADIO_TX_NOACK = 3
 
 class MonitorBase:
     def __init__(self, name, log_dir="."):
@@ -65,8 +76,7 @@ class MonitorBase:
 
         self.previous_out = None
 
-        # 0 is RADIO_TX_OK
-        if result != 0:
+        if result != RadioStatus.RADIO_TX_OK:
             return
 
         self._output_packet(message, "tx", previous_now)
