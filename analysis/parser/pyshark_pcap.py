@@ -6,15 +6,12 @@ from pprint import pprint
 from collections import defaultdict
 import ipaddress
 import textwrap
-import json
+#import json
 import itertools
-from datetime import datetime
 
 from resource_rich.root.keystore import Keystore
 
 import pyshark
-#from common.inmem_capture import LinkTypes, InMemCapture
-#from common.packet_log_processor import PacketLogProcessor
 
 hostname_to_ips = {
     "wsn1": "fd00::1",
@@ -46,13 +43,6 @@ class PcapAnalyser:
         self.max_snift_time = None
 
         self.packet_kinds = {}
-
-        # Routing application
-        # Monitoring application
-        # Certificate Request
-        # Stereotype Request
-        # MQTT-over-CoAP
-        # RPL maintenance
 
     def get_tx_rx_list(self, packet):
         try:
@@ -287,20 +277,7 @@ def main(log_dir):
             print("Can only have pcap results from a wsn or edge node")
             continue
 
-        #plp = PacketLogProcessor()
-        #with open(g, "r") as f:
-        #    l, kinds, times = plp.process_all(f)
-
         a = PcapAnalyser(hostname)
-
-        """with InMemCapture(override_prefs=override_prefs, debug=True, linktype=LinkTypes.IEEE802_15_4_NOFCS) as c:
-            # This will not reassemble fragments into a single packet
-            packets = c.parse_packets(l, times)
-
-            if len(packets) != len(kinds):
-                raise RuntimeError("Invalid length")
-
-            a.analyse(zip(packets, kinds, times))"""
 
         # Need pass "-2" in order for packets to be processed twice,
         # this means that fragments will be reassembled
