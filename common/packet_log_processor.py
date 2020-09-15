@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 class PacketLogProcessor:
     def __init__(self):
