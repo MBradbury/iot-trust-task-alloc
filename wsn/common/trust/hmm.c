@@ -85,42 +85,33 @@ float hmm_observation_probability(const hmm_t* hmm, hmm_observations_t ob, const
     float alpha[HMM_NUM_STATES][INTERACTION_HISTORY_SIZE+1];
     float c[INTERACTION_HISTORY_SIZE+1];
 
-    const uint8_t* obs = interaction_history_iter(prev_obs);
-    assert(obs != NULL);
+    const uint8_t* obs = NULL;
 
-    // Initialisation
-    c[0] = 0.0f;
-    for (uint8_t i = 0; i != HMM_NUM_STATES; ++i)
-    {
-        alpha[i][0] = hmm->initial[i] * hmm->emission[i][*obs];
-
-        c[0] += alpha[i][0];
-    }
-
-    if (c[0] != 0) // Scaling
-    {
-        for (uint8_t i = 0; i != HMM_NUM_STATES; ++i)
-        {
-            alpha[i][0] /= c[0];
-        }
-    }
-
-    // Recursion
+    // Initialisation and Recursion
     uint8_t t;
-    for (t = 1; t < prev_obs->count; ++t)
+    for (t = 0; t < prev_obs->count; ++t)
     {
-        obs = interaction_history_next(prev_obs, obs);
+        obs = (t == 0)
+            ? interaction_history_iter(prev_obs)
+            : interaction_history_next(prev_obs, obs);
         assert(obs != NULL);
 
         c[t] = 0.0f;
 
         for (uint8_t s1 = 0; s1 != HMM_NUM_STATES; ++s1)
         {
-            alpha[s1][t] = 0.0f;
-
-            for (uint8_t s2 = 0; s2 != HMM_NUM_STATES; ++s2)
+            if (t == 0)
             {
-                alpha[s1][t] += alpha[s2][t-1] * hmm->trans[s2][s1];
+                alpha[s1][t] = hmm->initial[s1];
+            }
+            else
+            {
+                alpha[s1][t] = 0.0f;
+
+                for (uint8_t s2 = 0; s2 != HMM_NUM_STATES; ++s2)
+                {
+                    alpha[s1][t] += alpha[s2][t-1] * hmm->trans[s2][s1];
+                }
             }
 
             alpha[s1][t] *= hmm->emission[s1][*obs];
