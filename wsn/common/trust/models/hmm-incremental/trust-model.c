@@ -142,7 +142,9 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
 {
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
     NANOCBOR_CHECK(hmm_serialise(enc, &edge->hmm));
+    NANOCBOR_CHECK(nanocbor_fmt_bool(enc, edge->first));
 
     return NANOCBOR_OK;
 }
@@ -157,6 +159,17 @@ int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capabili
 int deserialise_trust_edge_resource(nanocbor_value_t* dec, edge_resource_tm_t* edge)
 {
     NANOCBOR_CHECK(hmm_deserialise(dec, &edge->hmm));
+
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(hmm_deserialise(&arr, &edge->hmm));
+    NANOCBOR_CHECK(nanocbor_get_bool(&arr, &edge->first));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);
 
     return NANOCBOR_OK;
 }
