@@ -1,4 +1,5 @@
 #include "hmm.h"
+#include <math.h>
 #include "assert.h"
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -9,8 +10,11 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-// Possibly useful: https://www.codeproject.com/articles/69647/hidden-markov-models-in-c
+// Possibly useful:
+// https://web.stanford.edu/~jurafsky/slp3/A.pdf
+// https://www.codeproject.com/articles/69647/hidden-markov-models-in-c
 // https://github.com/sukhoy/nanohmm/blob/master/nanohmm.c
+// https://cran.r-project.org/web/packages/seqHMM/vignettes/seqHMM_algorithms.pdf
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define PR_GOOD_GIVEN_TRUSTWORTHY 0.9f
 #define PR_BAD_GIVEN_UNTRUSTWORTHY 0.9f
@@ -59,20 +63,46 @@ void hmm_init_default(hmm_t* hmm)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+float hmm_one_observation_probability(const hmm_t* hmm, hmm_observations_t ob)
+{
+    double c = 0.0;
+
+    for (uint8_t i = 0; i != HMM_NUM_STATES; ++i)
+    {
+        c += hmm->initial[i] * hmm->emission[i][ob];
+    }
+
+    return c;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 float hmm_observation_probability(const hmm_t* hmm, hmm_observations_t ob, const interaction_history_t* prev_obs)
 {
     // Use the forward algorithm to solve
     // Based on pseudocode from: https://web.stanford.edu/~jurafsky/slp3/A.pdf
 
+    // Also see: https://github.com/sukhoy/nanohmm/blob/master/nanohmm.c#L25
+
     float alpha[HMM_NUM_STATES][INTERACTION_HISTORY_SIZE+1];
+    float c[INTERACTION_HISTORY_SIZE+1];
 
     const uint8_t* obs = interaction_history_iter(prev_obs);
     assert(obs != NULL);
 
     // Initialisation
+    c[0] = 0.0f;
     for (uint8_t i = 0; i != HMM_NUM_STATES; ++i)
     {
         alpha[i][0] = hmm->initial[i] * hmm->emission[i][*obs];
+
+        c[0] += alpha[i][0];
+    }
+
+    if (c[0] != 0) // Scaling
+    {
+        for (uint8_t i = 0; i != HMM_NUM_STATES; ++i)
+        {
+            alpha[i][0] /= c[0];
+        }
     }
 
     // Recursion
@@ -82,15 +112,27 @@ float hmm_observation_probability(const hmm_t* hmm, hmm_observations_t ob, const
         obs = interaction_history_next(prev_obs, obs);
         assert(obs != NULL);
 
+        c[t] = 0.0f;
+
         for (uint8_t s1 = 0; s1 != HMM_NUM_STATES; ++s1)
         {
             alpha[s1][t] = 0.0f;
 
             for (uint8_t s2 = 0; s2 != HMM_NUM_STATES; ++s2)
             {
-                // TODO: check order for s2 and s1
+                alpha[s1][t] += alpha[s2][t-1] * hmm->trans[s2][s1];
+            }
 
-                alpha[s1][t] += alpha[s2][t-1] * hmm->trans[s2][s1] * hmm->emission[s1][*obs];
+            alpha[s1][t] *= hmm->emission[s1][*obs];
+
+            c[t] += alpha[s1][t];
+        }
+
+        if (c[t] != 0) // Scaling
+        {
+            for (uint8_t i = 0; i != HMM_NUM_STATES; ++i)
+            {
+                alpha[i][t] /= c[t];
             }
         }
     }
@@ -98,27 +140,94 @@ float hmm_observation_probability(const hmm_t* hmm, hmm_observations_t ob, const
     // Treat the additional observation as a member of the history list
     t = prev_obs->count;
 
+    // TODO: should probably be using the backward algorithm here
+    c[t] = 0.0f;
     for (uint8_t s1 = 0; s1 != HMM_NUM_STATES; ++s1)
     {
         alpha[s1][t] = 0.0f;
 
         for (uint8_t s2 = 0; s2 != HMM_NUM_STATES; ++s2)
         {
-            // TODO: check order for s2 and s1
+            alpha[s1][t] += alpha[s2][t-1] * hmm->trans[s2][s1];
+        }
 
-            alpha[s1][t] += alpha[s2][t-1] * hmm->trans[s2][s1] * hmm->emission[s1][ob];
+        alpha[s1][t] *= hmm->emission[s1][ob];
+
+        c[t] += alpha[s1][t];
+    }
+
+    if (c[t] != 0) // Scaling
+    {
+        for (uint8_t i = 0; i != HMM_NUM_STATES; ++i)
+        {
+            alpha[i][t] /= c[t];
         }
     }
 
     // Termination
-    float result = 0.0f;
+    // Instead of the product, do exp of the sum of the logs for numerical stability
+    double result = 0.0;
 
-    for (uint8_t s = 0; s != HMM_NUM_STATES; ++s)
+    for (uint8_t t = 0; t != INTERACTION_HISTORY_SIZE+1; ++t)
     {
-        result += alpha[s][t];
+        result += log(c[t]);
     }
 
-    return result;
+    return exp(result);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void hmm_update(hmm_t* hmm, hmm_observations_t ob, bool first)
+{
+    float alpha[HMM_NUM_STATES];
+
+    // See: http://www.stat.cmu.edu/~cshalizi/dst/18/lectures/24/lecture-24.html
+
+    float c = 0.0f;
+
+    if (first)
+    {
+        for (uint8_t s1 = 0; s1 != HMM_NUM_STATES; ++s1)
+        {
+            alpha[s1] = hmm->initial[s1] * hmm->emission[s1][ob];
+
+            c += alpha[s1];
+        }
+    }
+    else
+    {
+        for (uint8_t s1 = 0; s1 != HMM_NUM_STATES; ++s1)
+        {
+            alpha[s1] = 0.0f;
+
+            for (uint8_t s2 = 0; s2 != HMM_NUM_STATES; ++s2)
+            {
+                alpha[s1] += hmm->initial[s2] * hmm->trans[s2][s1];
+            }
+
+            alpha[s1] *= hmm->emission[s1][ob];
+
+            c += alpha[s1];
+        }
+    }
+
+    // Normalise alphas
+    for (uint8_t s1 = 0; s1 != HMM_NUM_STATES; ++s1)
+    {
+        alpha[s1] /= c;
+    }
+
+    // Update initial
+    memcpy(hmm->initial, alpha, sizeof(hmm->initial));
+
+    // Function needs to finish with the sum of initial probabilities = 1
+#ifdef DEBUG
+    float check = 0.0f;
+    for (uint8_t s1 = 0; s1 != HMM_NUM_STATES; ++s1)
+    {
+        check += alpha[s1];
+    }
+    assert(isclose(check, 1.0f));
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int hmm_serialise(nanocbor_encoder_t* enc, const hmm_t* hmm)

@@ -5,7 +5,7 @@
 
 #include "nanocbor-helper.h"
 
-#define TRUST_MODEL_TAG 6
+#define TRUST_MODEL_TAG 7
 
 struct edge_resource;
 struct edge_capability;
@@ -16,7 +16,7 @@ struct edge_capability;
 // Per-Edge interactions
 typedef struct edge_resource_tm {
     hmm_t hmm;
-    interaction_history_t hist;
+    bool first;
 
 } edge_resource_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/

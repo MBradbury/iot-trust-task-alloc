@@ -64,7 +64,8 @@ typedef struct {
 /*-------------------------------------------------------------------------------------------------------------------*/
 void hmm_init_default(hmm_t* hmm);
 /*-------------------------------------------------------------------------------------------------------------------*/
-//void hmm_update(hmm_t* hmm, hmm_observations_t new_obs, const interaction_history_t* prev_obs);
+void hmm_update(hmm_t* hmm, hmm_observations_t ob, bool first);
+float hmm_one_observation_probability(const hmm_t* hmm, hmm_observations_t ob);
 float hmm_observation_probability(const hmm_t* hmm, hmm_observations_t ob, const interaction_history_t* prev_obs);
 /*-------------------------------------------------------------------------------------------------------------------*/
 int hmm_serialise(nanocbor_encoder_t* enc, const hmm_t* hmm);

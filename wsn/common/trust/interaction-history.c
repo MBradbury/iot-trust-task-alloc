@@ -1,5 +1,7 @@
 #include "interaction-history.h"
 #include <stddef.h>
+#include <stdio.h>
+#include <inttypes.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
 void interaction_history_init(interaction_history_t* hist)
 {
@@ -51,5 +53,15 @@ const uint8_t* interaction_history_next(const interaction_history_t* hist, const
     {
         return iter;
     }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void interaction_history_print(const interaction_history_t* hist)
+{
+    printf("[");
+    for (const uint8_t* iter = interaction_history_iter(hist); iter != NULL; iter = interaction_history_next(hist, iter))
+    {
+        printf("%" PRIu8 ", ", *iter);
+    }
+    printf("]");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

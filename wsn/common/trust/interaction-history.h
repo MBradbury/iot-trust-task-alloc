@@ -22,3 +22,5 @@ void interaction_history_push(interaction_history_t* hist, uint8_t interaction);
 const uint8_t* interaction_history_iter(const interaction_history_t* hist);
 const uint8_t* interaction_history_next(const interaction_history_t* hist, const uint8_t* iter);
 /*-------------------------------------------------------------------------------------------------------------------*/
+void interaction_history_print(const interaction_history_t* hist);
+/*-------------------------------------------------------------------------------------------------------------------*/
