@@ -28,6 +28,9 @@ class TBSCertificate:
         self.stereotype_tags = stereotype_tags
 
         if isinstance(public_key, bytes):
+            if len(public_key) != 64:
+                raise ValueError("public_key must be 64 bytes")
+
             self.public_key = public_key
         else:
             public_numbers = public_key.public_numbers()
@@ -83,6 +86,9 @@ class SignedCertificate:
         self.stereotype_tags = stereotype_tags
 
         if isinstance(public_key, bytes):
+            if len(public_key) != 64:
+                raise ValueError("public_key must be 64 bytes")
+
             self.public_key = public_key
         else:
             public_numbers = public_key.public_numbers()
