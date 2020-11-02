@@ -59,6 +59,26 @@ edge_stereotype_t* edge_stereotype_find(const stereotype_tags_t* tags)
     return edge_stereotype_find_in_list(tags, stereotypes);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_stereotype_remove(edge_stereotype_t* stereotype)
+{
+    // Not managed by us, so can't free it
+    if (!memb_inmemb(&stereotypes_memb, stereotype))
+    {
+        return false;
+    }
+
+    // Remove from list
+    bool removed = list_remove(stereotypes, stereotype);
+    if (!removed)
+    {
+        return false;
+    }
+
+    int free_result = memb_free(&stereotypes_memb, stereotype);
+
+    return free_result == 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static int serialise_request(nanocbor_encoder_t* enc, const stereotype_tags_t* tags)
 {
     nanocbor_fmt_array(enc, 2);
