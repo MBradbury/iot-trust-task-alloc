@@ -44,7 +44,8 @@ typedef struct peer
 void peer_info_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
 peer_t* peer_info_add(const uip_ipaddr_t* addr);
-//void peer_info_remove(peer_t* peer);
+void peer_info_remove(peer_t* peer);
+void peer_info_remove_edges(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 peer_t* peer_info_find(const uip_ipaddr_t* addr);
 /*-------------------------------------------------------------------------------------------------------------------*/

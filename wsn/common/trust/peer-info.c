@@ -21,6 +21,27 @@ MEMB(peer_capabilities_memb, peer_edge_capability_t, NUM_PEERS * NUM_EDGE_RESOUR
 /*-------------------------------------------------------------------------------------------------------------------*/
 LIST(peers);
 /*-------------------------------------------------------------------------------------------------------------------*/
+static void
+peer_capability_free(peer_edge_capability_t* peer_cap)
+{
+    memb_free(&peer_capabilities_memb, peer_cap);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+peer_edge_free(peer_edge_t* peer_edge)
+{
+    for (peer_edge_capability_t* iter = list_head(peer_edge->capabilities); iter != NULL; )
+    {
+        peer_edge_capability_t* const next = list_item_next(iter);
+
+        peer_capability_free(iter);
+
+        iter = next;
+    }
+
+    memb_free(&peer_edges_memb, peer_edge);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static peer_t*
 peer_new(void)
 {
@@ -37,11 +58,21 @@ peer_new(void)
     return peer;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-/*static void
+static void
 peer_free(peer_t* peer)
 {
+    // Free each piece of edge info provided
+    for (peer_edge_t* iter = list_head(peer->edges); iter != NULL; )
+    {
+        peer_edge_t* const next = list_item_next(iter);
+
+        peer_edge_free(iter);
+
+        iter = next;
+    }
+
     memb_free(&peers_memb, peer);
-}*/
+}
 /*-------------------------------------------------------------------------------------------------------------------*/
 void peer_info_init(void)
 {
@@ -80,14 +111,32 @@ peer_info_add(const uip_ipaddr_t* addr)
     return peer;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-// TODO: Implement freeing of peers
-/*void
+void
 peer_info_remove(peer_t* peer)
 {
     list_remove(peers, peer);
 
     peer_free(peer);
-}*/
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void peer_info_remove_edges(edge_resource_t* edge)
+{
+    // Remove information about the provided edge from each peer
+    for (peer_t* peer = list_head(peers); peer != NULL; peer = list_item_next(peer))
+    {
+        for (peer_edge_t* iter = list_head(peer->edges); iter != NULL; )
+        {
+            peer_edge_t* const next = list_item_next(iter);
+
+            if (iter->edge == edge)
+            {
+                peer_edge_free(iter);
+            }
+
+            iter = next;
+        }
+    }
+}
 /*-------------------------------------------------------------------------------------------------------------------*/
 peer_t*
 peer_info_iter(void)
