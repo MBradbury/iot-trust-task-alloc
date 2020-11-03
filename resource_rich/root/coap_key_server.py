@@ -25,7 +25,6 @@ class UnknownAddressRequest(error.BadRequest):
     message = "Error: Unknown IP Address requested"
 
 ipv6_byte_len = 16
-sig_endianness = "big"
 
 class COAPKeyServer(resource.Resource):
     def __init__(self, keystore: Keystore):
