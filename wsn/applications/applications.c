@@ -30,6 +30,11 @@ struct process* find_process_with_name(const char* name)
 	return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+struct process* find_process_for_capability(edge_capability_t* cap)
+{
+    return find_process_with_name(cap->name);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_add_common(edge_resource_t* edge, const char* uri)
 {
     // pin keys for this edge node
