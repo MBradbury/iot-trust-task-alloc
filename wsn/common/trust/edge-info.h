@@ -21,11 +21,16 @@
 #define NUM_EDGE_CAPABILITIES 3
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define EDGE_CAPABILITY_NO_FLAGS 0
+#define EDGE_CAPABILITY_ACTIVE (1 << 0)
+/*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_capability
 {
     struct edge_capability *next;
 
     char name[EDGE_CAPABILITY_NAME_LEN + 1];
+
+    uint32_t flags;
 
     edge_capability_tm_t tm;
 
@@ -73,4 +78,6 @@ extern process_event_t pe_edge_capability_add;
 extern process_event_t pe_edge_capability_remove;
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char* edge_info_name(const edge_resource_t* edge); // TODO: Remove this function
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_info_has_active_capability(const char* name);
 /*-------------------------------------------------------------------------------------------------------------------*/

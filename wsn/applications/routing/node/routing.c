@@ -1,5 +1,6 @@
 #include "routing.h"
 #include "application-serial.h"
+#include "application-common.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -41,6 +42,8 @@
 #else
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+static app_state_t app_state;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
@@ -126,8 +129,6 @@ nanocbor_get_coordinate_from_payload(nanocbor_value_t* dec, coordinate_t* coord,
 
     return NANOCBOR_OK;
 }
-/*-------------------------------------------------------------------------------------------------------------------*/
-static uint8_t capability_count;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 send_callback(coap_callback_request_state_t* callback_state)
@@ -272,7 +273,7 @@ event_triggered_action(const char* data)
         return;
     }
 
-    if (capability_count == 0)
+    if (!app_state.running)
     {
         LOG_WARN("No Edge servers available to process request\n");
         return;
@@ -554,25 +555,13 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
 static void
 edge_capability_add(edge_resource_t* edge)
 {
-    LOG_INFO("Notified of edge ");
-    LOG_INFO_6ADDR(&edge->ep.ipaddr);
-    LOG_INFO_(" capability\n");
-
-    capability_count += 1;
-
-    edge_capability_add_common(edge, ROUTING_APPLICATION_URI);
+    app_state_edge_capability_add(&app_state, edge);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 edge_capability_remove(edge_resource_t* edge)
 {
-    LOG_INFO("Notified edge ");
-    LOG_INFO_6ADDR(&edge->ep.ipaddr);
-    LOG_INFO_(" no longer has capability\n");
-
-    capability_count -= 1;
-
-    edge_capability_remove_common(edge, ROUTING_APPLICATION_URI);
+    app_state_edge_capability_remove(&app_state, edge);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(routing_process, ROUTING_APPLICATION_NAME);
@@ -588,7 +577,8 @@ init(void)
 
     init_trust_weights_routing();
 
-    capability_count = 0;
+    app_state_init(&app_state, ROUTING_APPLICATION_NAME, ROUTING_APPLICATION_URI);
+
     timed_unlock_init(&coap_callback_in_use, "routing-coap", (1 * 60 * CLOCK_SECOND));
     timed_unlock_init(&task_in_use, "routing-task", (2 * 60 * CLOCK_SECOND));
 

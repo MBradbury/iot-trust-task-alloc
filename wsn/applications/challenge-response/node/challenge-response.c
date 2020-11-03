@@ -1,5 +1,6 @@
 #include "challenge-response.h"
 #include "application-serial.h"
+#include "application-common.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -55,6 +56,8 @@ _Static_assert(CHALLENGE_DURATION * CLOCK_SECOND < CHALLENGE_PERIOD,
 #else
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+static app_state_t app_state;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_challenger {
     struct edge_challenger* next;
@@ -497,35 +500,33 @@ end:
 static void
 edge_capability_add(edge_resource_t* edge)
 {
-    LOG_INFO("Notified of edge ");
-    LOG_INFO_6ADDR(&edge->ep.ipaddr);
-    LOG_INFO_(" capability\n");
-
-    capability_count += 1;
-
-    edge_capability_add_common(edge, CHALLENGE_RESPONSE_APPLICATION_URI);
-
-    if (capability_count == 1)
+    if (app_state_edge_capability_add(&app_state, edge))
     {
         etimer_set(&challenge_timer, CHALLENGE_PERIOD);
     }
 
-    edge_challenger_t* c = memb_alloc(&challengers_memb);
+    // Check that we don't already have a challenger allocated
+    // for this edge
+    edge_challenger_t* c = find_edge_challenger(edge);
     if (c == NULL)
     {
-        LOG_ERR("Failed to allocate edge_challenger\n");
-    }
-    else
-    {
-        c->edge = edge;
-        c->generated = 0;
-        c->received = 0;
-
-        list_push(challengers, c);
-
-        if (next_challenge == NULL)
+        c = memb_alloc(&challengers_memb);
+        if (c == NULL)
         {
-            move_to_next_challenge();
+            LOG_ERR("Failed to allocate edge_challenger\n");
+        }
+        else
+        {
+            c->edge = edge;
+            c->generated = 0;
+            c->received = 0;
+
+            list_push(challengers, c);
+
+            if (next_challenge == NULL)
+            {
+                move_to_next_challenge();
+            }
         }
     }
 }
@@ -533,15 +534,7 @@ edge_capability_add(edge_resource_t* edge)
 static void
 edge_capability_remove(edge_resource_t* edge)
 {
-    LOG_INFO("Notified edge ");
-    LOG_INFO_6ADDR(&edge->ep.ipaddr);
-    LOG_INFO_(" no longer has capability\n");
-
-    capability_count -= 1;
-
-    edge_capability_remove_common(edge, CHALLENGE_RESPONSE_APPLICATION_URI);
-
-    if (capability_count == 0)
+    if (app_state_edge_capability_remove(&app_state, edge))
     {
         etimer_stop(&challenge_timer);
     }
@@ -572,7 +565,8 @@ init(void)
     oscore_protect_resource(&res_coap);
 #endif
 
-    capability_count = 0;
+    app_state_init(&app_state, CHALLENGE_RESPONSE_APPLICATION_NAME, CHALLENGE_RESPONSE_APPLICATION_URI);
+
     timed_unlock_init(&coap_callback_in_use, "challenge-response", (1 * 60 * CLOCK_SECOND));
 
     memb_init(&challengers_memb);

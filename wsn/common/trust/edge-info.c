@@ -181,6 +181,8 @@ edge_info_capability_add(edge_resource_t* edge, const char* name)
 
     strncpy(capability->name, name, EDGE_CAPABILITY_NAME_LEN);
 
+    capability->flags = EDGE_CAPABILITY_NO_FLAGS;
+
     list_push(edge->capabilities, capability);
 
     return capability;
@@ -253,5 +255,24 @@ const char* edge_info_name(const edge_resource_t* edge)
     eui64_to_str(eui64, name, sizeof(name));
 
     return name;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_info_has_active_capability(const char* name)
+{
+    for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
+    {
+        if ((iter->flags & EDGE_RESOURCE_ACTIVE) == 0)
+        {
+            continue;
+        }
+
+        edge_capability_t* capability = edge_info_capability_find(iter, name);
+        if (capability != NULL && (capability->flags & EDGE_CAPABILITY_ACTIVE) != 0)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -1,3 +1,6 @@
+#include "monitoring.h"
+#include "application-common.h"
+
 #include "contiki.h"
 #include "os/sys/log.h"
 #include "dev/cc2538-sensors.h"
@@ -11,7 +14,6 @@
 
 #include <stdio.h>
 
-#include "monitoring.h"
 #include "edge-info.h"
 #include "trust.h"
 #include "trust-models.h"
@@ -30,6 +32,8 @@
 #define LONG_PUBLISH_PERIOD (CLOCK_SECOND * 60 * 1)
 #define SHORT_PUBLISH_PERIOD (CLOCK_SECOND * 10)
 #define CONNECT_PERIOD (CLOCK_SECOND * 5)
+/*-------------------------------------------------------------------------------------------------------------------*/
+static app_state_t app_state;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_callback_request_state_t coap_callback;
@@ -56,7 +60,6 @@ generate_sensor_data(uint8_t* buf, size_t buf_len)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_periodic_timer, publish_short_timer;
-static uint8_t capability_count;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 process_task_ack(edge_resource_t* edge, edge_capability_t* cap, coap_message_t* response)
@@ -187,40 +190,24 @@ periodic_action(void)
 static void
 edge_capability_add(edge_resource_t* edge)
 {
-    LOG_INFO("Notified of edge ");
-    LOG_INFO_6ADDR(&edge->ep.ipaddr);
-    LOG_INFO_(" capability\n");
-
-    capability_count += 1;
-
-    if (capability_count == 1)
+    if (app_state_edge_capability_add(&app_state, edge))
     {
         LOG_INFO("Starting periodic timer to send information\n");
 
         // Setup a periodic timer that expires after PERIOD seconds.
         etimer_set(&publish_periodic_timer, LONG_PUBLISH_PERIOD);
     }
-
-    edge_capability_add_common(edge, MONITORING_APPLICATION_URI);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
 edge_capability_remove(edge_resource_t* edge)
 {
-    LOG_INFO("Notified edge ");
-    LOG_INFO_6ADDR(&edge->ep.ipaddr);
-    LOG_INFO_(" no longer has capability\n");
-
-    capability_count -= 1;
-
-    if (capability_count == 0)
+    if (app_state_edge_capability_remove(&app_state, edge))
     {
         LOG_INFO("Stop sending information, no edges to process it\n");
 
         etimer_stop(&publish_periodic_timer);
     }
-
-    edge_capability_remove_common(edge, MONITORING_APPLICATION_URI);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(monitoring_process, MONITORING_APPLICATION_NAME);
@@ -233,7 +220,8 @@ init(void)
     SENSORS_ACTIVATE(cc2538_temp_sensor);
     SENSORS_ACTIVATE(vdd3_sensor);
 
-    capability_count = 0;
+    app_state_init(&app_state, MONITORING_APPLICATION_NAME, MONITORING_APPLICATION_URI);
+
     timed_unlock_init(&coap_callback_in_use, "monitoring", (1 * 60 * CLOCK_SECOND));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

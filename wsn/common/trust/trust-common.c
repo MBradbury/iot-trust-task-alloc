@@ -186,8 +186,12 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         for (edge_capability_t* cap = list_head(edge->capabilities); cap != NULL; cap = list_item_next(cap))
         {
             post_to_capability_process(cap, pe_edge_capability_remove, edge);
+
+            cap->flags &= ~EDGE_CAPABILITY_ACTIVE;
         }
 
+        // TODO: should potentially not remove capability information here
+        // as it will throw away trust history
         edge_info_capability_clear(edge);
     }
     else
@@ -254,6 +258,8 @@ mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability
         return -1;
     }
 
+    capability->flags |= EDGE_CAPABILITY_ACTIVE;
+
     LOG_INFO("Added capability (%s) for edge with identity ", capability_name);
     LOG_INFO_6ADDR(&edge->ep.ipaddr);
     LOG_INFO_("\n");
@@ -312,6 +318,8 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
     // We have at least one Edge resource to support this application, so we need to inform the process
     post_to_capability_process(capability, pe_edge_capability_remove, edge);
 
+    // TODO: should potentially not remove capability information here
+    // as it will throw away trust history
     bool result = edge_info_capability_remove(edge, capability);
     if (result)
     {

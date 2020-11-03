@@ -48,7 +48,7 @@ void post_to_capability_process(edge_capability_t* cap, process_event_t pe, void
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void edge_capability_add_common(edge_resource_t* edge, const char* uri)
+void edge_capability_add_common(edge_resource_t* edge)
 {
     // pin keys for this edge node
     public_key_item_t* key = keystore_find_addr(&edge->ep.ipaddr);
@@ -77,7 +77,7 @@ void edge_capability_add_common(edge_resource_t* edge, const char* uri)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void edge_capability_remove_common(edge_resource_t* edge, const char* uri)
+void edge_capability_remove_common(edge_resource_t* edge)
 {
     LOG_DBG("Removing context and unpinning ");
     LOG_DBG_6ADDR(&edge->ep.ipaddr);
