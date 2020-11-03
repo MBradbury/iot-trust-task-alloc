@@ -170,8 +170,8 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         return -1;
     }
 
-    edge_resource_t* edge_resource = edge_info_find_eui64(eui64);
-    if (edge_resource != NULL)
+    edge_resource_t* edge = edge_info_find_eui64(eui64);
+    if (edge != NULL)
     {
         LOG_DBG("Received unannounce for ");
         LOG_DBG_BYTES(eui64, EUI64_LENGTH);
@@ -179,9 +179,24 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         LOG_DBG_6ADDR(ip_addr);
         LOG_DBG_("\n");
 
-        edge_resource->flags &= ~EDGE_RESOURCE_ACTIVE;
+        edge->flags &= ~EDGE_RESOURCE_ACTIVE;
 
-        edge_info_capability_clear(edge_resource);
+        // Need to inform any relevant applications that the capabilities of
+        // this Edge are no longer available
+        for (edge_capability_t* cap = list_head(edge->capabilities); cap != NULL; cap = list_item_next(cap))
+        {
+            struct process* proc = find_process_for_capability(cap);
+            if (proc != NULL)
+            {
+                process_post(proc, pe_edge_capability_remove, edge);
+            }
+            else
+            {
+                LOG_INFO("Failed to find a process running the application (%s)\n", cap->name);
+            }
+        }
+
+        edge_info_capability_clear(edge);
     }
     else
     {
@@ -259,7 +274,7 @@ mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability
     }
     else
     {
-        LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
+        LOG_INFO("Failed to find a process running the application (%s)\n", capability_name);
     }
 
     return 0;
@@ -318,7 +333,7 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
     }
     else
     {
-        LOG_DBG("Failed to find a process running the application (%s)\n", capability_name);
+        LOG_INFO("Failed to find a process running the application (%s)\n", capability_name);
     }
 
     bool result = edge_info_capability_remove(edge, capability);
