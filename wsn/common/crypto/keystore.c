@@ -295,11 +295,11 @@ keystore_add_start(void)
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, add_buffer, available_space);
-    certificate_encode_tbs(&enc, &item->cert);
+    int encode_ret = certificate_encode_tbs(&enc, &item->cert);
 
     size_t encoded_length = nanocbor_encoded_len(&enc);
 
-    if (encoded_length > available_space)
+    if (encode_ret != NANOCBOR_OK || encoded_length > available_space)
     {
         LOG_ERR("keystore_add: encode failed %zu > %zu\n", encoded_length, available_space);
         list_remove(public_keys_to_verify, item);
@@ -356,6 +356,7 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
     return item;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+// TODO: this should be OSCORE_SENDER_ID_MAX_LEN(COSE_algorithm_AES_CCM_16_64_128_IV_LEN)
 #define OSCORE_ID_LEN 6
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
