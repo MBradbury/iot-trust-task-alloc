@@ -185,15 +185,7 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         // this Edge are no longer available
         for (edge_capability_t* cap = list_head(edge->capabilities); cap != NULL; cap = list_item_next(cap))
         {
-            struct process* proc = find_process_for_capability(cap);
-            if (proc != NULL)
-            {
-                process_post(proc, pe_edge_capability_remove, edge);
-            }
-            else
-            {
-                LOG_INFO("Failed to find a process running the application (%s)\n", cap->name);
-            }
+            post_to_capability_process(cap, pe_edge_capability_remove, edge);
         }
 
         edge_info_capability_clear(edge);
@@ -267,15 +259,7 @@ mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability
     LOG_INFO_("\n");
 
     // We have at least one Edge resource to support this application, so we need to inform the process
-    struct process* proc = find_process_with_name(capability_name);
-    if (proc != NULL)
-    {
-        process_post(proc, pe_edge_capability_add, edge);
-    }
-    else
-    {
-        LOG_INFO("Failed to find a process running the application (%s)\n", capability_name);
-    }
+    post_to_capability_process(capability, pe_edge_capability_add, edge);
 
     return 0;
 }
@@ -326,15 +310,7 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
     }
 
     // We have at least one Edge resource to support this application, so we need to inform the process
-    struct process* proc = find_process_with_name(capability_name);
-    if (proc != NULL)
-    {
-        process_post(proc, pe_edge_capability_remove, edge);
-    }
-    else
-    {
-        LOG_INFO("Failed to find a process running the application (%s)\n", capability_name);
-    }
+    post_to_capability_process(capability, pe_edge_capability_remove, edge);
 
     bool result = edge_info_capability_remove(edge, capability);
     if (result)

@@ -35,6 +35,19 @@ struct process* find_process_for_capability(edge_capability_t* cap)
     return find_process_with_name(cap->name);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void post_to_capability_process(edge_capability_t* cap, process_event_t pe, void* data)
+{
+    struct process* proc = find_process_for_capability(cap);
+    if (proc != NULL)
+    {
+        process_post(proc, pe, data);
+    }
+    else
+    {
+        LOG_INFO("Failed to find a process running the application (%s)\n", cap->name);
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_add_common(edge_resource_t* edge, const char* uri)
 {
     // pin keys for this edge node
