@@ -1,6 +1,6 @@
 #pragma once
 /*-------------------------------------------------------------------------------------------------------------------*/
-#include "clock.h"
+//#include "clock.h"
 #include "net/ipv6/uip.h"
 
 #ifdef WITH_OSCORE
@@ -22,12 +22,13 @@ typedef struct public_key_item {
     oscore_ctx_t context;
 #endif
 
-    clock_time_t age;
+    //clock_time_t age;
 
     uint16_t pin_count;
 } public_key_item_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool keystore_add(const certificate_t* cert);
+bool keystore_remove(public_key_item_t* item);
 /*-------------------------------------------------------------------------------------------------------------------*/
 public_key_item_t* keystore_find(const uint8_t* eui64);
 public_key_item_t* keystore_find_addr(const uip_ip6addr_t* addr);

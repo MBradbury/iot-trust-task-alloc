@@ -133,6 +133,32 @@ bool keystore_is_pinned(const public_key_item_t* item)
     return item->pin_count > 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static bool
+keystore_free_up_space(void)
+{
+    // We need to try to free up space for a new certificate.
+
+    for (public_key_item_t* iter = list_head(public_keys); iter != NULL; iter = list_item_next(iter))
+    {
+        // 1. Must never evict the item for the root
+        if (memcmp(iter->cert.subject, root_cert.subject, EUI64_LENGTH) == 0)
+        {
+            continue;
+        }
+
+        // 2. If a certificate is not pinned, then it is not in use and can be freed
+        if (!keystore_is_pinned(iter))
+        {
+            if (keystore_remove(iter))
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 bool
 keystore_add(const certificate_t* cert)
 {
@@ -156,8 +182,26 @@ keystore_add(const certificate_t* cert)
     item = memb_alloc(&public_keys_memb);
     if (!item)
     {
-        LOG_ERR("keystore_add: out of memory\n");
-        return false;
+        LOG_WARN("keystore_add: out of memory\n");
+
+        if (!keystore_free_up_space())
+        {
+            LOG_ERR("Failed to free space for certificate\n");
+            return false;
+        }
+        else
+        {
+            item = memb_alloc(&public_keys_memb);
+            if (item == NULL)
+            {
+                LOG_ERR("keystore_add: out of memory\n");
+                return false;
+            }
+            else
+            {
+                LOG_INFO("Successfully found memory for certificate\n");
+            }
+        }
     }
 
     LOG_DBG("Queuing unverified key for ");
@@ -166,7 +210,7 @@ keystore_add(const certificate_t* cert)
 
     item->cert = *cert;
 
-    item->age = clock_time();
+    //item->age = clock_time();
     item->pin_count = 0;
 
     list_add(public_keys_to_verify, item);
@@ -174,6 +218,44 @@ keystore_add(const certificate_t* cert)
     process_poll(&keystore_add_verifier);
 
     return true;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool keystore_remove(public_key_item_t* item)
+{
+    // Cannot remove if pinned (is in use)
+    if (keystore_is_pinned(item))
+    {
+        return false;
+    }
+
+    // Cannot remove if this is the root item
+    if (memcmp(item->cert.subject, root_cert.subject, EUI64_LENGTH) == 0)
+    {
+        return false;
+    }
+
+    uip_ip6addr_t addr;
+    eui64_to_ipaddr(item->cert.subject, &addr);
+
+    LOG_INFO("keystore_remove: Attempting to remove certificate for ");
+    LOG_INFO_6ADDR(&addr);
+    LOG_INFO_("\n");
+
+    // Can only remove from the verified public keys list
+    // Cannot remove from the unverified public keys list
+    const bool removed = list_remove(public_keys, item);
+    if (!removed)
+    {
+        return false;
+    }
+
+    const bool freed = memb_free(&public_keys_memb, item);
+
+    LOG_INFO("keystore_remove: Removed certificate for ");
+    LOG_INFO_6ADDR(&addr);
+    LOG_INFO_(" (freed=%d)\n", freed);
+
+    return freed;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
