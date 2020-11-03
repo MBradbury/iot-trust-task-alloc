@@ -30,12 +30,12 @@ struct process* find_process_with_name(const char* name)
 	return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-struct process* find_process_for_capability(edge_capability_t* cap)
+struct process* find_process_for_capability(const edge_capability_t* cap)
 {
     return find_process_with_name(cap->name);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void post_to_capability_process(edge_capability_t* cap, process_event_t pe, void* data)
+void post_to_capability_process(const edge_capability_t* cap, process_event_t pe, void* data)
 {
     struct process* proc = find_process_for_capability(cap);
     if (proc != NULL)
