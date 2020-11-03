@@ -59,7 +59,7 @@ edge_stereotype_t* edge_stereotype_find(const stereotype_tags_t* tags)
     return edge_stereotype_find_in_list(tags, stereotypes);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool edge_stereotype_remove(edge_stereotype_t* stereotype)
+static bool edge_stereotype_remove_from_list(edge_stereotype_t* stereotype, list_t stereotypes_list)
 {
     // Not managed by us, so can't free it
     if (!memb_inmemb(&stereotypes_memb, stereotype))
@@ -68,7 +68,7 @@ bool edge_stereotype_remove(edge_stereotype_t* stereotype)
     }
 
     // Remove from list
-    bool removed = list_remove(stereotypes, stereotype);
+    bool removed = list_remove(stereotypes_list, stereotype);
     if (!removed)
     {
         return false;
@@ -77,6 +77,11 @@ bool edge_stereotype_remove(edge_stereotype_t* stereotype)
     int free_result = memb_free(&stereotypes_memb, stereotype);
 
     return free_result == 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_stereotype_remove(edge_stereotype_t* stereotype)
+{
+    return edge_stereotype_remove_from_list(stereotype, stereotypes);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int serialise_request(nanocbor_encoder_t* enc, const stereotype_tags_t* tags)
@@ -211,6 +216,30 @@ send_callback(coap_callback_request_state_t* callback_state)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static bool
+stereotypes_free_up_space(void)
+{
+    // We have run out of space for stereotypes and now need to find some to remove.
+    // We do not need to worry about race conditions as stereotypes will only be used during
+    // trust calulcations and will not be referenced from elsewhere.
+
+    for (edge_stereotype_t* s = list_head(stereotypes); s != NULL; s = list_item_next(s))
+    {
+        // 1. Remove any stereotypes that have a tag which is not one of the tags for the certificates
+        if (!keystore_certificate_contains_tags(&s->tags))
+        {
+            if (edge_stereotype_remove(s))
+            {
+                return true;
+            }
+        }
+
+        // TODO: Potentially consider removing stereotypes of low utility
+    }
+
+    return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 bool stereotypes_request(const stereotype_tags_t* tags)
 {
     if (edge_stereotype_find(tags) != NULL)
@@ -232,8 +261,26 @@ bool stereotypes_request(const stereotype_tags_t* tags)
     edge_stereotype_t* s = memb_alloc(&stereotypes_memb);
     if (s == NULL)
     {
-        LOG_ERR("Insufficient memory for stereotype\n");
-        return false;
+        LOG_WARN("Insufficient memory for stereotype, looking for candidates to free...\n");
+
+        if (!stereotypes_free_up_space())
+        {
+            LOG_ERR("Failed to free space for stereotype\n");
+            return false;
+        }
+        else
+        {
+            s = memb_alloc(&stereotypes_memb);
+            if (s == NULL)
+            {
+                LOG_ERR("Failed to allocate memory for stereotype\n");
+                return false;
+            }
+            else
+            {
+                LOG_INFO("Successfully found memory for stereotype\n");
+            }
+        }
     }
 
     s->tags = *tags;
@@ -312,6 +359,7 @@ PROCESS_THREAD(stereotype, ev, data)
     {
         PROCESS_YIELD();
 
+        // Either try to send when the coap lock is released or the process is polled
         if ((ev == pe_timed_unlock_unlocked && data == &coap_callback_in_use) || ev == PROCESS_EVENT_POLL)
         {
             // Do not expect this to be the case at this point

@@ -85,6 +85,29 @@ const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr)
     return &item->cert.public_key;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+bool keystore_certificate_contains_tags(const stereotype_tags_t* tags)
+{
+    // Check the certificates that have been verified and are waiting to be verified
+
+    for (public_key_item_t* iter = list_head(public_keys); iter != NULL; iter = list_item_next(iter))
+    {
+        if (stereotype_tags_equal(tags, &iter->cert.tags))
+        {
+            return true;
+        }
+    }
+
+    for (public_key_item_t* iter = list_head(public_keys_to_verify); iter != NULL; iter = list_item_next(iter))
+    {
+        if (stereotype_tags_equal(tags, &iter->cert.tags))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void keystore_pin(public_key_item_t* item)
 {
     item->pin_count += 1;

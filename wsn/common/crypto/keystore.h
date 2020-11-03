@@ -33,6 +33,8 @@ public_key_item_t* keystore_find(const uint8_t* eui64);
 public_key_item_t* keystore_find_addr(const uip_ip6addr_t* addr);
 const ecdsa_secp256r1_pubkey_t* keystore_find_pubkey(const uip_ip6addr_t* addr);
 /*-------------------------------------------------------------------------------------------------------------------*/
+bool keystore_certificate_contains_tags(const stereotype_tags_t* tags);
+/*-------------------------------------------------------------------------------------------------------------------*/
 void keystore_pin(public_key_item_t* item);
 void keystore_unpin(public_key_item_t* item);
 bool keystore_is_pinned(const public_key_item_t* item);
