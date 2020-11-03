@@ -98,6 +98,7 @@ process_application_serial_message(const char* data, const char* data_end)
         struct process* proc = find_process_with_name(application_name);
         if (proc)
         {
+            // Must be performed synchronously so data remains valid
             process_post_synch(proc, pe_data_from_resource_rich_node, (void*)data);
         }
         else

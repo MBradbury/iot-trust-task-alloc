@@ -291,7 +291,7 @@ static void init(void)
 
     coap_activate_resource(&res_trust, TRUST_COAP_URI);
 
-    // TODO: once Group OSCORE is ready
+    // TODO: only once Group OSCORE is ready
 /*#ifdef WITH_OSCORE
     oscore_protect_resource(&res_trust);
 #endif*/
