@@ -1,6 +1,7 @@
 #include "trust.h"
 #include "edge-info.h"
 #include "peer-info.h"
+#include "trust-model.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -26,6 +27,12 @@
 #include "keystore.h"
 #include "keystore-oscore.h"
 
+// Configuration of periodic broadcast:
+// A trust model should define `TRUST_MODEL_NO_PERIODIC_BROADCAST`
+// to disable IoT nodes periodically broadcasting their trust values.
+// IoT nodes can still receive trust values and they can still
+// transmit trust values when requested.
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust"
 #ifdef TRUST_MODEL_LOG_LEVEL
@@ -42,8 +49,10 @@
 #define TRUST_RX_SIZE 2
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
 #define TRUST_POLL_PERIOD (2 * 60 * CLOCK_SECOND)
 static struct etimer periodic_timer;
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -88,7 +97,10 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
     if (!item)
     {
         LOG_WARN("Cannot allocate memory for trust request\n");
+
         coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
+        coap_set_header_max_age(response, 60 * 2); // number of seconds
+
         return;
     }
 
@@ -109,9 +121,12 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
     int payload_len = serialise_trust(addr, item->payload_buf, MAX_TRUST_PAYLOAD);
     if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
     {
-        LOG_DBG("serialise_trust failed %d\n", payload_len);
+        LOG_WARN("serialise_trust failed %d\n", payload_len);
+
         coap_set_status_code(response, INTERNAL_SERVER_ERROR_5_00);
+
         memb_free(&trust_tx_memb, item);
+
         return;
     }
 
@@ -127,7 +142,12 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
     if (!queue_message_to_sign(&trust_model, item, item->payload_buf, sizeof(item->payload_buf), payload_len))
     {
         LOG_ERR("trust res_trust_get_handler: Unable to sign message\n");
-        coap_set_status_code(response, INTERNAL_SERVER_ERROR_5_00);
+
+        // No memory available to queue message to sign
+        // tell requester to try again in a bit
+        coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
+        coap_set_header_max_age(response, 60 * 2); // number of seconds
+
         memb_free(&trust_tx_memb, item);
     }
 }
@@ -157,7 +177,9 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
         LOG_DBG("Missing public key, need to request it.\n");
         request_public_key(&request->src_ep->ipaddr);
 
-        // TODO: add to a queue, wait for public key then start the signing request
+        // Tell the requester to retry again in a bit when we expect to have the key
+        coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
+        coap_set_header_max_age(response, 60 * 5); // number of seconds
     }
     else
     {
@@ -166,6 +188,12 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
         if (!item)
         {
             LOG_ERR("res_trust_post_handler: out of memory\n");
+
+            // Out of memory, tell server to retry again after we expect to have processed
+            // at least one element in the queue
+            coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
+            coap_set_header_max_age(response, 60 * 2); // number of seconds
+
             return;
         }
 
@@ -178,6 +206,11 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
         {
             memb_free(&trust_rx_memb, item);
             keystore_unpin(key);
+
+            // Out of memory, tell server to retry again after we expect to have processed
+            // at least one element in the verify queue
+            coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
+            coap_set_header_max_age(response, 60 * 2); // number of seconds
         }
     }
 }
@@ -209,6 +242,7 @@ static void trust_rx_continue(void* data)
     memb_free(&trust_rx_memb, item);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
 static bool periodic_action(void)
 {
     trust_tx_item_t* item = memb_alloc(&trust_tx_memb);
@@ -247,6 +281,7 @@ static bool periodic_action(void)
 
     return true;
 }
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void trust_tx_continue(void* data)
 {
@@ -296,7 +331,9 @@ static void init(void)
     oscore_protect_resource(&res_trust);
 #endif*/
 
+#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
+#endif
 
     memb_init(&trust_tx_memb);
     memb_init(&trust_rx_memb);
@@ -312,11 +349,13 @@ PROCESS_THREAD(trust_model, ev, data)
     {
         PROCESS_WAIT_EVENT();
 
+#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
         if (ev == PROCESS_EVENT_TIMER && data == &periodic_timer)
         {
             etimer_reset(&periodic_timer);
             periodic_action();
         }
+#endif
 
         if (ev == pe_message_signed)
         {
