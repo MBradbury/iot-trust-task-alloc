@@ -6,8 +6,8 @@
 #include "nanocbor-helper.h"
 
 #define TRUST_MODEL_TAG 6
-//#define TRUST_MODEL_NO_PEER_PROVIDED
-//#define TRUST_MODEL_NO_PERIODIC_BROADCAST
+#define TRUST_MODEL_NO_PEER_PROVIDED
+#define TRUST_MODEL_NO_PERIODIC_BROADCAST
 
 struct edge_resource;
 struct edge_capability;
@@ -17,8 +17,6 @@ struct edge_capability;
 /*-------------------------------------------------------------------------------------------------------------------*/
 // Per-Edge interactions
 typedef struct edge_resource_tm {
-    hmm_t hmm;
-    interaction_history_t hist;
 
 } edge_resource_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -29,6 +27,8 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm);
 /*-------------------------------------------------------------------------------------------------------------------*/
 // Per-Application of Edge interactions
 typedef struct edge_capability_tm {
+    hmm_t hmm;
+    interaction_history_t hist;
 
 } edge_capability_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
