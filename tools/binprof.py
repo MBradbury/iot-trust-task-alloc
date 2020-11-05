@@ -233,3 +233,23 @@ print(size_output)
 
 print(f"Total Used (size) & {size_output['text']} & {int(size_output['data']) + int(size_output['bss'])} \\\\")
 """
+
+
+config = [
+    ('Certificates', 'PUBLIC_KEYSTORE_SIZE', 12, 'public_keys_memb'),
+    ('Reputation Tx Buffer', 'TRUST_TX_SIZE', 2, 'trust_tx_memb'),
+    ('Reputation Rx Buffer', 'TRUST_RX_SIZE', 2, 'trust_rx_memb'),
+    ('Stereotypes', 'MAX_NUM_STEREOTYPES', 5, 'stereotypes_memb'),
+    ('Edges', 'NUM_EDGE_RESOURCES', 4, 'edge_resources_memb'),
+    ('Edge Capabilities', 'NUM_EDGE_CAPABILITIES', 3 * 4, 'edge_capabilities_memb'),
+    ('Peers', 'NUM_PEERS', 8, 'peers_memb'),
+    ('Peer Edges', 'NUM_PEERS', 8 * 4, 'peer_edges_memb'),
+    ('Peer Edge Capabilities', 'NUM_PEERS', 8 * 4 * 3, 'peer_capabilities_memb'),
+]
+
+for (nice_name, cname, num, vname) in config:
+    symb = next(x for x in ram_symb if x.name == vname + "_memb_mem")
+    size = symb.size
+    print(f"{nice_name} & {num} & {int(size/num)} & {size} \\\\ % {vname}")
+
+#pprint(ram_symb)
