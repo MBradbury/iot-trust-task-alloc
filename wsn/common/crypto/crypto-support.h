@@ -69,7 +69,7 @@ typedef struct messages_to_verify_entry
 } messages_to_verify_entry_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool queue_message_to_verify(struct process* process, void* data,
-                             uint8_t* message, uint16_t message_len,
+                             const uint8_t* message, uint16_t message_len,
                              const ecdsa_secp256r1_pubkey_t* pubkey);
 void queue_message_to_verify_done(messages_to_verify_entry_t* item);
 /*-------------------------------------------------------------------------------------------------------------------*/

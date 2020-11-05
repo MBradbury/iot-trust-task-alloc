@@ -405,7 +405,7 @@ PROCESS_THREAD(signer, ev, data)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool queue_message_to_verify(struct process* process, void* data,
-                             uint8_t* message, uint16_t message_len,
+                             const uint8_t* message, uint16_t message_len,
                              const ecdsa_secp256r1_pubkey_t* pubkey)
 {
     messages_to_verify_entry_t* item = memb_alloc(&messages_to_verify_memb);
