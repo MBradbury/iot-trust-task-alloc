@@ -147,6 +147,8 @@ keystore_free_up_space(void)
         }
 
         // 2. If a certificate is not pinned, then it is not in use and can be freed
+        // TODO: Consider removing specific certificates (e.g., LRU)
+        // (see: https://en.wikipedia.org/wiki/Cache_replacement_policies)
         if (!keystore_is_pinned(iter))
         {
             if (keystore_remove(iter))
@@ -354,7 +356,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
                 else
                 {
                     LOG_ERR("Failed to add public key for ");
-                    LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
+                    LOG_ERR_BYTES(cert.subject, EUI64_LENGTH);
                     LOG_ERR_(" (out of memory)\n");
                 }
             }
