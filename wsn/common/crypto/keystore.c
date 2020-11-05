@@ -437,7 +437,7 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
     if (entry->result == PKA_STATUS_SUCCESS)
     {
         LOG_INFO("Sucessfully verfied public key for ");
-        LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
+        LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
         LOG_INFO_("\n");
 
         list_push(public_keys, item);
@@ -445,7 +445,7 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
     else
     {
         LOG_ERR("Failed to verfiy public key for ");
-        LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
+        LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
         LOG_ERR_(" (sig verification failed)\n");
 
         memb_free(&public_keys_memb, item);
@@ -467,7 +467,7 @@ static void
 generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret, size_t shared_secret_len)
 {
     LOG_INFO("Generated shared secret with ");
-    LOG_INFO_BYTES(&item->cert.subject, EUI64_LENGTH);
+    LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
     LOG_INFO_(" value=");
     LOG_INFO_BYTES(shared_secret, shared_secret_len);
     LOG_INFO_("\n");
