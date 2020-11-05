@@ -48,6 +48,12 @@ bool application_available(const char* name)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
+set_all_applications_unavailable(void)
+{
+    memset(applications_available, 0, sizeof(applications_available));
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
 process_application_serial_message(const char* data, const char* data_end)
 {
     // Find the application name this message refers to
@@ -60,8 +66,20 @@ process_application_serial_message(const char* data, const char* data_end)
         return;
     }
 
-    memset(application_name, 0, sizeof(application_name));
-    memcpy(application_name, data, application_name_end - data);
+    const size_t application_name_length = application_name_end - data;
+    if (application_name_length == 0)
+    {
+        LOG_WARN("Application name too short\n");
+        return;
+    }
+    if (application_name_length > APPLICATION_NAME_MAX_LEN)
+    {
+        LOG_WARN("Application name too long\n");
+        return;
+    }
+
+    memcpy(application_name, data, application_name_length);
+    application_name[application_name_length] = '\0';
 
     data = application_name_end + 1;
 
@@ -131,8 +149,7 @@ process_edge_serial_message(const char* data, const char* data_end)
     {
         LOG_INFO("Resource rich serial bridge has stopped\n");
 
-        // No applications are available now
-        memset(applications_available, 0, sizeof(applications_available));
+        set_all_applications_unavailable();
 
         if (resource_rich_edge_started)
         {
@@ -186,7 +203,7 @@ PROCESS_THREAD(edge, ev, data)
     timed_unlock_global_init();
     root_endpoint_init();
 
-    memset(applications_available, 0, sizeof(applications_available));
+    set_all_applications_unavailable();
 
     pe_data_from_resource_rich_node = process_alloc_event();
 
