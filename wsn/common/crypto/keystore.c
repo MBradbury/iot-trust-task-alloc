@@ -236,11 +236,8 @@ bool keystore_remove(public_key_item_t* item)
         return false;
     }
 
-    uip_ip6addr_t addr;
-    eui64_to_ipaddr(item->cert.subject, &addr);
-
     LOG_INFO("keystore_remove: Attempting to remove certificate for ");
-    LOG_INFO_6ADDR(&addr);
+    LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
     LOG_INFO_("\n");
 
     // Can only remove from the verified public keys list
@@ -254,7 +251,7 @@ bool keystore_remove(public_key_item_t* item)
     const bool freed = memb_free(&public_keys_memb, item);
 
     LOG_INFO("keystore_remove: Removed certificate for ");
-    LOG_INFO_6ADDR(&addr);
+    LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
     LOG_INFO_(" (freed=%d)\n", freed);
 
     return freed;
