@@ -11,8 +11,13 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#ifndef NUM_PEERS
-#define NUM_PEERS 8
+#ifdef TRUST_MODEL_NO_PEER_PROVIDED
+#   define NUM_PEERS 0
+#   pragma message "No space for peer-provided information has been allocated"
+#else
+#   ifndef NUM_PEERS
+#       define NUM_PEERS 8
+#   endif
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 MEMB(peers_memb, peer_t, NUM_PEERS);
@@ -85,6 +90,12 @@ void peer_info_init(void)
     list_init(peers);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static bool peer_info_free_up_space(void)
+{
+    // TODO: consider how to free up peer provided information to make room for new information
+    return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 peer_t*
 peer_info_add(const uip_ipaddr_t* addr)
 {
@@ -100,7 +111,26 @@ peer_info_add(const uip_ipaddr_t* addr)
     peer = peer_new();
     if (peer == NULL)
     {
-        return NULL;
+        LOG_WARN("peer_info_add: out of memory\n");
+
+        if (!peer_info_free_up_space())
+        {
+            LOG_ERR("Failed to free space for peer info\n");
+            return false;
+        }
+        else
+        {
+            peer = peer_new();
+            if (peer == NULL)
+            {
+                LOG_ERR("peer_info_add: out of memory\n");
+                return false;
+            }
+            else
+            {
+                LOG_INFO("Successfully found memory for peer info\n");
+            }
+        }
     }
 
     uip_ipaddr_copy(&peer->addr, addr);
@@ -177,6 +207,34 @@ static peer_edge_t* peer_info_find_edge(peer_t* peer, edge_resource_t* edge)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static peer_edge_t* peer_info_find_edge_or_allocate(peer_t* peer, edge_resource_t* edge)
+{
+    peer_edge_t* peer_edge = peer_info_find_edge(peer, edge);
+
+    if (peer_edge == NULL)
+    {
+        // Check that this node has not allocated more than its fair share of edges
+        if (list_length(peer->edges) >= NUM_EDGE_RESOURCES)
+        {
+            return NULL;
+        }
+
+        peer_edge = memb_alloc(&peer_edges_memb);
+        if (peer_edge == NULL)
+        {
+            return NULL;
+        }
+
+        LIST_STRUCT_INIT(peer_edge, capabilities);
+
+        peer_edge->edge = edge;
+
+        list_push(peer->edges, peer_edge);
+    }
+
+    return peer_edge;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static peer_edge_capability_t* peer_info_find_capability(peer_edge_t* peer_edge, edge_capability_t* cap)
 {
     for (peer_edge_capability_t* iter = list_head(peer_edge->capabilities); iter != NULL; iter = list_item_next(iter))
@@ -190,23 +248,39 @@ static peer_edge_capability_t* peer_info_find_capability(peer_edge_t* peer_edge,
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool peer_info_update_edge(peer_t* peer, edge_resource_t* edge, const edge_resource_tm_t* tm)
+static peer_edge_capability_t* peer_info_find_capability_or_allocate(peer_edge_t* peer_edge, edge_capability_t* cap)
 {
-    peer_edge_t* peer_edge = peer_info_find_edge(peer, edge);
-    if (peer_edge == NULL)
+    peer_edge_capability_t* peer_cap = peer_info_find_capability(peer_edge, cap);
+
+    if (peer_cap == NULL)
     {
-        peer_edge = memb_alloc(&peer_edges_memb);
-        if (peer_edge == NULL)
+        // Check that this node has not allocated more than its fair share of edge capabilities
+        if (list_length(peer_edge->capabilities) >= NUM_EDGE_CAPABILITIES)
         {
-            LOG_ERR("Out of memory peer_edges_memb\n");
-            return false;
+            return NULL;
         }
 
-        LIST_STRUCT_INIT(peer_edge, capabilities);
+        peer_cap = memb_alloc(&peer_capabilities_memb);
+        if (peer_cap == NULL)
+        {
+            return NULL;
+        }
 
-        peer_edge->edge = edge;
+        peer_cap->cap = cap;
 
-        list_push(peer->edges, peer_edge);
+        list_push(peer_edge->capabilities, peer_cap);
+    }
+
+    return peer_cap;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool peer_info_update_edge(peer_t* peer, edge_resource_t* edge, const edge_resource_tm_t* tm)
+{
+    peer_edge_t* peer_edge = peer_info_find_edge_or_allocate(peer, edge);
+    if (peer_edge == NULL)
+    {
+        LOG_ERR("Out of memory peer_edges_memb\n");
+        return false;
     }
 
     peer_edge->tm = *tm;
@@ -222,36 +296,18 @@ bool peer_info_update_edge(peer_t* peer, edge_resource_t* edge, const edge_resou
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool peer_info_update_capability(peer_t* peer, edge_resource_t* edge, edge_capability_t* cap, const edge_capability_tm_t* tm)
 {
-    peer_edge_t* peer_edge = peer_info_find_edge(peer, edge);
+    peer_edge_t* peer_edge = peer_info_find_edge_or_allocate(peer, edge);
     if (peer_edge == NULL)
     {
-        peer_edge = memb_alloc(&peer_edges_memb);
-        if (peer_edge == NULL)
-        {
-            LOG_ERR("Out of memory peer_edges_memb\n");
-            return false;
-        }
-
-        LIST_STRUCT_INIT(peer_edge, capabilities);
-
-        peer_edge->edge = edge;
-
-        list_push(peer->edges, peer_edge);
+        LOG_ERR("Out of memory peer_edges_memb\n");
+        return false;
     }
 
-    peer_edge_capability_t* peer_cap = peer_info_find_capability(peer_edge, cap);
+    peer_edge_capability_t* peer_cap = peer_info_find_capability_or_allocate(peer_edge, cap);
     if (peer_cap == NULL)
     {
-        peer_cap = memb_alloc(&peer_capabilities_memb);
-        if (peer_cap == NULL)
-        {
-            LOG_ERR("Out of memory peer_capabilities_memb\n");
-            return false;
-        }
-
-        peer_cap->cap = cap;
-
-        list_push(peer_edge->capabilities, peer_cap);
+        LOG_ERR("Out of memory peer_capabilities_memb\n");
+        return false;
     }
 
     peer_cap->tm = *tm;
