@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import subprocess
 from dataclasses import dataclass
@@ -73,9 +73,6 @@ for line in result.stdout.split("\n"):
 
 def summarise(symbs):
     return sum(x.size for x in symbs)
-
-#print("text", summarise(flash_symb))
-#print("data", summarise(ram_symb))
 
 def classify(symb, other="other"):
     if symb.location is None:
@@ -177,63 +174,37 @@ def classify_all(symbs, other="other"):
     return dict(result)
 
 other = "contiki-ng"
-#other = "other"
 
 classified_ram_symb = classify_all(ram_symb, other=other)
 
-#pprint(classified_ram_symb)
+
 try:
     pprint(classified_ram_symb["other"])
 except KeyError:
     pass
 
 summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
-#pprint(summarised_ram_symb)
-
 
 
 classified_flash_symb = classify_all(flash_symb, other=other)
 
-#print(classified_flash_symb)
 try:
     pprint(classified_flash_symb["other"])
 except KeyError:
     pass
 
 summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
-#pprint(summarised_flash_symb)
 
 total_flash_symb = sum(summarised_flash_symb.values())
 total_ram_symb = sum(summarised_ram_symb.values())
 
 
 keys = set(summarised_ram_symb.keys()) | set(classified_flash_symb.keys())
-
-
 for k in sorted(keys):
     print(f"{k} & {summarised_flash_symb[k]} & {round(100*summarised_flash_symb[k]/total_flash_symb, 1)} & {summarised_ram_symb[k]} & {round(100*summarised_ram_symb[k]/total_ram_symb, 1)} \\\\")
 print("\\midrule")
 print(f"Total Used & {total_flash_symb} & & {total_ram_symb} & \\\\")
-
-
-"""result = subprocess.run(
-    "size node.zoul",
-    check=True,
-    shell=True,
-    capture_output=True,
-    cwd="wsn/node",
-    encoding="utf-8",
-    universal_newlines=True,
-)
-size_output = [[x.strip() for x in line.split("\t")] for line in result.stdout.split("\n") if line]
-
-size_output = dict(zip(*size_output))
-
-print(size_output)
-
-print(f"Total Used (size) & {size_output['text']} & {int(size_output['data']) + int(size_output['bss'])} \\\\")
-"""
-
+print()
 
 config = [
     ('Certificates', 'PUBLIC_KEYSTORE_SIZE', 12, 'public_keys_memb'),
@@ -248,8 +219,9 @@ config = [
 ]
 
 for (nice_name, cname, num, vname) in config:
-    symb = next(x for x in ram_symb if x.name == vname + "_memb_mem")
-    size = symb.size
-    print(f"{nice_name} & {num} & {int(size/num)} & {size} \\\\ % {vname}")
-
-#pprint(ram_symb)
+    try:
+        [symb] = [x for x in ram_symb if x.name == vname + "_memb_mem"]
+        size = symb.size
+        print(f"{nice_name} & {num} & {int(size/num)} & {size} \\\\ % {vname}")
+    except ValueError:
+        print(f"Missing {vname}")
