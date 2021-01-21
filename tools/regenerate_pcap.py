@@ -8,8 +8,11 @@ from datetime import datetime
 #from resource_rich.root.keystore import Keystore
 
 #import pyshark
-from common.inmem_capture import LinkTypes, InMemCapture
+from pyshark import LinkTypes as LinkTypesBase, InMemCapture
 from common.packet_log_processor import PacketLogProcessor
+
+class LinkTypes(LinkTypesBase):
+    IEEE802_15_4_NOFCS = 230
 
 #hostname_to_ips = {
 #    "wsn1": "fd00::1",

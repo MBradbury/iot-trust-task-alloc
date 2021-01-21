@@ -49,6 +49,11 @@ rm wireshark-{doc,dev,dbg}_*.deb
 sudo dpkg -i *.deb
 ```
 
+Install pyshark
+```bash
+python3 -m pip install --upgrade git+https://github.com/KimiNewt/pyshark.git#subdirectory=src
+```
+
 ## Root Node
 
 1. Install dependancies
