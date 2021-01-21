@@ -26,14 +26,12 @@ int deserialise_stereotype_tags(nanocbor_value_t* dec, stereotype_tags_t* tags)
     nanocbor_value_t arr;
     NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
 
-    uint32_t device_class;
-    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &device_class));
-    if (device_class < DEVICE_CLASS_MINIMUM || device_class > DEVICE_CLASS_MAXIMUM)
+    NANOCBOR_CHECK(nanocbor_get_uint8(&arr, &tags->device_class));
+    if (tags->device_class < DEVICE_CLASS_MINIMUM || tags->device_class > DEVICE_CLASS_MAXIMUM)
     {
-        LOG_ERR("Invalid device class %" PRIu32 "\n", device_class);
+        LOG_ERR("Invalid device class %" PRIu8 "\n", tags->device_class);
         return -1;
     }
-    tags->device_class = (uint8_t)device_class;
 
     if (!nanocbor_at_end(&arr))
     {
