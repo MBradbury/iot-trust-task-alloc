@@ -496,6 +496,10 @@ generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret, si
     const uint8_t id_context_len = 0;
 #endif
 
+#ifdef WITH_GROUPCOM
+    static const uint8_t gid[] = {0x1};
+#endif
+
     oscore_derive_ctx(&item->context,
         // The shared secret between these two nodes
         shared_secret, shared_secret_len,
@@ -514,7 +518,29 @@ generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret, si
 
         // optional ID context
         id_context, id_context_len
+
+#ifdef WITH_GROUPCOM
+        , gid
+#endif
     );
+
+#ifdef WITH_GROUPCOM
+    // Set public keys
+    oscore_add_group_keys(&item->context,
+        // Our public key
+        (const uint8_t*)&our_cert.public_key,
+
+        // Our private key
+        (const uint8_t*)&our_privkey,
+
+        // Their public key
+        (const uint8_t*)&item->cert.public_key,
+
+        // secp256r1/ NIST P-256
+        COSE_Algorithm_ES256,
+        COSE_Elliptic_Curve_P256
+    );
+#endif
 
     LOG_DBG("Created oscore context with: ");
     LOG_DBG_("\n\tSender ID   : ");
@@ -537,7 +563,7 @@ generate_shared_secret(public_key_item_t* item, const uint8_t* shared_secret, si
 #endif
     LOG_DBG_("\n");
 
-#endif
+#endif /* WITH_OSCORE */
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool

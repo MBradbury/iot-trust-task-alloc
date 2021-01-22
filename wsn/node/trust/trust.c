@@ -264,6 +264,10 @@ static bool periodic_action(void)
     coap_set_header_uri_path(&item->msg, TRUST_COAP_URI);
     coap_set_random_token(&item->msg);
 
+#if defined(WITH_OSCORE) && defined(WITH_GROUPCOM)
+    keystore_protect_coap_with_oscore(&msg, &item->ep);
+#endif
+
     int payload_len = serialise_trust(NULL, item->payload_buf, MAX_TRUST_PAYLOAD);
     if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
     {
@@ -326,10 +330,9 @@ static void init(void)
 
     coap_activate_resource(&res_trust, TRUST_COAP_URI);
 
-    // TODO: only once Group OSCORE is ready
-/*#ifdef WITH_OSCORE
+#if defined(WITH_OSCORE) && defined(WITH_GROUPCOM)
     oscore_protect_resource(&res_trust);
-#endif*/
+#endif
 
 #ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);

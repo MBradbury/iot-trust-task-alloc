@@ -2,6 +2,7 @@
 #include "keystore.h"
 #include "oscore.h"
 #include "crypto-support.h"
+#include "assert.h"
 
 #include "os/sys/log.h"
 
@@ -27,19 +28,36 @@ void coap_set_random_token(coap_message_t* request)
 #ifdef WITH_OSCORE
 bool keystore_protect_coap_with_oscore(coap_message_t* request, const coap_endpoint_t* ep)
 {
-    public_key_item_t* pubkeyitem = keystore_find_addr(&ep->ipaddr);
-    if (pubkeyitem)
+    assert(request);
+    assert(ep);
+
+    if (uip_is_addr_linklocal_allnodes_mcast(&ep->ipaddr))
     {
-        coap_set_oscore(request, &pubkeyitem->context);
+#ifdef WITH_GROUPCOMM
+        // TODO: FIX ME
+        LOG_ERR("Protecting with group oscore not yet supported.\n");
+        return false;
+#else
+        LOG_ERR("Cannot send to multicast address without Group OSCORE.\n");
+        return false;
+#endif
     }
     else
     {
-        LOG_WARN("Failed to find oscore context for ");
-        LOG_WARN_6ADDR(&ep->ipaddr);
-        LOG_WARN_(", request will not be protected.\n");
-    }
+        public_key_item_t* pubkeyitem = keystore_find_addr(&ep->ipaddr);
+        if (pubkeyitem)
+        {
+            coap_set_oscore(request, &pubkeyitem->context);
+        }
+        else
+        {
+            LOG_WARN("Failed to find oscore context for ");
+            LOG_WARN_6ADDR(&ep->ipaddr);
+            LOG_WARN_(", request will not be protected.\n");
+        }
 
-    return pubkeyitem != NULL;
+        return pubkeyitem != NULL;
+    }
 }
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
