@@ -468,58 +468,6 @@ PROCESS_THREAD(verifier, ev, data)
     PROCESS_END();
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-#if 0
-PT_THREAD(ecdh1(ecdh1_state_t* state))
-{
-    PT_BEGIN(&state->pt);
-
-    LOG_DBG("Waiting for crypto processor to become available (echd1)...\n");
-    PT_SEM_WAIT(&state->pt, &crypto_processor_mutex);
-    LOG_DBG("Crypto processor available (echd1)!\n");
-
-#ifdef CRYPTO_SUPPORT_TIME_METRICS
-    LOG_DBG("Starting ecdh1()...\n");
-    state->time = RTIMER_NOW();
-#endif
-
-    pka_enable();
-
-    // Generate secrets make sure they are valid (smaller as order)
-    state->ecc_compare_state.process = state->process;
-    state->ecc_compare_state.size = nist_p_256.size;
-    memcpy(state->ecc_compare_state.b, nist_p_256.n, DTLS_EC_KEY_SIZE);
-
-    do {
-        crypto_fill_random(state->secret, DTLS_EC_KEY_SIZE);
-        memcpy(state->ecc_compare_state.a, state->secret, DTLS_EC_KEY_SIZE);
-
-        PT_SPAWN(&state->pt, &state->ecc_compare_state.pt, ecc_compare(&state->ecc_compare_state));
-
-    } while (state->ecc_compare_state.result != PKA_STATUS_A_LT_B);
-
-    // Prepare Points
-    state->ecc_multiply_state.process = state->process;
-    state->ecc_multiply_state.curve_info = &nist_p_256;
-
-    memcpy(state->ecc_multiply_state.point_in.x, nist_p_256.x, DTLS_EC_KEY_SIZE);
-    memcpy(state->ecc_multiply_state.point_in.y, nist_p_256.y, DTLS_EC_KEY_SIZE);
-    memcpy(state->ecc_multiply_state.secret, state->secret, DTLS_EC_KEY_SIZE);
-
-    PT_SPAWN(&state->pt, &state->ecc_multiply_state.pt, ecc_multiply(&state->ecc_multiply_state));
-    
-    pka_disable();
-
-#ifdef CRYPTO_SUPPORT_TIME_METRICS
-    state->time = RTIMER_NOW() - state->time;
-    LOG_DBG("ecdh1(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(state->time));
-#endif
-
-    PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
-
-    PT_END(&state->pt);
-}
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
 PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubkey))
 {
     PT_BEGIN(&state->pt);
