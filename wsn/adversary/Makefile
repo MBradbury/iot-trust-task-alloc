@@ -1,31 +1,7 @@
 CONTIKI_PROJECT = adversary
 all: $(CONTIKI_PROJECT)
 
-CONTIKI = $(CONTIKING_OSCORE_DIR)
-
-ifeq ($(CONTIKI),)
-    $(error "Contiki directory not set")
-endif
-
-# Include Contiki-NG Make variables
-include $(CONTIKI)/Makefile.dir-variables
-
-ifdef BUILD_NUMBER
-    CFLAGS += -DBUILD_NUMBER=$(BUILD_NUMBER)
-endif
-
-CFLAGS += -g
-
-#CFLAGS += -Wconversion
-
-# Add additional CFLAGS
-CFLAGS += -DMQTT_CLIENT_CONF_LOG_LEVEL=LOG_LEVEL_DBG
-CFLAGS += -DTRUST_MODEL_LOG_LEVEL=LOG_LEVEL_DBG
-CFLAGS += -DAPP_MONITORING_LOG_LEVEL=LOG_LEVEL_DBG
-CFLAGS += -DAPP_ROUTING_LOG_LEVEL=LOG_LEVEL_DBG
-CFLAGS += -DAPP_CHALLENGE_RESPONSE_LOG_LEVEL=LOG_LEVEL_DBG
-CFLAGS += -DCRYPTO_SUPPORT_LOG_LEVEL=LOG_LEVEL_DBG
-CFLAGS += -DKEYSTORE_LOG_LEVEL=LOG_LEVEL_DBG
+include ../Makefile.common
 
 ifeq ($(TRUST_MODEL),)
     $(error "TRUST_MODEL not set")
@@ -39,82 +15,44 @@ endif
 #    CFLAGS += -DTRUST_CHOOSE=TRUST_CHOOSE_$(shell echo $(TRUST_CHOOSE) | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 #endif
 
-ifneq ($(OSCORE_MASTER_SALT),)
-    $(info "Using master salt of $(OSCORE_MASTER_SALT)")
-    CFLAGS += -DOSCORE_MASTER_SALT="${OSCORE_MASTER_SALT}"
-endif
-
-ifneq ($(OSCORE_ID_CONTEXT),)
-    $(info "Using id context of $(OSCORE_ID_CONTEXT)")
-    CFLAGS += -DOSCORE_ID_CONTEXT="${OSCORE_ID_CONTEXT}"
-endif
-
-# Include Contiki-NG system modules
-#MODULES += os/services/shell
-
 # Include application modules
-MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust trust/stereotypes crypto}
 MODULES_REL += ./trust
 MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
-MODULES_REL += ../common/trust/choose/$(TRUST_CHOOSE) ../common/trust/choose/
-
-include ../common/nanocbor/Makefile.include
-
-ifeq ($(MAKE_WITH_PCAP),1)
-    CFLAGS += -DMAKE_WITH_PCAP=1
-    MODULES_REL += ../common/pcap
-endif
-
-# MQTT configuration
-CFLAGS += -DTOPICS_TO_SUBSCRIBE_LEN=4
-
-# CoAP configuration
-MAKE_WITH_OSCORE = 1
-MAKE_WITH_GROUPCOM = 1
-MAKE_WITH_HW_CRYPTO = 1
-MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
-#MODULES_REL += ${addprefix ../common/tinydtls/cc2538/,sha2 ecc}
-
-# Set MAC protocol
-#MAKE_MAC = MAKE_MAC_TSCH
+#MODULES_REL += ../common/trust/choose/$(TRUST_CHOOSE) ../common/trust/choose/
 
 # Applications to include
 APPLICATIONS = monitoring routing challenge-response
 include ../applications/Makefile.include
 
-# Enable when automatic job submission for routing is required
-#MODULES_REL += ../applications/routing/node/test
-#CFLAGS += -DROUTING_PERIODIC_TEST
-
 # Attack configuration
-ifneq ($(MAKE_ATTACKS),)
-    $(info $(MAKE_ATTACKS))
-
-    MODULES_REL += ./attacks
-
-    # From: https://stackoverflow.com/questions/1541844/joining-elements-of-a-list-in-gnu-make
-    noop:=
-    space := $(noop) $(noop)
-    comma := ,
-
-    ATTACK_NAMES := $(subst $(comma),$(space),$(MAKE_ATTACKS))
-
-    ATTACK_PROCESSES := ${addprefix &,$(ATTACK_NAMES)}
-    ATTACK_PROCESSES := $(subst $(space),$(comma),$(ATTACK_PROCESSES))
-    CFLAGS += -DATTACK_PROCESSES='$(ATTACK_PROCESSES)'
-
-    prefix := PROCESS_NAME(
-    suffix := );
-    ATTACK_PROCESSES_DECL := ${addprefix $(prefix),$(ATTACK_NAMES)}
-    ATTACK_PROCESSES_DECL := ${addsuffix $(suffix),$(ATTACK_PROCESSES_DECL)}
-    CFLAGS += -DATTACK_PROCESSES_DECL='$(ATTACK_PROCESSES_DECL)'
-
-    # Certain attacks require code to be pulled in from different areas
-    ifneq (,$(findstring dos_certificate_verification,$(MAKE_ATTACKS)))
-        MODULES_REL += ../node/trust
-    endif
-else
+ifeq ($(MAKE_ATTACKS),)
     $(error "Please specify at least one attack")
+endif
+
+$(info Building these attacks: $(MAKE_ATTACKS))
+
+MODULES_REL += ./attacks
+
+# From: https://stackoverflow.com/questions/1541844/joining-elements-of-a-list-in-gnu-make
+noop:=
+space := $(noop) $(noop)
+comma := ,
+
+ATTACK_NAMES := $(subst $(comma),$(space),$(MAKE_ATTACKS))
+
+ATTACK_PROCESSES := ${addprefix &,$(ATTACK_NAMES)}
+ATTACK_PROCESSES := $(subst $(space),$(comma),$(ATTACK_PROCESSES))
+CFLAGS += -DATTACK_PROCESSES='$(ATTACK_PROCESSES)'
+
+prefix := PROCESS_NAME(
+suffix := );
+ATTACK_PROCESSES_DECL := ${addprefix $(prefix),$(ATTACK_NAMES)}
+ATTACK_PROCESSES_DECL := ${addsuffix $(suffix),$(ATTACK_PROCESSES_DECL)}
+CFLAGS += -DATTACK_PROCESSES_DECL='$(ATTACK_PROCESSES_DECL)'
+
+# Certain attacks require code to be pulled in from different areas
+ifneq (,$(findstring dos_certificate_verification,$(MAKE_ATTACKS)))
+    MODULES_REL += ../node/trust
 endif
 
 # Main Contiki-NG compile

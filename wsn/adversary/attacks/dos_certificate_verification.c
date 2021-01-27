@@ -67,6 +67,12 @@ static bool build_message_continue(void* data)
 {
     messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
 
+    if (entry->data != payload_buf)
+    {
+        LOG_ERR("build_message_continue for wrong message\n");
+        return false;
+    }
+
     if (entry->result == PKA_STATUS_SUCCESS)
     {
         int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
@@ -118,11 +124,11 @@ PROCESS_THREAD(dos_certificate_verification, ev, data)
         int ret = coap_send_request(&coap_callback, &ep, &msg, NULL);
         if (ret)
         {
-            LOG_DBG("coap_send_request trust done\n");
+            LOG_DBG("coap_send_request dos_certificate_verification done\n");
         }
         else
         {
-            LOG_ERR("coap_send_request trust failed %d\n", ret);
+            LOG_ERR("coap_send_request dos_certificate_verification failed %d\n", ret);
         }
 
         etimer_reset(&send_timer);
