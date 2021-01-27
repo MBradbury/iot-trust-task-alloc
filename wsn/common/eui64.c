@@ -3,6 +3,7 @@
 #include "linkaddr.h"
 #include "uip-ds6.h"
 #include "root-endpoint.h"
+#include <stdio.h>
 /*-------------------------------------------------------------------------------------------------------------------*/
 const uint8_t* current_eui64(void)
 {
