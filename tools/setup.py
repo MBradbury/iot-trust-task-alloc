@@ -230,6 +230,8 @@ class Setup:
                 "BUILD_NUMBER": self.build_number,
                 "TRUST_MODEL": self.trust_model,
                 "TRUST_CHOOSE": self.trust_choose,
+                "TARGET": "zoul",
+                "PLATFORM": "remote-revb",
             }
 
             if self.with_pcap:
