@@ -40,10 +40,10 @@ static bool build_message(void)
     coap_init_message(&msg, COAP_TYPE_NON, COAP_POST, 0);
     coap_set_header_content_format(&msg, APPLICATION_CBOR);
     coap_set_header_uri_path(&msg, TRUST_COAP_URI);
-    coap_set_random_token(&msg);
 
 #if defined(WITH_OSCORE) && defined(WITH_GROUPCOM)
 #   error "This test will not work with Group OSCORE"
+    coap_set_random_token(&msg);
     keystore_protect_coap_with_oscore(&msg, &item->ep);
 #endif
 
