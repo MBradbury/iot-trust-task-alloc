@@ -23,12 +23,12 @@ PROCESS(dos_certificate_verification, "dos_certificate_verification");
 // The aim is for this message to be sent often in order to DoS signature verification
 // We create the signed message once and then send it often
 /*-------------------------------------------------------------------------------------------------------------------*/
-coap_endpoint_t ep;
-coap_message_t msg;
-coap_callback_request_state_t coap_callback;
-uint8_t payload_buf[MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE];
+static coap_endpoint_t ep;
+static coap_message_t msg;
+static coap_callback_request_state_t coap_callback;
+static uint8_t payload_buf[MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE];
 /*-------------------------------------------------------------------------------------------------------------------*/
-struct etimer send_timer;
+static struct etimer send_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool build_message(void)
 {
