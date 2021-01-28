@@ -8,13 +8,12 @@
 #define LOG_LEVEL LOG_LEVEL_DBG
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_NAME(mqtt_client_process);
-PROCESS_NAME(trust_model);
 PROCESS_NAME(keystore_add_verifier);
 //APPLICATION_PROCESSES_DECL;
 ATTACK_PROCESSES_DECL;
 PROCESS(adversary, "adversary");
 /*-------------------------------------------------------------------------------------------------------------------*/
-AUTOSTART_PROCESSES(&adversary, &trust_model, &mqtt_client_process,
+AUTOSTART_PROCESSES(&adversary, &mqtt_client_process,
                     &keystore_add_verifier,
                     //APPLICATION_PROCESSES,
                     ATTACK_PROCESSES);

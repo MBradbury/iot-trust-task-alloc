@@ -52,7 +52,7 @@ CFLAGS += -DATTACK_PROCESSES_DECL='$(ATTACK_PROCESSES_DECL)'
 
 # Certain attacks require code to be pulled in from different areas
 ifneq (,$(findstring dos_certificate_verification,$(MAKE_ATTACKS)))
-    MODULES_REL += ../node/trust
+    CFLAGS += -I../node/trust
 endif
 
 # Main Contiki-NG compile
