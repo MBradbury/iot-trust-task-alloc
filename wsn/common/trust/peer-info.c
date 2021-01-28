@@ -194,7 +194,7 @@ peer_info_find(const uip_ipaddr_t* addr)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static peer_edge_t* peer_info_find_edge(peer_t* peer, edge_resource_t* edge)
+peer_edge_t* peer_info_find_edge(peer_t* peer, edge_resource_t* edge)
 {
     for (peer_edge_t* iter = list_head(peer->edges); iter != NULL; iter = list_item_next(iter))
     {
@@ -235,7 +235,7 @@ static peer_edge_t* peer_info_find_edge_or_allocate(peer_t* peer, edge_resource_
     return peer_edge;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static peer_edge_capability_t* peer_info_find_capability(peer_edge_t* peer_edge, edge_capability_t* cap)
+peer_edge_capability_t* peer_info_find_capability(peer_edge_t* peer_edge, edge_capability_t* cap)
 {
     for (peer_edge_capability_t* iter = list_head(peer_edge->capabilities); iter != NULL; iter = list_item_next(iter))
     {

@@ -49,6 +49,9 @@ void peer_info_remove_edges(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 peer_t* peer_info_find(const uip_ipaddr_t* addr);
 /*-------------------------------------------------------------------------------------------------------------------*/
+peer_edge_t* peer_info_find_edge(peer_t* peer, edge_resource_t* edge);
+peer_edge_capability_t* peer_info_find_capability(peer_edge_t* peer_edge, edge_capability_t* cap);
+/*-------------------------------------------------------------------------------------------------------------------*/
 peer_t* peer_info_iter(void);
 peer_t* peer_info_next(peer_t* iter);
 /*-------------------------------------------------------------------------------------------------------------------*/
