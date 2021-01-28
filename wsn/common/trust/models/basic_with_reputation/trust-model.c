@@ -147,6 +147,10 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
             w_total += w_task_qual;
         }
 
+        // We do not expect w_total to equal 1 here as information may be missing
+        assert(w_total >= 0.0f);
+        assert(w_total <= 1.0f);
+
         // Now aggregate these values together with other reputation values
         // Normalise the reputation, we may be missing some information, such as the capability.
         rep += (rep_edge / w_total);
