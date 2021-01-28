@@ -1,6 +1,14 @@
 # Evaluating Trustworthiness of Edge-Based Multi-Tenanted IoT Devices
 
+Internet of Things (IoT) systems are expected to be deployed as solutions to problems in a wide variety of contexts, from building management, to smart city monitoring and to provide support to emergency services. However, many IoT devices are resource constrained and lack the capability or information to compute results for tasks that the IoT devices may be requested to perform. Instead these tasks will need to be offloaded to a server at the Edge of the network for a quick response. As these networks will have multiple organisations providing multiple IoT nodes and Edge nodes with different capabilities, the IoT devices need to know which Edge server they trust to return a timely response to a task.
+
+This repository provides an implementation of such a system to facilitate trust-based task offloading. We provide two example applications and multiple example trust models.
+
+The project was funded by [PETRAS](https://petras-iot.org/project/evaluating-trustworthiness-of-edge-based-multi-tenanted-iot-devices-team/), for more information see [here](https://mbradbury.github.io/projects/project-6-TEAM/).
+
 # Setup
+
+This system assumes the use of [Zolertia RE-Mote rev.b](https://zolertia.io/product/re-mote/) hardware for IoT deployments. Parts of the implementation depend on the hardware accelerated cryptograpic operations they provide.
 
 ## Development
 
@@ -93,10 +101,7 @@ cd iot-trust-task-alloc && git submodule update --init
 ```bash
 sudo apt-get install git python3-pip python3-dev pipenv python3-serial
 python3 -m pip install pyserial
-python3 -m pip install git+https://github.com/secdev/scapy.git -U
 ```
-
-Note: scapy needs to be installed from git in order to get access to their RPL implementation. On the release of 2.4.4 it should be okay to install scapy from pip.
 
 ```bash
 cd  ~
@@ -210,17 +215,6 @@ Plus any applications that are desired:
 ./monitoring.py
 ./routing.py
 ```
-
-# Simulation
-
-## Setup
-
-1. Install dependancies
-
-```bash
-python3 -m pip install hmmlearn
-```
-
 
 # Related Resources
 
