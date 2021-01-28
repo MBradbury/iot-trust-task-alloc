@@ -113,12 +113,15 @@ PROCESS_THREAD(dos_certificate_verification, ev, data)
         PROCESS_EXIT();
     }
 
+    LOG_INFO("Message has been created, starting to send periodically "
+             "every " CC_STRINGIFY(DOS_CERTIFICATE_VERIFICATION_PERIOD_MS) "ms\n");
+
     etimer_set(&send_timer, DOS_CERTIFICATE_VERIFICATION_PERIOD_MS);
 
     // Send the message periodically
     while (1)
     {
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&send_timer));
+        PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_TIMER && data == &send_timer);
 
         // No callback is set, as no confirmation of the message being received will be sent to us
         int ret = coap_send_request(&coap_callback, &ep, &msg, NULL);
