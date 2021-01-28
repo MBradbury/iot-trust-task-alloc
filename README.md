@@ -6,6 +6,21 @@ This repository provides an implementation of such a system to facilitate trust-
 
 The project was funded by [PETRAS](https://petras-iot.org/project/evaluating-trustworthiness-of-edge-based-multi-tenanted-iot-devices-team/), for more information see [here](https://mbradbury.github.io/projects/project-6-TEAM/).
 
+This system architecture is described in: **Matthew Bradbury**, Arshad Jhumka, and Tim Watson. Trust Assessment in 32 KiB of RAM: Multi-application Trust-based Task Offloading for Resource-constrained IoT Nodes. In *The 36th ACM/SIGAPP Symposium on Applied Computing*, SAC'21, 1–10. Virtual Event, Republic of Korea, 22–26 March 2021. ACM. To Appear. [doi:10.1145/3412841.3441898](https://doi.org/10.1145/3412841.3441898).  
+[[bibtex](https://github.com/MBradbury/publications/raw/master/bibtex/Bradbury_2021_TrustAssessment32.bib)] [[file](https://github.com/MBradbury/publications/raw/master/papers/SAC-DADS2021.pdf)] [[dataset](https://doi.org/10.5281/zenodo.4312801)].
+
+## Repository Structure
+
+This repository is structured as follows, with the most important implementation being in:
+
+ - The implementation of firmware for IoT and Edge nodes is contained in [/wsn/node](https://github.com/MBradbury/iot-trust-task-alloc/tree/master/wsn/node) and [/wsn/edge](https://github.com/MBradbury/iot-trust-task-alloc/tree/master/wsn/edge) respectively.
+ - The implementation of two example resource-rich applications and the root node application is contained in [/resource_rich](https://github.com/MBradbury/iot-trust-task-alloc/tree/master/resource_rich).
+
+Other directories contain supporting code:
+
+ - The [/tools](https://github.com/MBradbury/iot-trust-task-alloc/tree/master/tools) and [/tests/run](https://github.com/MBradbury/iot-trust-task-alloc/tree/master/tests/run) directories contains various tools in order to setup and run experiments
+ - The [/analysis](https://github.com/MBradbury/iot-trust-task-alloc/tree/master/analysis) directory contains scripts to analyse and graph results from experiments
+
 # Setup
 
 This system assumes the use of [Zolertia RE-Mote rev.b](https://zolertia.io/product/re-mote/) hardware for IoT deployments. Parts of the implementation depend on the hardware accelerated cryptograpic operations they provide.
@@ -215,17 +230,3 @@ Plus any applications that are desired:
 ./monitoring.py
 ./routing.py
 ```
-
-# Related Resources
-
- - https://link.springer.com/content/pdf/10.1007%2F978-981-13-2324-9_28.pdf
- - https://tools.ietf.org/id/draft-ietf-core-object-security-04.html#rfc.appendix.C.3 
-    - https://tools.ietf.org/id/draft-ietf-core-object-security-16.html
-    - https://github.com/contiki-ng/contiki-ng/issues/285
-    - https://github.com/core-wg/oscore
-    - https://github.com/Gunzter/contiki-ng and https://github.com/Gunzter/contiki-ng/tree/group_oscore
-    - https://arxiv.org/pdf/2001.08023.pdf
-
- - https://github.com/contiki-ng/contiki-ng/issues/863
-
- - https://github.com/contiki-ng/contiki-ng/wiki/Tutorial:-RPL-border-router#native-border-router
