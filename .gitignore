@@ -1,6 +1,7 @@
 # Build artifacts
 Makefile.target
 setup
+results
 wsn/*/build
 wsn/common/crypto/static-keys.c
 *.pem
