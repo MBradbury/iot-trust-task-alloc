@@ -11,8 +11,8 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-// Use the a random edge node we are aware of that supports
-// the provided capability
+// Use a random edge node we are aware of that supports
+// the requested capability
 edge_resource_t* choose_edge(const char* capability_name)
 {
     edge_resource_t* candidates[NUM_EDGE_RESOURCES];
