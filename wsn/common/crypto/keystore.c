@@ -146,15 +146,17 @@ keystore_free_up_space(void)
             continue;
         }
 
-        // 2. If a certificate is not pinned, then it is not in use and can be freed
+        // 2. If a certificate is pinned, then it is in use and cannot be freed
+        if (keystore_is_pinned(iter))
+        {
+            continue;
+        }
+
         // TODO: Consider removing specific certificates (e.g., LRU)
         // (see: https://en.wikipedia.org/wiki/Cache_replacement_policies)
-        if (!keystore_is_pinned(iter))
+        if (keystore_remove(iter))
         {
-            if (keystore_remove(iter))
-            {
-                return true;
-            }
+            return true;
         }
     }
 
