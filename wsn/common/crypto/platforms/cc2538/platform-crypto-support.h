@@ -22,6 +22,8 @@ typedef struct {
 } sign_state_t;
 
 PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len));
+
+#define ECC_SIGN_GET_RESULT(state) state.ecc_sign_state.result
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt pt;
@@ -30,6 +32,8 @@ typedef struct {
 } verify_state_t;
 
 PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubkey, const uint8_t* buffer, size_t buffer_len));
+
+#define ECC_VERIFY_GET_RESULT(state) state.ecc_verify_state.result
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt pt;
@@ -40,4 +44,6 @@ typedef struct {
 } ecdh2_state_t;
 
 PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubkey));
+
+#define ECDH_GET_RESULT(state) state.ecc_multiply_state.result
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -96,7 +96,7 @@ PROCESS_THREAD(signer, ev, data)
             sign_state.ecc_sign_state.process = &signer;
             PROCESS_PT_SPAWN(&sign_state.pt, ecc_sign(&sign_state, sitem->message, sitem->message_buffer_len, sitem->message_len));
 
-            sitem->result = sign_state.ecc_sign_state.result;
+            sitem->result = ECC_SIGN_GET_RESULT(sign_state);
 
             if (process_post(sitem->process, pe_message_signed, sitem) != PROCESS_ERR_OK)
             {
@@ -157,7 +157,7 @@ PROCESS_THREAD(verifier, ev, data)
             verify_state.ecc_verify_state.process = &verifier;
             PROCESS_PT_SPAWN(&verify_state.pt, ecc_verify(&verify_state, vitem->pubkey, vitem->message, vitem->message_len));
 
-            vitem->result = verify_state.ecc_verify_state.result;
+            vitem->result = ECC_VERIFY_GET_RESULT(verify_state);
 
             if (process_post(vitem->process, pe_message_verified, vitem) != PROCESS_ERR_OK)
             {

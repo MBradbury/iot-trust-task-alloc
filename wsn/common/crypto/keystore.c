@@ -629,7 +629,7 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
                 ecdh2_unver_state.ecc_multiply_state.process = &keystore_add_verifier;
                 PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->cert.public_key));
 
-                if (ecdh2_unver_state.ecc_multiply_state.result == PKA_STATUS_SUCCESS)
+                if (ECDH_GET_RESULT(ecdh2_unver_state) == PKA_STATUS_SUCCESS)
                 {
                     generate_shared_secret(pkitem,
                         ecdh2_unver_state.shared_secret, sizeof(ecdh2_unver_state.shared_secret));
@@ -637,7 +637,7 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
                 else
                 {
                     LOG_ERR("Failed to generate shared secret with error %d\n",
-                        ecdh2_unver_state.ecc_multiply_state.result);
+                        ECDH_GET_RESULT(ecdh2_unver_state));
                 }
 
                 keystore_unpin(pkitem);
