@@ -35,7 +35,7 @@ ifneq ($(OSCORE_ID_CONTEXT),)
 endif
 
 # Include common application modules
-MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust trust/stereotypes crypto}
+MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust trust/stereotypes crypto crypto/platforms/cc2538}
 
 include ../common/nanocbor/Makefile.include
 

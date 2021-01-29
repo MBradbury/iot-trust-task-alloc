@@ -5,20 +5,10 @@
 #include <stddef.h>
 
 #include "keys.h"
-#include "dev/ecc-algorithm.h"
-#include "dev/ecc-curve.h"
-#include "dev/sha256.h"
+#include "platform-crypto-support.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef SHA256_DIGEST_LEN_BYTES
 #define SHA256_DIGEST_LEN_BYTES (256 / 8)
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
-#ifndef MESSAGES_TO_SIGN_SIZE
-#define MESSAGES_TO_SIGN_SIZE 3
-#endif
-/*-------------------------------------------------------------------------------------------------------------------*/
-#ifndef MESSAGES_TO_VERIFY_SIZE
-#define MESSAGES_TO_VERIFY_SIZE 3
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 void crypto_support_init(void);
@@ -75,14 +65,4 @@ void queue_message_to_verify_done(messages_to_verify_entry_t* item);
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern process_event_t pe_message_signed;
 extern process_event_t pe_message_verified;
-/*-------------------------------------------------------------------------------------------------------------------*/
-typedef struct {
-    struct pt      pt;
-
-    ecc_multiply_state_t ecc_multiply_state;
-
-    uint8_t shared_secret[DTLS_EC_KEY_SIZE];
-} ecdh2_state_t;
-
-PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubkey));
 /*-------------------------------------------------------------------------------------------------------------------*/
