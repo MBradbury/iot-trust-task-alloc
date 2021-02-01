@@ -9,9 +9,11 @@ openssl ec -in private.pem -pubout -out public.pem
 """
 
 from tools.keygen.keygen import generate_and_save_key, derive_private_key
-from tools.keygen.contiking_format import contiking_format_our_key, contiking_format_our_key_cert, contiking_format_certificate
+from tools.keygen.contiking_format import contiking_format_our_privkey, contiking_format_certificate
+from tools.keygen.util import ip_to_eui64
 
-from tools.keygen.certgen import TBSCertificate
+from common.certificate import TBSCertificate
+from common.stereotype_tags import StereotypeTags, DeviceClass
 
 if __name__ == "__main__":
     import argparse
@@ -22,25 +24,26 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--root', type=str, default=None, help='The deterministic root string to use.')
     parser.add_argument('-k', '--keystore-dir', type=str, default="keystore", help='The location to store the output files.')
 
+    parser.add_argument('-s', '--stereo-device-class',
+        type=DeviceClass.from_string, choices=list(DeviceClass), default=DeviceClass.RASPBERRY_PI, help='The device class.')
+
     args = parser.parse_args()
 
     private_key = generate_and_save_key(args.keystore_dir, args.deterministic)
     root_private_key = derive_private_key(args.root)
 
-    print(contiking_format_our_key(private_key, args.deterministic))
-
-    print(contiking_format_our_key_cert(private_key, root_private_key, args.deterministic, args.root))
+    print(contiking_format_our_privkey(private_key, args.deterministic))
 
     tags = StereotypeTags(
-        device_class=DeviceClass.RASPBERRY_PI
+        device_class=args.stereo_device_class
     )
 
     tbscert = TBSCertificate(
         serial_number=0,
-        issuer=b"\x00\x00\x00\x00\x00\x00\x00\x01",
+        issuer=ip_to_eui64(args.root),
         validity_from=0,
         validity_to=None,
-        subject=b"\x00\x00\x00\x00\x00\x00\x00\x02",
+        subject=ip_to_eui64(args.deterministic),
         stereotype_tags=tags,
         public_key=private_key.public_key(),
     )

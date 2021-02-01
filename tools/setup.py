@@ -17,6 +17,7 @@ import patchwork.transfers
 from common.stereotype_tags import StereotypeTags, DeviceClass
 from tools.keygen.keygen import generate_and_save_key
 from tools.keygen.contiking_format import *
+from tools.keygen.util import ip_to_eui64
 from common.certificate import TBSCertificate, SignedCertificate
 from common.configuration import hostname_to_ips as ips, root_node, device_stereotypes
 
@@ -112,25 +113,13 @@ class Setup:
         # Clarify the root server's private key
         shutil.copy(f"setup/keystore/{self.ip_name(root_ip)}-private.pem", "setup/keystore/private.pem")
 
-    def ip_to_eui64(self, subject: str) -> bytes:
-        ip = ipaddress.ip_address(subject)
-
-        # Last 8 bytes of the ip address
-        eui64 = bytearray(int(ip).to_bytes(16, byteorder='big')[-8:])
-
-        # See: uip_ds6_set_lladdr_from_iid
-        if subject != root_ip:
-            eui64[0] ^= 0x02
-
-        return bytes(eui64)
-
     def create_certificate(self, subject: str, stereotype_tags: StereotypeTags) -> SignedCertificate:
         tbscert = TBSCertificate(
             serial_number=self.certificate_serial_number,
-            issuer=self.ip_to_eui64(root_ip),
+            issuer=ip_to_eui64(root_ip, root_ip=root_ip),
             validity_from=0,
             validity_to=None,
-            subject=self.ip_to_eui64(subject),
+            subject=ip_to_eui64(subject, root_ip=root_ip),
             stereotype_tags=stereotype_tags,
             public_key=self.keys[subject].public_key(),
         )

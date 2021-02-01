@@ -18,6 +18,16 @@ class DeviceClass(IntEnum):
     def cname(self):
         return "DEVICE_CLASS_" + self.name
 
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def from_string(s):
+        try:
+            return DeviceClass[s]
+        except KeyError:
+            raise ValueError()
+
 @dataclass
 class StereotypeTags:
     device_class: DeviceClass
