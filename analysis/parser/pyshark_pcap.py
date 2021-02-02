@@ -198,8 +198,8 @@ def write_oscore_context_pref(log_dir):
     "1","1","1","1","","AES-CCM-16-64-128 (CCM*)"
     """
     # Parameters are:
-    # Sender ID, Recipient ID, Master Secret, Master Salt, Algorithm
-    # See: https://github.com/wireshark/wireshark/blob/master-3.2/epan/dissectors/packet-oscore.c#L828
+    # Sender ID, Recipient ID, Master Secret, Master Salt, ID Context, Algorithm
+    # See: https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-oscore.c#L828
 
     aiocoap_to_tshark_algorithm = {
         "AES-CCM-16-64-128": "AES-CCM-16-64-128 (CCM*)"
@@ -213,6 +213,7 @@ def write_oscore_context_pref(log_dir):
         oscore_id_context = ""
         algorithm = "AES-CCM-16-64-128"
 
+        # TODO: avoid hardcoding these setting by looking at the config
         """for context in os.listdir(f"{log_dir}/keystore/oscore-contexts"):
             with open(f"{log_dir}/keystore/oscore-contexts/{context}/secret.json") as secret:
                 ctxdet = json.load(secret)
