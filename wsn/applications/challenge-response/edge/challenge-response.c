@@ -25,8 +25,6 @@ init(void)
     cr_taskrecv_init();
     cr_taskresp_init();
 
-    //init_trust_weights_routing();
-
     application_stats_init(&cr_stats);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -80,7 +80,6 @@ static coap_callback_request_state_t coap_callback;
 static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + 32)];
 /*-------------------------------------------------------------------------------------------------------------------*/
-static uint8_t capability_count;
 static edge_challenger_t* next_challenge;
 static struct etimer challenge_timer;
 static struct etimer challenge_response_timer;
@@ -249,12 +248,6 @@ periodic_action(void)
     if (timed_unlock_is_locked(&coap_callback_in_use))
     {
         LOG_WARN("Cannot generate a new message, as in process of sending one\n");
-        return;
-    }
-
-    if (capability_count == 0)
-    {
-        LOG_WARN("No Edge servers available to process request\n");
         return;
     }
 
