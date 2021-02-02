@@ -21,12 +21,17 @@ MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 MODULES_REL += ../common/trust/choose/$(TRUST_CHOOSE) ../common/trust/choose/
 
 # Applications to include
-APPLICATIONS = monitoring routing challenge-response
+ifndef APPLICATIONS
+	# Set default applications if not requesting specifics
+	APPLICATIONS = monitoring routing challenge-response
+endif
 include ../applications/Makefile.include
 
 # Enable when automatic job submission for routing is required
-MODULES_REL += ../applications/routing/node/test
-CFLAGS += -DROUTING_PERIODIC_TEST
+ifneq (,$(findstring routing,$(APPLICATIONS)))
+    MODULES_REL += ../applications/routing/node/test
+	CFLAGS += -DROUTING_PERIODIC_TEST
+endif
 
 # Main Contiki-NG compile
 include $(CONTIKI)/Makefile.include

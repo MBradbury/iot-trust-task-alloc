@@ -8,6 +8,7 @@ import shutil
 import pathlib
 import getpass
 import os
+import os.path
 import ipaddress
 import secrets
 import itertools
@@ -32,18 +33,18 @@ class Setup:
 
     oscore_algorithm = "AES-CCM-16-64-128"
 
-    def __init__(self, trust_model: str, trust_choose: str, with_pcap: bool, with_adversary: list[str]):
+    def __init__(self, trust_model: str, trust_choose: str, applications: list[str], with_pcap: bool, with_adversary: list[str]):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
+        self.applications = applications
         self.with_pcap = with_pcap
+        self.with_adversary = with_adversary
 
         self.build_number = 1
 
         self.binaries = ["node", "edge"]
-        if with_adversary:
+        if self.with_adversary:
             self.binaries.append("adversary")
-
-        self.with_adversary = with_adversary
 
         self.keys = None
         self.certs = None
@@ -276,6 +277,7 @@ class Setup:
                 "TRUST_CHOOSE": self.trust_choose,
                 "TARGET": "zoul",
                 "PLATFORM": "remote-revb",
+                "APPLICATIONS": '"' + " ".join(self.applications) + '"',
             }
 
             if self.with_pcap:
@@ -339,13 +341,15 @@ if __name__ == "__main__":
     available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
     available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]
     available_adversary = [x[:-len(".c")] for x in os.listdir("wsn/adversary/attacks") if x.endswith(".c")]
+    available_applications = [x for x in os.listdir("wsn/applications") if os.path.isdir(os.path.join("wsn/applications", x))]
 
     parser = argparse.ArgumentParser(description='Setup')
     parser.add_argument('trust_model', type=str, choices=available_trust_models, help='The trust model to use')
     parser.add_argument('trust_choose', type=str, choices=available_trust_chooses, help='The trust choose to use')
+    parser.add_argument('--applications', nargs="+", type=str, choices=available_applications, help='The applications to build for')
     parser.add_argument('--with-pcap', action='store_true', help='Enable capturing and outputting pcap dumps from the nodes')
     parser.add_argument('--with-adversary', nargs="*", type=str, choices=available_adversary, default=None, help='Enable building an adversary')
     args = parser.parse_args()
 
-    setup = Setup(args.trust_model, args.trust_choose, args.with_pcap, args.with_adversary)
+    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary)
     setup.run()

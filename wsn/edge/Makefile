@@ -14,7 +14,10 @@ MODULES_REL += ./capability
 MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 
 # Applications to include
-APPLICATIONS = monitoring routing challenge-response
+ifndef APPLICATIONS
+	# Set default applications if not requesting specifics
+	APPLICATIONS = monitoring routing challenge-response
+endif
 include ../applications/Makefile.include
 
 # Main Contiki-NG compile

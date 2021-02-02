@@ -21,7 +21,10 @@ MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 #MODULES_REL += ../common/trust/choose/$(TRUST_CHOOSE) ../common/trust/choose/
 
 # Applications to include
-APPLICATIONS = monitoring routing challenge-response
+ifndef APPLICATIONS
+	# Set default applications if not requesting specifics
+	APPLICATIONS = monitoring routing challenge-response
+endif
 include ../applications/Makefile.include
 
 # Attack configuration
