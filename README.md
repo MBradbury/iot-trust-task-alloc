@@ -30,6 +30,7 @@ This system assumes the use of [Zolertia RE-Mote rev.b](https://zolertia.io/prod
 
 ```bash
 sudo apt-get install git build-essential gcc-arm-none-eabi python3 texlive-extra-utils cm-super texlive-latex-extra dvipng poppler-utils
+python3 -m pip install pexpect
 ```
 
 2. Download Contiki-NG

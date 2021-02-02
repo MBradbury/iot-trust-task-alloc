@@ -1,26 +1,34 @@
 #!/usr/bin/env python3
 
-#import getpass
-import os
+import getpass
 import sys
-
 import subprocess
+import argparse
+import pathlib
+import pexpect
 
 from common.configuration import hostname_to_ips as ips
 
-#password = getpass.getpass("Password: ")
+parser = argparse.ArgumentParser(description='Fetch Results')
+parser.add_argument('target', type=pathlib.Path, help='The target directory to save results to')
+args = parser.parse_args()
 
-if not os.path.isdir("results"):
-    os.makedirs("results")
+password = getpass.getpass("Password: ")
+
+# Create the target
+args.target.mkdir(parents=True, exist_ok=True)
+
+print(f"Saving to {args.target}")
 
 # Also very important to fetch the keystore, in order to faciltate decrypting the results
 print("Fetching keystore")
-subprocess.run(
-    f'rsync -avz pi@wsn1:/home/pi/iot-trust-task-alloc/resource_rich/root/keystore/ ./results/keystore',
-    shell=True)
+
+child = pexpect.spawn(f"bash -c 'rsync -avz pi@wsn1:/home/pi/iot-trust-task-alloc/resource_rich/root/keystore/ {args.target/'keystore'}'")
+child.expect('password:')
+child.sendline(password)
 
 for hostname in ips.keys():
     print(f"Fetching results for {hostname}...")
-    subprocess.run(
-        f'rsync -avz pi@{hostname}:/home/pi/iot-trust-task-alloc/logs/* ./results',
-        shell=True)
+    child = pexpect.spawn(f"bash -c 'rsync -avz pi@{hostname}:/home/pi/iot-trust-task-alloc/logs/* {args.target}'")
+    child.expect('password:')
+    child.sendline(password)
