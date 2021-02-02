@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import getpass
-import sys
-import subprocess
 import argparse
 import pathlib
 import pexpect
@@ -15,7 +13,7 @@ args = parser.parse_args()
 
 password = getpass.getpass("Password: ")
 
-# Create the target
+# Create the target directory
 args.target.mkdir(parents=True, exist_ok=True)
 
 print(f"Saving to {args.target}")
