@@ -18,6 +18,7 @@ import argparse
 parser = argparse.ArgumentParser(description='RAM and Flash profiling')
 parser.add_argument('binary', type=str, help='The path to the binary to profile')
 parser.add_argument('--other', type=str, default="other", help='What to classify unknown memory as')
+parser.add_argument('--no-error-if-unknown', action='store_false', default=False, help='Raise an error if there is memory classified as other')
 args = parser.parse_args()
 
 result = subprocess.run(
@@ -68,6 +69,11 @@ def summarise(symbs):
     return sum(x.size for x in symbs)
 
 def classify(symb, other="other"):
+    # I apologise for this horrible function.
+    # nm is unable to pick up the correct location of static variables declared inside functions
+    # So we need to manually classify these variables
+    # Other variables simply do not have a location for some unknown reason
+
     if symb.location is None:
         if symb.name in ("process_current", "process_list", "curr_instance", "linkaddr_null",
                          "linkaddr_node_addr", "etimer_process", "csma_driver", "drop_route", "framer_802154"):
@@ -87,6 +93,8 @@ def classify(symb, other="other"):
         if symb.name.startswith("cc2538_"):
             return "contiki-ng/cc2538"
         if symb.name.startswith("reset_cause."):
+            return "contiki-ng/cc2538"
+        if symb.name.startswith("p05."): # I think this refers to MP3_WTV020SD_P05_PORT
             return "contiki-ng/cc2538"
 
         if symb.name in ("coap_status_code", "coap_error_message", "coap_timer_default_driver"):
@@ -108,6 +116,9 @@ def classify(symb, other="other"):
             return "system/mqtt-over-coap"
 
         if symb.name in ("pe_timed_unlock_unlocked", "root_ep", "autostart_processes"):
+            return "system/common"
+        if symb.name in ("pe_data_from_resource_rich_node", "resource_rich_edge_started",
+                         "applications_available", "application_names"): # Edge specific
             return "system/common"
 
         if symb.name in ("_C_numeric_locale", "__mprec_bigtens", "__mprec_tinytens", "__mprec_tens",
@@ -168,18 +179,26 @@ def classify_all(symbs, other="other"):
 
 classified_ram_symb = classify_all(ram_symb, other=args.other)
 summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
-try:
-    pprint(classified_ram_symb["other"])
-except KeyError:
-    pass
-
 
 classified_flash_symb = classify_all(flash_symb, other=args.other)
 summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
-try:
-    pprint(classified_flash_symb["other"])
-except KeyError:
-    pass
+
+
+if "other" in classified_ram_symb or "other" in classified_flash_symb:
+    try:
+        print("RAM unknown:")
+        pprint(classified_ram_symb["other"])
+    except KeyError:
+        pass
+
+    try:
+        print("Flash unknown:")
+        pprint(classified_flash_symb["other"])
+    except KeyError:
+        pass
+
+    if not args.no_error_if_unknown:
+        raise RuntimeError("Symbols with an unknown classification")
 
 total_flash_symb = sum(summarised_flash_symb.values())
 total_ram_symb = sum(summarised_ram_symb.values())

@@ -246,15 +246,16 @@ edge_info_capability_find(edge_resource_t* edge, const char* name)
     return NULL;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static char edge_info_name_buffer[EUI64_LENGTH*2 + 1];
+/*-------------------------------------------------------------------------------------------------------------------*/
 const char* edge_info_name(const edge_resource_t* edge)
 {
     uint8_t eui64[EUI64_LENGTH];
     eui64_from_ipaddr(&edge->ep.ipaddr, eui64);
 
-    static char name[EUI64_LENGTH*2 + 1];
-    eui64_to_str(eui64, name, sizeof(name));
+    eui64_to_str(eui64, edge_info_name_buffer, sizeof(edge_info_name_buffer));
 
-    return name;
+    return edge_info_name_buffer;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool edge_info_has_active_capability(const char* name)
