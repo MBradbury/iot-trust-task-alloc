@@ -6,6 +6,7 @@
 #include "keystore.h"
 #include "peer-info.h"
 #include <stdio.h>
+#include <assert.h>
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
