@@ -261,6 +261,7 @@ bool edge_info_has_active_capability(const char* name)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
     {
+        // Skip inactive edges
         if ((iter->flags & EDGE_RESOURCE_ACTIVE) == 0)
         {
             continue;
