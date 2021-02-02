@@ -190,7 +190,7 @@ keystore_add(const certificate_t* cert)
 
         if (!keystore_free_up_space())
         {
-            LOG_ERR("Failed to free space for certificate\n");
+            LOG_ERR("Failed to free space for the certificate\n");
             return false;
         }
         else
@@ -203,7 +203,7 @@ keystore_add(const certificate_t* cert)
             }
             else
             {
-                LOG_INFO("Successfully found memory for certificate\n");
+                LOG_INFO("Successfully found memory for the certificate\n");
             }
         }
     }
@@ -363,13 +363,13 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
                 LOG_ERR("Failed to decode certificate\n");
             }
         }
-
-        timed_unlock_unlock(&in_use);
     } break;
 
     case COAP_REQUEST_STATUS_FINISHED:
     {
         // Not truely finished yet here, need to wait for signature verification
+        // But we are finished with sending and receiving a message
+        timed_unlock_unlock(&in_use);
     } break;
 
     default:
