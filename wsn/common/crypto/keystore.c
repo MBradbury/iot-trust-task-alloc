@@ -335,7 +335,6 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
         {
             LOG_ERR("Failed to request public key from key server '%.*s' (%d)\n",
                 req_resp_len, (const char*)payload, response->code);
-            timed_unlock_unlock(&in_use);
         }
         else
         {
@@ -364,6 +363,8 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
                 LOG_ERR("Failed to decode certificate\n");
             }
         }
+
+        timed_unlock_unlock(&in_use);
     } break;
 
     case COAP_REQUEST_STATUS_FINISHED:
@@ -386,6 +387,7 @@ static bool add_buffer_in_use;
 static void
 keystore_add_start(void)
 {
+    // Don't start adding a queued certificate to verify if we are already doing work
     if (add_buffer_in_use)
     {
         return;
