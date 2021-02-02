@@ -6,11 +6,11 @@ APPLICATION_SPECIFC_DIR := ${addsuffix /$(CONTIKI_PROJECT),$(APPLICATION_DIRS)}
 MODULES_REL += ../applications $(APPLICATION_DIRS) $(APPLICATION_SPECIFC_DIR)
 
 # Any application names with a hyphen need it translated to an underscore
-APPLICATIONS := $(shell echo '$(APPLICATIONS)' | tr '-' '_')
+APPLICATIONS_SANITISED := $(shell echo '$(APPLICATIONS)' | tr '-' '_')
 
 # Create a list of application names that are supported
 
-APPLICATIONS_CAP := $(shell echo '$(APPLICATIONS)' | tr '[:lower:]' '[:upper:]')
+APPLICATIONS_CAP := $(shell echo '$(APPLICATIONS_SANITISED)' | tr '[:lower:]' '[:upper:]')
 
 # From: https://stackoverflow.com/questions/1541844/joining-elements-of-a-list-in-gnu-make
 noop:=
@@ -20,20 +20,20 @@ comma := ,
 APPLICATION_NAMES := ${addsuffix _APPLICATION_NAME,$(APPLICATIONS_CAP)}
 APPLICATION_NAMES := $(subst $(space),$(comma),$(APPLICATION_NAMES))
 
-CFLAGS += -DAPPLICATION_NUM='$(words $(APPLICATIONS))'
+CFLAGS += -DAPPLICATION_NUM='$(words $(APPLICATIONS_SANITISED))'
 CFLAGS += -DAPPLICATION_NAMES='{$(APPLICATION_NAMES)}'
 
 # Need a list of processes to autostart
 prefix := &
 suffix := _process
-APPLICATION_PROCESSES := ${addsuffix $(suffix),$(APPLICATIONS)}
+APPLICATION_PROCESSES := ${addsuffix $(suffix),$(APPLICATIONS_SANITISED)}
 APPLICATION_PROCESSES := ${addprefix $(prefix),$(APPLICATION_PROCESSES)}
 APPLICATION_PROCESSES := $(subst $(space),$(comma),$(APPLICATION_PROCESSES))
 CFLAGS += -DAPPLICATION_PROCESSES='$(APPLICATION_PROCESSES)'
 
 prefix := PROCESS_NAME(
 suffix := _process);
-APPLICATION_PROCESSES_DECL := ${addprefix $(prefix),$(APPLICATIONS)}
+APPLICATION_PROCESSES_DECL := ${addprefix $(prefix),$(APPLICATIONS_SANITISED)}
 APPLICATION_PROCESSES_DECL := ${addsuffix $(suffix),$(APPLICATION_PROCESSES_DECL)}
 CFLAGS += -DAPPLICATION_PROCESSES_DECL='$(APPLICATION_PROCESSES_DECL)'
 
