@@ -82,7 +82,7 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
     trust += w * e;
     w_total += w;
 
-#ifdef APPLICATION_CHALLENGE_RESPONSE
+#if defined(APPLICATION_CHALLENGE_RESPONSE) && defined(TRUST_MODEL_USE_CHALLENGE_RESPONSE)
     // This application is special, as its result quality applies to
     // other applications too (as long as they specify a weight for it).
     edge_capability_t* cr = edge_info_capability_find(edge, CHALLENGE_RESPONSE_APPLICATION_NAME);
