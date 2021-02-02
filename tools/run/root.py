@@ -53,8 +53,8 @@ with open(motelist_log_path, 'w') as motelist_log:
         encoding="utf-8",
     )
     teed.add(motelist,
-             stdout=[flash_log, StreamNoTimestamp(sys.stdout)],
-             stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
+             stdout=[motelist_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[motelist_log, StreamNoTimestamp(sys.stderr)])
     teed.wait()
     motelist.wait()
 
