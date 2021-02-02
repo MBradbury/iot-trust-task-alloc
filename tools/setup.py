@@ -25,6 +25,10 @@ from common.configuration import hostname_to_ips as ips, root_node, device_stere
 root_ip = ips[root_node]
 
 class Setup:
+
+    # See: wsn/common/crypto/keystore.c for the corresponding definition
+    oscore_id_len = 6
+
     def __init__(self, trust_model: str, trust_choose: str, with_pcap: bool, with_adversary: list[str]):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
@@ -43,12 +47,13 @@ class Setup:
 
         self.certificate_serial_number = 0
 
+        # For simplicity and determinism keep with the same salt
         #self.oscore_master_salt = secrets.token_bytes(16)
         self.oscore_master_salt = bytes.fromhex("642b2b8e9d0c4263924ceafcf7038b26")
-        self.oscore_id_context = None
-        #self.oscore_id_context = b"\x01"
 
-        self.oscore_id_len = 6
+        # Not sure why, but having no id context seems to work better
+        #self.oscore_id_context = b"\x01"
+        self.oscore_id_context = None
 
     def run(self):
         print(f"Using trust model {self.trust_model}")
@@ -70,8 +75,6 @@ class Setup:
 
         print("Deploying build binaries to targets")
         self._deploy(password)
-
-        #self._remove_private_from_keystore()
 
         print("Deploying keystore to root")
         self._deploy_keystore(password)
@@ -275,20 +278,6 @@ class Setup:
 
                     result = conn.put(src, dest)
                     print("Uploaded {0.local} to {0.remote} for {1}".format(result, conn))
-
-    def _remove_private_from_keystore(self):
-        print("Tidying up keystore")
-
-        # Remove its public key (as this is contained within the private key file)
-        #os.remove(f"setup/keystore/{self.ip_name(root_ip)}-public.pem")
-
-        # Remove the private keys of the sensor nodes
-        for ip in ips.values():
-            # Skip root ip
-            if ip == root_ip:
-                continue
-
-            os.remove(f"setup/keystore/{ip_name(ip)}-private.pem")
 
     def _deploy_keystore(self, password: str):
         with fabric.Connection(f'pi@{root_node}', connect_kwargs={"password": password}) as conn:
