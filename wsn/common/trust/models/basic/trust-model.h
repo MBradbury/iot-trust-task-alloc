@@ -5,8 +5,8 @@
 #include "nanocbor-helper.h"
 
 #define TRUST_MODEL_TAG 1
-//#define TRUST_MODEL_NO_PEER_PROVIDED
-//#define TRUST_MODEL_NO_PERIODIC_BROADCAST
+#define TRUST_MODEL_NO_PEER_PROVIDED
+#define TRUST_MODEL_NO_PERIODIC_BROADCAST
 
 struct edge_resource;
 struct edge_capability;
