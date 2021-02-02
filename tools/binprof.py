@@ -6,6 +6,8 @@ from typing import Optional
 from pprint import pprint
 from collections import defaultdict
 
+import argparse
+
 # Details of what the bufferent `symbol_type`s mean
 # https://sourceware.org/binutils/docs/binutils/nm.html
 
@@ -13,25 +15,16 @@ from collections import defaultdict
 # https://web.archive.org/web/20190317203555/https://www.embeddedrelated.com/showarticle/900.php
 # They looked up details with readelf/objdump
 
-"""subprocess.run(
-    "make distclean TRUST_MODEL=basic TRUST_CHOOSE=banded",
-    check=True,
-    shell=True,
-    cwd="wsn/node",
-)"""
-"""subprocess.run(
-    "make node TRUST_MODEL=basic TRUST_CHOOSE=banded",
-    check=True,
-    shell=True,
-    cwd="wsn/node",
-)"""
+parser = argparse.ArgumentParser(description='RAM and Flash profiling')
+parser.add_argument('binary', type=str, help='The path to the binary to profile')
+parser.add_argument('--other', type=str, default="other", help='What to classify unknown memory as')
+args = parser.parse_args()
 
 result = subprocess.run(
-    "nm --print-size --size-sort --radix=d --line-numbers node.zoul",
+    f"nm --print-size --size-sort --radix=d --line-numbers {args.binary}",
     check=True,
     shell=True,
     capture_output=True,
-    cwd="wsn/node",
     encoding="utf-8",
     universal_newlines=True,
 )
@@ -173,31 +166,23 @@ def classify_all(symbs, other="other"):
 
     return dict(result)
 
-other = "contiki-ng"
-
-classified_ram_symb = classify_all(ram_symb, other=other)
-
-
+classified_ram_symb = classify_all(ram_symb, other=args.other)
+summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
 try:
     pprint(classified_ram_symb["other"])
 except KeyError:
     pass
 
-summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
 
-
-classified_flash_symb = classify_all(flash_symb, other=other)
-
+classified_flash_symb = classify_all(flash_symb, other=args.other)
+summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
 try:
     pprint(classified_flash_symb["other"])
 except KeyError:
     pass
 
-summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
-
 total_flash_symb = sum(summarised_flash_symb.values())
 total_ram_symb = sum(summarised_ram_symb.values())
-
 
 keys = set(summarised_ram_symb.keys()) | set(classified_flash_symb.keys())
 for k in sorted(keys):
