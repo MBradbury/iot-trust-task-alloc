@@ -31,11 +31,32 @@ if not os.path.isdir(args.log_dir):
 
 hostname = os.uname()[1]
 
+motelist_log_path = os.path.join(args.log_dir, f"wsn.{hostname}.motelist.log")
 flash_log_path = os.path.join(args.log_dir, f"wsn.{hostname}.flash.log")
 pyterm_log_path = os.path.join(args.log_dir, f"wsn.{hostname}.pyterm.log")
 
+print(f"Logging motelist to {motelist_log_path}", flush=True)
 print(f"Logging flash to {flash_log_path}", flush=True)
 print(f"Logging pyterm to {pyterm_log_path}", flush=True)
+
+with open(motelist_log_path, 'w') as motelist_log:
+    teed = Teed()
+    motelist = Popen(
+        f"./motelist-zolertia",
+        cwd=os.path.expanduser("~/pi-client/tools"),
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        encoding="utf-8",
+    )
+    teed.add(motelist,
+             stdout=[flash_log, StreamNoTimestamp(sys.stdout)],
+             stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
+    teed.wait()
+    motelist.wait()
+
+time.sleep(0.1)
 
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
