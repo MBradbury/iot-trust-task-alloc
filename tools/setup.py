@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import argparse
 import subprocess
@@ -24,7 +25,7 @@ from common.configuration import hostname_to_ips as ips, root_node, device_stere
 root_ip = ips[root_node]
 
 class Setup:
-    def __init__(self, trust_model: str, trust_choose: str, with_pcap: bool):
+    def __init__(self, trust_model: str, trust_choose: str, with_pcap: bool, with_adversary: list[str]):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
         self.with_pcap = with_pcap
@@ -32,6 +33,10 @@ class Setup:
         self.build_number = 1
 
         self.binaries = ["node", "edge"]
+        if with_adversary:
+            self.binaries.append("adversary")
+
+        self.with_adversary = with_adversary
 
         self.keys = None
         self.certs = None
@@ -97,7 +102,7 @@ class Setup:
     def _clean_build_dirs(self):
         for binary in self.binaries:
             subprocess.run(
-                f"make distclean -C wsn/{binary} TRUST_MODEL={self.trust_model} TRUST_CHOOSE={self.trust_choose}",
+                f"make distclean -C wsn/{binary} TRUST_MODEL={self.trust_model} TRUST_CHOOSE={self.trust_choose} MAKE_ATTACKS=dummy",
                 shell=True,
                 check=True,
                 capture_output=True
@@ -232,10 +237,16 @@ class Setup:
             if self.oscore_id_context is not None:
                 build_args["OSCORE_ID_CONTEXT"] = self.bytes_to_c_array(self.oscore_id_context)
 
-            build_args_str = " ".join(f"{k}={v}" for (k,v) in build_args.items())
-
             for binary in self.binaries:
                 print(f"Building {binary} with '{build_args}'")
+
+                final_build_args = {**build_args}
+
+                if binary == "adversary" and self.with_adversary:
+                    final_build_args["MAKE_ATTACKS"] = ",".join(self.with_adversary)
+
+                build_args_str = " ".join(f"{k}={v}" for (k,v) in final_build_args.items())
+
                 subprocess.run(f"make -C wsn/{binary} {build_args_str}", shell=True, check=True)
                 shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
 
@@ -291,12 +302,14 @@ if __name__ == "__main__":
 
     available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
     available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]
+    available_adversary = [x[:-len(".c")] for x in os.listdir("wsn/adversary/attacks") if x.endswith(".c")]
 
     parser = argparse.ArgumentParser(description='Setup')
     parser.add_argument('trust_model', type=str, choices=available_trust_models, help='The trust model to use')
     parser.add_argument('trust_choose', type=str, choices=available_trust_chooses, help='The trust choose to use')
     parser.add_argument('--with-pcap', action='store_true', help='Enable capturing and outputting pcap dumps from the nodes')
+    parser.add_argument('--with-adversary', nargs="*", type=str, choices=available_adversary, default=None, help='Enable building an adversary')
     args = parser.parse_args()
 
-    setup = Setup(args.trust_model, args.trust_choose, args.with_pcap)
+    setup = Setup(args.trust_model, args.trust_choose, args.with_pcap, args.with_adversary)
     setup.run()
