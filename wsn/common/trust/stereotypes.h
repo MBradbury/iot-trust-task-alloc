@@ -5,7 +5,9 @@
 
 // This should be the maximum number of tag combinations
 // Likely to get big, so try to keep small
+#ifndef MAX_NUM_STEREOTYPES
 #define MAX_NUM_STEREOTYPES 5
+#endif
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct edge_stereotype {
