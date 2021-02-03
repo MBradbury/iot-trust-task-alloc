@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import logging
 import asyncio
@@ -39,16 +40,16 @@ def mqtt_message_to_str(message):
 
 
 class SubscriptionManager:
-    def __init__(self, database):
+    def __init__(self, database: str):
         self._subscriptions = defaultdict(set)
         self._lock = asyncio.Lock()
         self._database = database
 
-    async def should_subscribe(self, topic, source):
+    async def should_subscribe(self, topic: str, source: str) -> bool:
         async with self._lock:
             return len(self._subscriptions[topic]) == 0
 
-    async def should_unsubscribe(self, topic, source):
+    async def should_unsubscribe(self, topic: str, source: str) -> bool:
         async with self._lock:
             try:
                 return len(self._subscriptions[topic]) == 1 and source in self._subscriptions[topic]
@@ -56,7 +57,7 @@ class SubscriptionManager:
                 # No subscriptions, so do not need to subscribe
                 return False
 
-    async def subscribe(self, topic, source):
+    async def subscribe(self, topic: str, source: str):
         async with self._lock:
             self._subscriptions[topic].add(source)
 
@@ -64,7 +65,7 @@ class SubscriptionManager:
             with open(self._database, "wb") as db:
                 pickle.dump(self._subscriptions, db)
 
-    async def unsubscribe(self, topic, source):
+    async def unsubscribe(self, topic: str, source: str):
         async with self._lock:
             try:
                 self._subscriptions[topic].remove(source)
@@ -75,7 +76,7 @@ class SubscriptionManager:
             except KeyError as ex:
                 logger.error(f"Failed to remove subscription to {topic} from {source} with {ex}")
 
-    async def subscribers(self, topic):
+    async def subscribers(self, topic: str) -> Set[str]:
         async with self._lock:
             subscriptions = copy.deepcopy(self._subscriptions)
 
@@ -87,7 +88,7 @@ class SubscriptionManager:
 
         return subs
 
-    def deserialise(self):
+    def deserialise(self) -> List[str]:
         try:
             # Load _subscriptions from database
             with open(self._database, "rb") as db:
@@ -105,7 +106,7 @@ class COAPConnector(resource.Resource):
         super().__init__()
         self.bridge = bridge
 
-    async def render_get(self, request):
+    async def render_get(self, request: aiocoap.Message) -> aiocoap.Message:
         """An MQTT Subscribe request"""
         try:
             return await self.bridge.coap_to_mqtt_subscribe(request)
@@ -115,7 +116,7 @@ class COAPConnector(resource.Resource):
         except ValueError as ex:
             raise error.BadRequest(str(ex))
 
-    async def render_delete(self, request):
+    async def render_delete(self, request: aiocoap.Message) -> aiocoap.Message:
         """An MQTT unsubscribe request"""
         try:
             return await self.bridge.coap_to_mqtt_unsubscribe(request)
@@ -125,7 +126,7 @@ class COAPConnector(resource.Resource):
         except ValueError as ex:
             raise error.BadRequest(str(ex))
 
-    async def render_put(self, request):
+    async def render_put(self, request: aiocoap.Message) -> aiocoap.Message:
         """An MQTT publish request"""
         try:
             return await self.bridge.coap_to_mqtt_publish(request)
@@ -140,7 +141,6 @@ class MQTTConnector:
     def __init__(self, bridge):
         self.bridge = bridge
         self.client = asyncio_mqtt.Client('::1', protocol=mqtt.MQTTv5)
-        #self.client._client.suppress_exceptions = True
 
     async def start(self):
         await self.client.connect()
@@ -156,7 +156,7 @@ class MQTTConnector:
 
 
 class MQTTCOAPBridge:
-    def __init__(self, database):
+    def __init__(self, database: str):
         self.coap_connector = COAPConnector(self)
         self.mqtt_connector = MQTTConnector(self)
         self.manager = SubscriptionManager(database)
@@ -177,7 +177,7 @@ class MQTTCOAPBridge:
     async def stop(self):
         await self.mqtt_connector.stop()
 
-    async def coap_to_mqtt_subscribe(self, request):
+    async def coap_to_mqtt_subscribe(self, request: aiocoap.Message) -> aiocoap.Message:
         topic = self._coap_request_extract_mqtt_topic(request)
         host = self._coap_request_extract_host(request)
 
@@ -194,7 +194,7 @@ class MQTTCOAPBridge:
 
         return result
 
-    async def coap_to_mqtt_unsubscribe(self, request):
+    async def coap_to_mqtt_unsubscribe(self, request: aiocoap.Message) -> aiocoap.Message:
         topic = self._coap_request_extract_mqtt_topic(request)
         host = self._coap_request_extract_host(request)
 
@@ -211,7 +211,7 @@ class MQTTCOAPBridge:
 
         return result
 
-    async def coap_to_mqtt_publish(self, request):
+    async def coap_to_mqtt_publish(self, request: aiocoap.Message) -> aiocoap.Message:
         topic = self._coap_request_extract_mqtt_topic(request)
         host = self._coap_request_extract_host(request)
 
@@ -233,7 +233,7 @@ class MQTTCOAPBridge:
         # Set content type when the publish is received from the MQTT server
         content_format = None
         if message.properties is not None:
-            content_format = message.properties.ContentType
+            content_format = media_types_rev[message.properties.ContentType]
 
         # Push via CoAP to all subscribed clients
         await asyncio.gather(*[
@@ -241,11 +241,11 @@ class MQTTCOAPBridge:
             for subscriber in subscribers
         ])
 
-    async def forward_mqtt(self, payload, topic, target, content_format):
+    async def forward_mqtt(self, payload: bytes, topic: str, target: str, content_format: Optional[int]):
         """Forward an MQTT message to a coap target"""
         message = aiocoap.Message(code=codes.POST, payload=payload,
                                   uri=f"coap://[{target}]/mqtt?t={topic}",
-                                  content_format=media_types_rev[content_format] if content_format else None)
+                                  content_format=content_format)
 
         logger.info(f"Forwarding MQTT over CoAP {message} to {target} with topic {topic} and content format {content_format}")
 
@@ -260,7 +260,7 @@ class MQTTCOAPBridge:
 
         return response
 
-    def _coap_request_extract_mqtt_topic(self, request):
+    def _coap_request_extract_mqtt_topic(self, request: aiocoap.Message) -> str:
         for query in request.opt.uri_query:
             k,v = query.split("=", 1)
 
@@ -269,7 +269,7 @@ class MQTTCOAPBridge:
 
         raise MissingMQTTTopic()
 
-    def _coap_request_extract_host(self, request):
+    def _coap_request_extract_host(self, request: aiocoap.Message):
         if isinstance(request.remote, OSCOREAddress):
             return request.remote.underlying_address.sockaddr[0]
         else:
@@ -298,7 +298,7 @@ async def start(coap_site, bridge):
     bridge.context = await aiocoap.Context.create_server_context(coap_site)
     await bridge.start()
 
-def main(database, flush=False):
+def main(database: str, flush: bool=False):
     logger.info("Starting mqtt-coap bridge")
 
     loop = asyncio.get_event_loop()
