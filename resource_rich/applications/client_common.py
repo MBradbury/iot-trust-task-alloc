@@ -38,6 +38,8 @@ class Client:
         self.ack_cond = asyncio.Condition()
         self.response_lock = asyncio.Lock()
 
+        self.was_cancelled = False
+
     async def start(self):
         self.reader, self.writer = await asyncio.open_connection('localhost', edge_server_port)
 
@@ -62,6 +64,11 @@ class Client:
             if line.endswith(f"{serial_sep}ack"):
                 async with self.ack_cond:
                     self.ack_cond.notify()
+                continue
+
+            # Process cancel
+            if line.endswith(f"{serial_sep}cancel"):
+                was_cancelled = True
                 continue
 
             # Create task here to allow multiple jobs from clients to be
@@ -120,6 +127,11 @@ class Client:
     async def _receive_ack(self):
         async with self.ack_cond:
             await self.ack_cond.wait()
+
+    def _check_and_reset_cancelled(self) -> bool:
+        result = self.was_cancelled
+        self.was_cancelled = False
+        return result
 
     async def write(self, message: str):
         logger.debug(f"Writing {message!r} of length {len(message)}")

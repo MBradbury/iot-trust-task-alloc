@@ -101,16 +101,18 @@ class RoutingClient(client_common.Client):
 
             route_chunks = list(chunked(route, elements_per_coap_packet))
 
-            await self._write_task_result_result(dest, status, len(route_chunks))
-
-            for i, route_chunk in enumerate(route_chunks):
-                await self._write_task_result_chunk(i, len(route_chunks), route_chunk)
+            if await self._write_task_result_result(dest, status, len(route_chunks)):
+                for i, route_chunk in enumerate(route_chunks):
+                    await self._write_task_result_chunk(i, len(route_chunks), route_chunk)
         else:
             await self._write_task_result_result(dest, status, 0)
 
-    async def _write_task_result_result(self, dest, status, n):
+    async def _write_task_result_result(self, dest, status, n) -> bool:
         await self._write_to_application(f"{self.task_resp1_prefix}{dest}{serial_sep}{n}{serial_sep}{status}")
         await self._receive_ack()
+
+        # Only want to continue if we did not receive a cancel before the ack
+        return not self._check_and_reset_cancelled()
 
     async def _write_task_result_chunk(self, i, n, route_chunk):
         # Need canonical to fit floats into smallest space possible

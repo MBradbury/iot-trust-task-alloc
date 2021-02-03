@@ -446,9 +446,14 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
     LOG_DBG_COAP_EP(request->src_ep);
     LOG_DBG_("\n");
 
+    // Check if we are expecting a response
+    // We might have timed out
     if (!timed_unlock_is_locked(&task_in_use))
     {
         LOG_ERR("Received a task response that we were not expecting\n");
+
+        // Inform the Edge that we don't want this result
+        coap_set_status_code(response, BAD_REQUEST_4_00);
         return;
     }
 

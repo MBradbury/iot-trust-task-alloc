@@ -75,6 +75,12 @@ ack_serial_input(void)
     printf(APPLICATION_SERIAL_PREFIX ROUTING_APPLICATION_NAME SERIAL_SEP "ack\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static void
+cancel_response(void)
+{
+    printf(APPLICATION_SERIAL_PREFIX ROUTING_APPLICATION_NAME SERIAL_SEP "cancel\n");
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
 static coap_endpoint_t ep;
 static coap_callback_request_state_t coap_callback;
@@ -98,6 +104,14 @@ send_callback(coap_callback_request_state_t* callback_state)
         else if (response->code == CONTINUE_2_31)
         {
             LOG_DBG("Message send complete with code CONTINUE_2_31 (len=%d)\n", response->payload_len);
+        }
+        else if (response->code == BAD_REQUEST_4_00)
+        {
+            LOG_WARN("Message send failed with code BAD_REQUEST_4_00 (len=%d), "
+                     "the IoT node was not expecting this response\n", response->payload_len);
+
+            // Cancel sending the rest of this response
+            cancel_response();
         }
         else
         {
