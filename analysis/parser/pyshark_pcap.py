@@ -275,8 +275,8 @@ def main(log_dir):
 
         # Need pass "-2" in order for packets to be processed twice,
         # this means that fragments will be reassembled
-        with pyshark.FileCapture(g, override_prefs=override_prefs, custom_parameters=["-2"], debug=True) as f:
-            a.analyse(f)
+        with pyshark.FileCapture(g, override_prefs=override_prefs, custom_parameters=["-2"], debug=True) as cap:
+            a.analyse(cap)
 
         print(a.hostname, a.addrs, a.eui64)
         print(f"Tx Addrs: {a.tx_addrs}")

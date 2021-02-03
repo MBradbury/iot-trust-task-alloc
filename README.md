@@ -63,7 +63,7 @@ Install the latest version of wireshark to be able to analyse OSCORE packets. In
 ```bash
 cd ~
 mkdir wireshark
-git clone https://gitlab.com/wireshark/wireshark.git
+git clone https://gitlab.com/wireshark/wireshark.git -b release-3.4
 cd wireshark
 sudo tools/debian-setup.sh --install-optional --install-deb-deps --install-test-deps
 dpkg-buildpackage -b -uc -us -jauto
@@ -241,4 +241,29 @@ Plus any applications that are desired:
 ```bash
 ./monitoring.py
 ./routing.py
+```
+
+# Instructions to analyse results
+
+## Obtaining results
+
+In order to fetch results from the devices run:
+```bash
+./tools/fetch_results.py results/<log-dir>
+```
+
+## Generate pcap
+
+If the binaries were compiled with `--with-pcap` then there will be a `*.packet.log` file for each device. This now needs to be converter to a pcap file.
+
+pcaps can either be converted individually using `./tools/regenerate_pcap.py` or processed for all packet logs in a directory using `./tools/regenerate_pcaps.py`.
+
+Individually:
+```bash
+./tools/regenerate_pcap.py results/2021-02-03-am-dadspp-one-good-one-bad/edge.wsn6.packet.log
+```
+
+Batch:
+```bash
+./tools/regenerate_pcaps.py results/2021-02-03-am-dadspp-one-good-one-bad/
 ```
