@@ -90,8 +90,8 @@ class Setup:
         return '"{' + ', '.join(f"0x{''.join(h)}" for h in chunked(b.hex(), 2)) + '}"'
 
     @staticmethod
-    def ip_name(ip: str) -> str:
-        return ip.replace(":", "_")
+    def ip_name(ip: ipaddress.IPv6Address) -> str:
+        return str(ip).replace(":", "_")
 
     def _create_setup_dir(self):
         if os.path.exists("setup"):
@@ -117,7 +117,7 @@ class Setup:
 
     def _build_keystore(self):
         self.keys = {
-            ip: generate_and_save_key("setup/keystore", ip)
+            ip: generate_and_save_key("setup/keystore", str(ip))
             for ip
             in ips.values()
         }
@@ -125,7 +125,7 @@ class Setup:
         # Clarify the root server's private key
         shutil.copy(f"setup/keystore/{self.ip_name(root_ip)}-private.pem", "setup/keystore/private.pem")
 
-    def create_certificate(self, subject: str, stereotype_tags: StereotypeTags) -> SignedCertificate:
+    def create_certificate(self, subject: ipaddress.IPv6Address, stereotype_tags: StereotypeTags) -> SignedCertificate:
         tbscert = TBSCertificate(
             serial_number=self.certificate_serial_number,
             issuer=ip_to_eui64(root_ip, root_ip=root_ip),
@@ -140,12 +140,12 @@ class Setup:
 
         return tbscert.build(self.keys[root_ip])
 
-    def create_and_save_certificate(self, keystore_dir: str, subject: str, stereotype_tags: StereotypeTags) -> SignedCertificate:
+    def create_and_save_certificate(self, keystore_dir: str, subject: ipaddress.IPv6Address, stereotype_tags: StereotypeTags) -> SignedCertificate:
         cert = self.create_certificate(subject, stereotype_tags)
 
         pathlib.Path(keystore_dir).mkdir(parents=True, exist_ok=True)
 
-        prefix = subject.replace(":", "_")
+        prefix = self.ip_name(subject)
 
         with open(f"{keystore_dir}/{prefix}-cert.iot-trust-cert", 'wb') as cert_out:
             cert_out.write(cert.encode())

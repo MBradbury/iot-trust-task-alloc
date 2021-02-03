@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from textwrap import wrap
 import pathlib
 from more_itertools import chunked
@@ -8,7 +10,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 
-def derive_private_key(deterministic_string=None):
+def derive_private_key(deterministic_string: Optional[str]=None):
     if deterministic_string is None:
         return ec.generate_private_key(ec.SECP256R1(), default_backend())
     else:
@@ -17,7 +19,7 @@ def derive_private_key(deterministic_string=None):
 
         return ec.derive_private_key(private_value, ec.SECP256R1(), default_backend())
 
-def save_key(pk, name, keystore_dir):
+def save_key(pk, name: str, keystore_dir: str):
     """From: https://stackoverflow.com/questions/45146504/python-cryptography-module-save-load-rsa-keys-to-from-file"""
 
     pathlib.Path(keystore_dir).mkdir(parents=True, exist_ok=True)
@@ -42,7 +44,7 @@ def save_key(pk, name, keystore_dir):
     with open(f"{keystore_dir}/{prefix}public.pem", 'wb') as pem_out:
         pem_out.write(pem)
 
-def generate_and_save_key(keystore_dir="keystore", deterministic_string=None):
+def generate_and_save_key(keystore_dir: str="keystore", deterministic_string: Optional[str]=None):
     print(f"Generating key using {deterministic_string}")
     private_key = derive_private_key(deterministic_string)
 
