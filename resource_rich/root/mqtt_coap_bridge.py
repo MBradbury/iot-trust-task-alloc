@@ -12,9 +12,12 @@ import os
 import asyncio_mqtt
 import asyncio_mqtt.error
 import paho.mqtt.client as mqtt
+from paho.mqtt.packettypes import PacketTypes
+from paho.mqtt.properties import Properties
 
 import aiocoap
 import aiocoap.error as error
+from aiocoap.numbers import media_types, media_types_rev
 import aiocoap.numbers.codes as codes
 import aiocoap.resource as resource
 from aiocoap.transports.oscore import OSCOREAddress
@@ -136,7 +139,8 @@ class COAPConnector(resource.Resource):
 class MQTTConnector:
     def __init__(self, bridge):
         self.bridge = bridge
-        self.client = asyncio_mqtt.Client('::1')
+        self.client = asyncio_mqtt.Client('::1', protocol=mqtt.MQTTv5)
+        #self.client._client.suppress_exceptions = True
 
     async def start(self):
         await self.client.connect()
@@ -211,33 +215,39 @@ class MQTTCOAPBridge:
         topic = self._coap_request_extract_mqtt_topic(request)
         host = self._coap_request_extract_host(request)
 
-        # TODO: the request content_format should be passed as a property
-        # and then set when the publish is received from the MQTT server
-        await self.mqtt_connector.client.publish(topic, request.payload, qos=1)
+        # Pass the request content_format as a property
+        properties = Properties(PacketTypes.PUBLISH)
+        properties.ContentType = media_types[request.opt.content_format]
 
-        logger.info(f"Published message of length {len(request.payload)} for {topic} from {host}")
+        await self.mqtt_connector.client.publish(topic, request.payload, properties=properties)
 
-        result = aiocoap.Message(payload=b"", code=codes.CONTENT)
+        logger.info(f"Published CoAP message to MQTT of length {len(request.payload)} for {topic} from {host} with {properties}")
 
-        return result
+        return aiocoap.Message(payload=b"", code=codes.CONTENT)
 
     async def mqtt_to_coap_publish(self, message):
         subscribers = await self.manager.subscribers(message.topic)
 
-        logger.info(f"MQTT pushed {mqtt_message_to_str(message)} forwarding to {subscribers}")
+        logger.info(f"MQTT pushed {mqtt_message_to_str(message)} forwarding to {subscribers} via CoAP")
+
+        # Set content type when the publish is received from the MQTT server
+        content_format = None
+        if message.properties is not None:
+            content_format = message.properties.ContentType
 
         # Push via CoAP to all subscribed clients
         await asyncio.gather(*[
-            self.forward_mqtt(message.payload, message.topic, subscriber)
+            self.forward_mqtt(message.payload, message.topic, subscriber, content_format)
             for subscriber in subscribers
         ])
 
-    async def forward_mqtt(self, payload, topic, target):
+    async def forward_mqtt(self, payload, topic, target, content_format):
         """Forward an MQTT message to a coap target"""
         message = aiocoap.Message(code=codes.POST, payload=payload,
-                                  uri=f"coap://[{target}]/mqtt?t={topic}")
+                                  uri=f"coap://[{target}]/mqtt?t={topic}",
+                                  content_format=media_types_rev[content_format] if content_format else None)
 
-        logger.info(f"Forwarding MQTT over CoAP {message} to {target}")
+        logger.info(f"Forwarding MQTT over CoAP {message} to {target} with topic {topic} and content format {content_format}")
 
         response = None
 
