@@ -3,6 +3,7 @@
 import os
 import subprocess
 import math
+import pathlib
 from ipaddress import IPv6Address
 from pprint import pprint
 from datetime import datetime, timedelta
@@ -40,9 +41,8 @@ def packet_length(packet):
     else:
         return int(packet.length)
 
-def main(log_dir):
-    if not os.path.isdir(f"{log_dir}/graphs"):
-        os.makedirs(f"{log_dir}/graphs")
+def main(log_dir: pathlib.Path):
+    (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse(log_dir)
 
@@ -120,8 +120,8 @@ def main(log_dir):
 
             ax.legend(ncol=3, loc="center", fontsize="small", bbox_to_anchor=(0.5,1.125))
 
-            target = f"{log_dir}/graphs/{name}-by-type-{hostname}.pdf"
-            fig.savefig(target, bbox_inches='tight')
+            target = log_dir / "graphs" / f"{name}-by-type-{hostname}.pdf"
+            fig.savefig(str(target), bbox_inches='tight')
             #subprocess.run(f"pdfcrop {target} {target}", shell=True)
             print("Produced:", target)
             check_fonts(target)
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Messages sent and received')
-    parser.add_argument('--log-dir', type=str, default=["results"], nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 
