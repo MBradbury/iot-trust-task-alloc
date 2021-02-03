@@ -101,11 +101,21 @@ class RoutingClient(client_common.Client):
 
             route_chunks = list(chunked(route, elements_per_coap_packet))
 
-            if await self._write_task_result_result(dest, status, len(route_chunks)):
+            not_cancelled = await self._write_task_result_result(dest, status, len(route_chunks)):
+
+            # Keep going if not cancelled
+            if not_cancelled:
                 for i, route_chunk in enumerate(route_chunks):
-                    await self._write_task_result_chunk(i, len(route_chunks), route_chunk)
+                    not_cancelled = await self._write_task_result_chunk(i, len(route_chunks), route_chunk)
+
+                    # Stop if cancelled
+                    if not not_cancelled:
+                        break
         else:
-            await self._write_task_result_result(dest, status, 0)
+            not_cancelled = await self._write_task_result_result(dest, status, 0):
+
+        if not_cancelled:
+            logger.warning("Result delivered too late, IoT device asked to cancel task")
 
     async def _write_task_result_result(self, dest, status, n) -> bool:
         await self._write_to_application(f"{self.task_resp1_prefix}{dest}{serial_sep}{n}{serial_sep}{status}")
@@ -114,7 +124,7 @@ class RoutingClient(client_common.Client):
         # Only want to continue if we did not receive a cancel before the ack
         return not self._check_and_reset_cancelled()
 
-    async def _write_task_result_chunk(self, i, n, route_chunk):
+    async def _write_task_result_chunk(self, i: int, n: int, route_chunk) -> bool:
         # Need canonical to fit floats into smallest space possible
         # Could considuer using https://github.com/allthingstalk/cbor/blob/master/CBOR-Tag103-Geographic-Coordinates.md
         # but is likely best to avoid the additional overhead
@@ -147,6 +157,12 @@ class RoutingClient(client_common.Client):
             # Send task response back to edge sensor node
             await self._write_to_application(f"{self.task_resp2_prefix}{i}/{n}{serial_sep}{j}/{len(chunks)}{serial_sep}{serial_chunk}")
             await self._receive_ack()
+
+            # If cancelled, then stop sending messages
+            if self._check_and_reset_cancelled():
+                return False
+
+        return True
 
 
 if __name__ == "__main__":
