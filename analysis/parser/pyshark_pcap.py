@@ -67,6 +67,8 @@ class PcapAnalyser:
         self.packet_kinds[int(packet.number)] = kind
         
     def analyse(self, packets):
+        seen_cap_pub_sub_reqs = set()
+
         #for (packet, kind, time) in packets:
         for packet in packets:
             # Skip IEEE 802.15.4 ACK packets
@@ -141,6 +143,11 @@ class PcapAnalyser:
 
                     # mqtt-over-coap
                     if self._layer_matches_url(packet['oscore'], 'mqtt'):
+                        # Record the token from the request, so we can match the response
+                        token = getattr(packet['coap'], "token", None)
+                        if token:
+                            seen_cap_pub_sub_reqs.add(packet['coap'].token)
+
                         self._record_type(packet, xx, "capability-pub-sub")
                         continue
 
@@ -157,10 +164,12 @@ class PcapAnalyser:
                         self._record_type(packet, xx, "oscore-nd")
                         continue
 
-                    # Something sent from aiocoap with octet-stream
-                    #if getattr(packet['coap'], "code", "") == "68": # 2.04 changed
-                    #    self._record_type(packet, xx, "oscore-chng")
-                    #    continue
+                    # This is a response from the mqtt-coap-bridge
+                    if getattr(packet['coap'], "code", "") == "68": # 2.04 changed
+                        token = getattr(packet['coap'], "token", None)
+                        if token is not None and token in seen_cap_pub_sub_reqs:
+                            self._record_type(packet, xx, "capability-pub-sub")
+                            continue
 
                     self._print_packet_attributes(packet, 'coap', 'oscore')
                     raise RuntimeError(f"Unprocessed OSCORE packet")
