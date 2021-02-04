@@ -4,6 +4,7 @@ import os
 import subprocess
 from pprint import pprint
 from collections import defaultdict
+import pathlib
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -11,17 +12,13 @@ import matplotlib.dates as mdates
 from analysis.parser.wsn_pyterm import main as parse_cr
 from analysis.graph.util import squash_true_false_seq, ChallengeResponseType_to_shape_and_color, latex_escape, savefig
 
+from common.names import eui64_to_name
+
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
 
-edge_ids_to_names = {
-    "00124b0014d52bd6": "rr2",
-    "00124b0014d52f05": "rr6",
-}
-
-def main(log_dir):
-    if not os.path.isdir(f"{log_dir}/graphs"):
-        os.makedirs(f"{log_dir}/graphs")
+def main(log_dir: pathlib.Path):
+    (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse_cr(log_dir)
 
@@ -29,7 +26,7 @@ def main(log_dir):
 
     # Show how the epoch changes over time
     XYs = {
-        (hostname, edge_ids_to_names[edge_label]): [
+        (hostname, eui64_to_name(edge_label)): [
             (up.time, up.tm_to.epoch)
             for up in result.tm_updates
             if up.edge_id == edge_label
@@ -53,12 +50,12 @@ def main(log_dir):
 
     ax.legend()
 
-    savefig(fig, f"{log_dir}/graphs/cr_time_vs_epoch.pdf")
+    savefig(fig, log_dir / "graphs" / "cr_time_vs_epoch.pdf")
 
 
     # Show when the edge nodes were thought to be good or not
     event_types = {
-        (hostname, edge_ids_to_names[edge_label]): [
+        (hostname, eui64_to_name(edge_label)): [
             (up.time, not up.tm_to.bad)
             for up in result.tm_updates
             if up.edge_id == edge_label
@@ -68,7 +65,7 @@ def main(log_dir):
     }
 
     event_cause = {
-        (hostname, edge_ids_to_names[edge_label]): [
+        (hostname, eui64_to_name(edge_label)): [
             (up.time, up.cr.kind)
             for up in result.tm_updates
             if up.edge_id == edge_label
@@ -122,14 +119,14 @@ def main(log_dir):
 
     ax.legend()
 
-    savefig(fig, f"{log_dir}/graphs/cr_time_vs_good.pdf")
+    savefig(fig, log_dir / "graphs" / "cr_time_vs_good.pdf")
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Challenge Response')
-    parser.add_argument('--log-dir', type=str, default="results", nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default="results", nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 

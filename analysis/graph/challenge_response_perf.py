@@ -3,6 +3,7 @@
 import os
 import subprocess
 import math
+import pathlib
 
 import numpy as np
 import scipy.stats as stats
@@ -19,9 +20,8 @@ def print_mean_ci(name, x, confidence=0.95):
     mean, sem, n = np.mean(x), stats.sem(x), len(x)
     print(name, mean, mean - stats.t.interval(0.95, len(x)-1, loc=np.mean(x), scale=stats.sem(x))[0])
 
-def main(log_dir):
-    if not os.path.isdir(f"{log_dir}/graphs"):
-        os.makedirs(f"{log_dir}/graphs")
+def main(log_dir: pathlib.Path):
+    (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse_cr(log_dir)
 
@@ -62,11 +62,7 @@ def main(log_dir):
 
     ax.legend()
 
-    target = f"{log_dir}/graphs/cr_iterations_vs_timetaken.pdf"
-    fig.savefig(target, bbox_inches='tight')
-    #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-    print("Produced:", target)
-    check_fonts(target)
+    savefig(fig, log_dir / "graphs" / "cr_iterations_vs_timetaken.pdf")
 
     fig = plt.figure()
     ax = fig.gca()
@@ -85,14 +81,14 @@ def main(log_dir):
     ax.set_xlabel('Resource Rich Nodes')
     ax.set_ylabel('Iterations')
 
-    savefig(fig, f"{log_dir}/graphs/cr_iterations_boxplot.pdf")
+    savefig(fig, log_dir / "graphs" / "cr_iterations_boxplot.pdf")
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Challenge Response')
-    parser.add_argument('--log-dir', type=str, default="results", nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default="results", nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 

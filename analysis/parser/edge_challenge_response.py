@@ -7,6 +7,7 @@ import re
 import ipaddress
 import ast
 from dataclasses import dataclass
+import pathlib
 
 @dataclass(frozen=True)
 class Challenge:
@@ -35,7 +36,7 @@ class ChallengeResponseAnalyser:
     RE_BECOMING = re.compile(r"Becoming (good|bad)")
     RE_CURRENTLY = re.compile(r"Currently (good|bad), so behaving (correctly|incorrectly with ([A-Za-z-]+))")
 
-    def __init__(self, hostname):
+    def __init__(self, hostname: str):
         self.hostname = hostname
 
         self.start_times = []
@@ -74,10 +75,10 @@ class ChallengeResponseAnalyser:
                 print(time, line)
                 break
 
-    def _process_starting(self, time, level, app, line):
+    def _process_starting(self, time: datetime, level: str, app: str, line: str):
         self.start_times.append(time)
 
-    def _process_received_challenge(self, time, level, app, line):
+    def _process_received_challenge(self, time: datetime, level: str, app: str, line: str):
         m = self.RE_RECEIVE_CHALLENGE.match(line)
         #m_time = datetime.fromisoformat(m.group(1))
         m_source = ipaddress.ip_address(m.group(2))
@@ -88,7 +89,7 @@ class ChallengeResponseAnalyser:
 
         self.challenges.append((time, c))
 
-    def _process_job_complete(self, time, level, app, line):
+    def _process_job_complete(self, time: datetime, level: str, app: str, line: str):
         m = self.RE_CHALLENGE_RESPONSE.match(line)
         m_from = ipaddress.ip_address(m.group(1))
         m_difficulty = int(m.group(2))
@@ -112,17 +113,17 @@ class ChallengeResponseAnalyser:
 
         self.challenge_responses.append(cr)
 
-    def _process_writing(self, time, level, app, line):
+    def _process_writing(self, time: datetime, level: str, app: str, line: str):
         pass
 
-    def _process_becoming(self, time, level, app, line):
+    def _process_becoming(self, time: datetime, level: str, app: str, line: str):
         """When changing from behaving well or not"""
         m = self.RE_BECOMING.match(line)
         m_behaviour = m.group(1) == "good"
 
         self.behaviour_changes.append((time, m_behaviour))
 
-    def _process_currently(self, time, level, app, line):
+    def _process_currently(self, time: datetime, level: str, app: str, line: str):
         """How the application misbehaves"""
         m = self.RE_CURRENTLY.match(line)
         m_behaviour = m.group(1) == "good"
@@ -131,10 +132,10 @@ class ChallengeResponseAnalyser:
 
         self.task_actions.append((time, m_behaviour, m_action, m_action_type))
 
-def main(log_dir):
+def main(log_dir: pathlib.Path):
     print(f"Looking for results in {log_dir}")
 
-    gs = glob.glob(f"{log_dir}/*challenge_response.log")
+    gs = log_dir.glob("*challenge_response.log")
 
     results = {}
 
@@ -161,7 +162,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Parse Challenge Response')
-    parser.add_argument('--log-dir', type=str, default="results", help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default="results", help='The directory which contains the log output')
 
     args = parser.parse_args()
 

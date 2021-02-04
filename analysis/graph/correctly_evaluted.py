@@ -5,6 +5,7 @@ from pprint import pprint
 from ipaddress import IPv6Address
 from more_itertools import pairwise
 import itertools
+import pathlib
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -13,20 +14,10 @@ from analysis.parser.edge_challenge_response import main as parse_cr
 from analysis.parser.wsn_pyterm import main as parse_pyterm
 from analysis.graph.util import squash_generic_seq, savefig
 
+from common.names import hostname_to_name, eui64_to_name
+
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
-
-edge_ids_to_names = {
-    "wsn2": "rr2",
-    "wsn6": "rr6",
-
-    "00124b0014d52bd6": "rr2",
-    "00124b0014d52f05": "rr6",
-}
-ips_to_names = {
-    IPv6Address('fd00::212:4b00:14d5:2bd6'): "to rr2",
-    IPv6Address('fd00::212:4b00:14d5:2f05'): "to rr6",
-}
 
 def find_status_at_time(status, t):
     # All pairs of changes
@@ -78,9 +69,8 @@ def belief_correct(belief, actual):
     return result
 
 
-def main(log_dir):
-    if not os.path.isdir(f"{log_dir}/graphs"):
-        os.makedirs(f"{log_dir}/graphs")
+def main(log_dir: pathlib.Path):
+    (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse_cr(log_dir)
     pyterm_results = parse_pyterm(log_dir)
@@ -100,13 +90,13 @@ def main(log_dir):
 
     # Need to create some data ranges for well-behaved nodes, as they don't say when they are being bad
     actual = {
-        edge_ids_to_names[hostname]: result.behaviour_changes + [(latest, result.behaviour_changes[-1][1])] if result.behaviour_changes else [(earliest, True), (latest, True)]
+        hostname_to_name(hostname): result.behaviour_changes + [(latest, result.behaviour_changes[-1][1])] if result.behaviour_changes else [(earliest, True), (latest, True)]
         for (hostname, result) in results.items()
     }
 
     edge_labels = {up.edge_id for result in pyterm_results.values() for up in result.tm_updates}
     belived = {
-        (hostname, edge_ids_to_names[edge_label]): [
+        (hostname, eui64_to_name(edge_label)): [
             (up.time, not up.tm_to.bad)
             for up in result.tm_updates
             if up.edge_id == edge_label
@@ -191,7 +181,7 @@ def main(log_dir):
 
     ax.legend()
 
-    savefig(fig, f"{log_dir}/graphs/cr_correctly_evaluated.pdf")
+    savefig(fig, log_dir / "graphs" / "cr_correctly_evaluated.pdf")
 
 
     print("\\begin{table}[H]")
@@ -218,7 +208,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Correctly Evaluated')
-    parser.add_argument('--log-dir', type=str, default="results", nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default="results", nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 

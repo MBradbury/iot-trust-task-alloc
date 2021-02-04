@@ -3,6 +3,7 @@
 import os
 from pprint import pprint
 from ipaddress import IPv6Address
+import pathlib
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -11,21 +12,13 @@ from analysis.parser.edge_challenge_response import main as parse_cr
 from analysis.parser.wsn_pyterm import main as parse_pyterm
 from analysis.graph.util import squash_true_false_seq, savefig
 
+from common.names import hostname_to_name
+
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
 
-edge_ids_to_names = {
-    "wsn2": "rr2",
-    "wsn6": "rr6",
-}
-ips_to_names = {
-    IPv6Address('fd00::212:4b00:14d5:2bd6'): "to rr2",
-    IPv6Address('fd00::212:4b00:14d5:2f05'): "to rr6",
-}
-
-def main(log_dir):
-    if not os.path.isdir(f"{log_dir}/graphs"):
-        os.makedirs(f"{log_dir}/graphs")
+def main(log_dir: pathlib.Path):
+    (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse_cr(log_dir)
     pyterm_results = parse_pyterm(log_dir)
@@ -52,7 +45,7 @@ def main(log_dir):
 
     # Need to create some data ranges for well-behaved nodes, as they don't say when they are being bad
     event_types = {
-        edge_ids_to_names[hostname]: result.behaviour_changes + [(latest, result.behaviour_changes[-1][1])] if result.behaviour_changes else [(earliest, True), (latest, True)]
+        hostname_to_name(hostname): result.behaviour_changes + [(latest, result.behaviour_changes[-1][1])] if result.behaviour_changes else [(earliest, True), (latest, True)]
         for (hostname, result) in results.items()
     }
 
@@ -90,7 +83,7 @@ def main(log_dir):
 
     ax2 = ax.twinx()
     hlabels, hdata = zip(*list(sorted(data.items(), key=lambda x: x[0])))
-    hlabels = [ips_to_names[l] for l in hlabels]
+    hlabels = [ip_to_name(l) for l in hlabels]
     ax2.hist(hdata, bins, stacked=True, histtype='bar', label=hlabels, rwidth=0.4)
 
     ax.set_yticks([x+0.45 for x in yticks])
@@ -105,7 +98,7 @@ def main(log_dir):
 
     ax2.legend()
 
-    savefig(fig, f"{log_dir}/graphs/cr_offload_vs_behaviour.pdf")
+    savefig(fig, log_dir / "graphs" / "cr_offload_vs_behaviour.pdf")
 
 
 
@@ -113,7 +106,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Offloading when bad')
-    parser.add_argument('--log-dir', type=str, default=["results"], nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 

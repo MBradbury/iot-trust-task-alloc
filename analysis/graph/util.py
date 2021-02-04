@@ -1,6 +1,8 @@
+from __future__ import annotations
 
 import re
 import subprocess
+import pathlib
 
 from analysis.parser.wsn_pyterm import ChallengeResponseType
 
@@ -96,7 +98,7 @@ def ChallengeResponseType_to_shape_and_color(c: ChallengeResponseType):
     else:
         raise RuntimeError(f"Unknown value {c}")
 
-def latex_escape(text: str):
+def latex_escape(text: str) -> str:
     """
         :param text: a plain text message
         :return: the message escaped to appear correctly in LaTeX
@@ -135,7 +137,9 @@ def check_fonts(path: str):
     if "Type 3" in r.stdout:
         raise RuntimeError(f"Type 3 font in {path}")
 
-def savefig(fig, target: str, crop=False):
+def savefig(fig, target: Union[str, pathlib.Path], crop=False):
+    target = str(target)
+
     fig.savefig(target, bbox_inches='tight')
 
     if crop:

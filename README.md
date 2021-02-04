@@ -256,7 +256,7 @@ Plus any applications that are desired:
 
 # Instructions to analyse results
 
-## Obtaining results
+## Obtaining Results
 
 In order to fetch results from the devices run:
 ```bash
@@ -277,4 +277,23 @@ Individually:
 Batch:
 ```bash
 ./tools/regenerate_pcaps.py results/2021-02-03-am-dadspp-one-good-one-bad/
+```
+
+## Graphing Results
+
+There are a variety of tools to graph the results
+
+### Graphing Messages Sent and Received
+
+To graph the number of bytes sent and received, use the following:
+```bash
+./analysis/graph/messages.py --log-dir results/2021-02-03-pm-dadspp-one-good-one-bad/
+```
+This tool will categorise the messages.
+
+### Trust Choose Over Time
+
+To graph trust ranking and to whom tasks were sent over time, use the following:
+```bash
+./analysis/graph/trust_choose_evolution.py --log-dir results/2021-02-03-pm-dadspp-one-good-one-bad/
 ```

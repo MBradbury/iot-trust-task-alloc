@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from datetime import datetime
 
@@ -16,7 +18,7 @@ ansi_escape = re.compile(r'''
 
 contiki_log = re.compile(r"\[(.+)\:(.+)\] (.*)")
 
-def parse_contiki_debug(line):
+def parse_contiki_debug(line: str) -> Tuple[str, str, str]:
     # Remove colour escape sequences from the line
     line = ansi_escape.sub('', line)
 

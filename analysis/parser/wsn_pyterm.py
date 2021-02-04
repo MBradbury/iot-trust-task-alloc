@@ -9,6 +9,7 @@ import ast
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Union
+import pathlib
 
 from analysis.parser.common import parse_contiki
 
@@ -191,10 +192,10 @@ class ChallengeResponseAnalyser:
         self.tm_updates.append(u)
 
 
-def main(log_dir):
+def main(log_dir: pathlib.Path):
     print(f"Looking for results in {log_dir}")
 
-    gs = glob.glob(f"{log_dir}/*.pyterm.log")
+    gs = log_dir.glob("*.pyterm.log")
 
     results = {}
 
@@ -221,7 +222,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Parse Challenge Response')
-    parser.add_argument('--log-dir', type=str, default="results", help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default="results", help='The directory which contains the log output')
 
     args = parser.parse_args()
 

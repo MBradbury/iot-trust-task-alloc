@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import os
 import subprocess
 import math
+import pathlib
 from ipaddress import IPv6Address
 from pprint import pprint
 
@@ -13,29 +13,20 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from analysis.parser.wsn_pyterm import main as parse, MonitoringTask, RoutingTask
-from analysis.graph.util import savefig, check_fonts
+from analysis.graph.util import savefig
+
+from common.names import ip_to_name, eui64_to_name
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
-
-edge_ids_to_names = {
-    "00124b0014d52bd6": "rr2",
-    "00124b0014d52f05": "rr6",
-}
-
-ips_to_names = {
-    IPv6Address('fd00::212:4b00:14d5:2bd6'): "rr2",
-    IPv6Address('fd00::212:4b00:14d5:2f05'): "rr6",
-}
 
 capability_to_task = {
     "envmon": MonitoringTask,
     "routing": RoutingTask,
 }
 
-def main(log_dir):
-    if not os.path.isdir(f"{log_dir}/graphs"):
-        os.makedirs(f"{log_dir}/graphs")
+def main(log_dir: pathlib.Path):
+    (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse(log_dir)
 
@@ -80,12 +71,12 @@ def main(log_dir):
 
     CHs = {
         capability: {
-            (f"{hostname} eval {edge_ids_to_names[target]}"): [
+            (f"{hostname} eval {eui64_to_name(target)}"): [
                 task.time
 
                 for task in result.tasks
                 if isinstance(task.details, capability_to_task[capability])
-                if ips_to_names[task.target] == edge_ids_to_names[target]
+                if ip_to_name(task.target) == eui64_to_name(target)
             ]
 
             for (hostname, result)
@@ -120,7 +111,7 @@ def main(log_dir):
             hostname, target = label
 
             X, Y = zip(*XY)
-            ax.plot(X, Y, label=f"{hostname} eval {edge_ids_to_names[target]}")
+            ax.plot(X, Y, label=f"{hostname} eval {eui64_to_name(target)}")
 
         ax.set_xlabel('Time')
         ax.set_ylabel('Trust Value (lines)')
@@ -133,18 +124,14 @@ def main(log_dir):
 
         ax.legend(ncol=3, fontsize="small", loc="center", bbox_to_anchor=(0.5,1.075))
 
-        target = f"{log_dir}/graphs/banded_trust_value_vs_time_{capability}.pdf"
-        fig.savefig(target, bbox_inches='tight')
-        #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-        print("Produced:", target)
-        check_fonts(target)
+        savefig(fig, f"{log_dir}/graphs/banded_trust_value_vs_time_{capability}.pdf")
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Graph Trust Value Over Time')
-    parser.add_argument('--log-dir', type=str, default=["results"], nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 

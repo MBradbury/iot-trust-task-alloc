@@ -3,6 +3,7 @@
 import os
 import subprocess
 import math
+import pathlib
 
 import numpy as np
 import scipy.stats as stats
@@ -19,9 +20,8 @@ def print_mean_ci(name, x, confidence=0.95):
     mean, sem, n = np.mean(x), stats.sem(x), len(x)
     print(name, mean, mean - stats.t.interval(0.95, len(x)-1, loc=np.mean(x), scale=stats.sem(x))[0])
 
-def main(log_dir):
-    if not os.path.isdir(f"{log_dir}/graphs"):
-        os.makedirs(f"{log_dir}/graphs")
+def main(log_dir: pathlib.Path):
+    (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = profile_pyterm(log_dir)
 
@@ -49,7 +49,7 @@ def main(log_dir):
 
     ax.legend()
 
-    savefig(fig, f"{log_dir}/graphs/crypto_perf_sha256_scatter.pdf")
+    savefig(fig, log_dir / "graphs" / "crypto_perf_sha256_scatter.pdf")
 
 
     
@@ -72,7 +72,7 @@ def main(log_dir):
     ax.set_xlabel('Resource Rich Nodes')
     ax.set_ylabel('Time Taken (secs)')
 
-    savefig(fig, f"{log_dir}/graphs/crypto_perf_sha256_box.pdf")
+    savefig(fig, log_dir / "graphs" / "crypto_perf_sha256_box.pdf")
 
 
     def round_down(x, a):
@@ -127,7 +127,7 @@ def main(log_dir):
         ax.set_xlabel('Time Taken (secs)')
         ax.set_ylabel('Count')
 
-        savefig(fig, f"{log_dir}/graphs/crypto_perf_{name}_hist.pdf")
+        savefig(fig, log_dir / "graphs" / f"crypto_perf_{name}_hist.pdf")
 
 
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Crypto performance')
-    parser.add_argument('--log-dir', type=str, default=["results"], nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
 
     args = parser.parse_args()
 

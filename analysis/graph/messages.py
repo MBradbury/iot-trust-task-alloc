@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import subprocess
 import math
 import pathlib
@@ -15,18 +14,10 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from analysis.parser.pyshark_pcap import main as parse
-from analysis.graph.util import savefig, check_fonts
+from analysis.graph.util import savefig
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
-
-hostname_to_names = {
-    "wsn2": "rr2",
-    "wsn3": "wsn3",
-    "wsn4": "wsn4",
-    "wsn5": "wsn5",
-    "wsn6": "rr6",
-}
 
 def round_down(x, a):
     return math.floor(x / a) * a
@@ -70,7 +61,7 @@ def main(log_dir: pathlib.Path):
 
     to_graph = {
         ("tx", 75_000): XYs_tx,
-        ("rx", 30_000): XYs_rx,
+        ("rx", 35_000): XYs_rx,
     }
 
     bin_width = timedelta(minutes=5)
@@ -120,11 +111,7 @@ def main(log_dir: pathlib.Path):
 
             ax.legend(ncol=3, loc="center", fontsize="small", bbox_to_anchor=(0.5,1.125))
 
-            target = log_dir / "graphs" / f"{name}-by-type-{hostname}.pdf"
-            fig.savefig(str(target), bbox_inches='tight')
-            #subprocess.run(f"pdfcrop {target} {target}", shell=True)
-            print("Produced:", target)
-            check_fonts(target)
+            savefig(fig, log_dir / "graphs" / f"{name}-by-type-{hostname}.pdf")
 
     # TODO: Draw some bar graphs of which nodes tasks were submitted to
 

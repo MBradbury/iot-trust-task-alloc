@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import os
-import glob
 from datetime import datetime
 import re
 from dataclasses import dataclass
+import pathlib
 
 import numpy as np
 import scipy.stats as stats
@@ -31,7 +31,7 @@ class ProfileAnalyser:
     RE_ENCRYPT = re.compile(r'encrypt\(([0-9]+)\), ([0-9]+) us')
     RE_DECRYPT = re.compile(r'decrypt\(([0-9]+)\), ([0-9]+) us')
 
-    def __init__(self, hostname):
+    def __init__(self, hostname: str):
         self.hostname = hostname
 
         self.stats_sha256 = []
@@ -59,9 +59,6 @@ class ProfileAnalyser:
                     if m is not None and f is not None:
                         f(time, log_level, module, line, m)
                         break
-
-
-            #print((time, module, line))
 
     def summary(self):
         if self.stats_ecdh:
@@ -94,40 +91,40 @@ class ProfileAnalyser:
             print("decrypt (u)", stats.describe(self.stats_decrypt_u))
             print("decrypt (n)", stats.describe(self.stats_decrypt_n))
 
-    def _process_sha256_end(self, time, log_level, module, line, m):
+    def _process_sha256_end(self, time: datetime, log_level: str, module: str, line: str, m: str):
         m_len = int(m.group(1))
         m_s = us_to_s(int(m.group(2)))
 
         self.stats_sha256.append(LengthStats(m_len, m_s))
 
-    def _process_ecdh(self, time, log_level, module, line, m):
+    def _process_ecdh(self, time: datetime, log_level: str, module: str, line: str, m: str):
         m_s = us_to_s(int(m.group(1)))
 
         self.stats_ecdh.append(m_s)
 
-    def _process_sign(self, time, log_level, module, line, m):
+    def _process_sign(self, time: datetime, log_level: str, module: str, line: str, m: str):
         m_s = us_to_s(int(m.group(1)))
 
         self.stats_sign.append(m_s)
 
-    def _process_verify(self, time, log_level, module, line, m):
+    def _process_verify(self, time: datetime, log_level: str, module: str, line: str, m: str):
         m_s = us_to_s(int(m.group(1)))
 
         self.stats_verify.append(m_s)
 
-    def _process_encrypt(self, time, log_level, module, line, m):
+    def _process_encrypt(self, time: datetime, log_level: str, module: str, line: str, m: str):
         m_len = int(m.group(1))
         m_s = us_to_s(int(m.group(2)))
 
         self.stats_encrypt.append(LengthStats(m_len, m_s))
 
-    def _process_decrypt(self, time, log_level, module, line, m):
+    def _process_decrypt(self, time: datetime, log_level: str, module: str, line: str, m: str):
         m_len = int(m.group(1))
         m_s = us_to_s(int(m.group(2)))
 
         self.stats_decrypt.append(LengthStats(m_len, m_s))
 
-def print_mean_ci(name, x, confidence=0.95):
+def print_mean_ci(name: str, x: np.array, confidence: float=0.95):
     mean, sem, n = np.mean(x), stats.sem(x), len(x)
     ci = mean - stats.t.interval(0.95, len(x)-1, loc=np.mean(x), scale=stats.sem(x))[0]
 
@@ -141,7 +138,7 @@ def print_mean_ci(name, x, confidence=0.95):
     for (n, f) in vs.items():
         print(name, mean * f, ci * f, n)
 
-def global_summary(results):
+def global_summary(results: Dict[str, ProfileAnalyser]):
     names = [
         "stats_sha256_u",
         "stats_sha256_n",
@@ -166,10 +163,10 @@ def global_summary(results):
             print_mean_ci(name, combined)
 
 
-def main(log_dir):
+def main(log_dir: pathlib.Path):
     print(f"Looking for results in {log_dir}")
 
-    gs = glob.glob(f"{log_dir}/profile.*.pyterm.log")
+    gs = log_dir.glob("profile.*.pyterm.log")
 
     results = {}
 
@@ -200,7 +197,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Parse Profile pyterm')
-    parser.add_argument('--log-dir', type=str, default="results", help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default="results", help='The directory which contains the log output')
 
     args = parser.parse_args()
 
