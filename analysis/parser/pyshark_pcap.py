@@ -196,6 +196,14 @@ class PcapAnalyser:
                 #print(packet['coap'])
                 #print(packet['coap'].field_names)
 
+                if self._layer_matches_url(packet['coap'], 'routing'):
+                    self._record_type(packet, xx, "app-routing")
+                    continue
+
+                if self._layer_matches_url(packet['coap'], 'envmon'):
+                    self._record_type(packet, xx, "app-envmon")
+                    continue
+
                 # We only use block responses for routing
                 if hasattr(packet['coap'], "opt_block_number"):
                     self._record_type(packet, xx, "app-routing")
@@ -210,7 +218,29 @@ class PcapAnalyser:
                 if self._layer_matches_url(packet['coap'], 'trust'):
                     self._record_type(packet, xx, "trust-dissem")
                     continue
-                    
+
+                if getattr(packet['coap'], "_ws_expert_message", "") == "end-of-options marker found, but option delta isn't 15":
+                    self._record_type(packet, xx, "coap-malformed")
+                    continue
+
+                if "Unknown Option Number" in getattr(packet['coap'], "_ws_expert_message", ""):
+                    self._record_type(packet, xx, "coap-malformed")
+                    continue
+                if "Invalid Option Number" in getattr(packet['coap'], "_ws_expert_message", ""):
+                    self._record_type(packet, xx, "coap-malformed")
+                    continue
+                if "Invalid Option Range" in getattr(packet['coap'], "_ws_expert_message", ""):
+                    self._record_type(packet, xx, "coap-malformed")
+                    continue
+                if "Trailing stray characters" in getattr(packet['coap'], "_ws_expert_message", ""):
+                    self._record_type(packet, xx, "coap-malformed")
+                    continue
+
+                code = getattr(packet['coap'], "code", "")
+                if code: # 5.03 service unavailable
+                    self._record_type(packet, xx, f"coap-{code}")
+                    continue
+
                 self._print_packet_attributes(packet, 'coap')
                 raise RuntimeError(f"Unprocessed COAP packet")
 
@@ -238,8 +268,9 @@ def main(log_dir: pathlib.Path) -> Dict[str, PcapAnalyser]:
 
         kind, hostname, *_ = g.name.split(".")
 
-        if kind not in ("wsn", "edge"):
-            print("Can only have pcap results from a wsn or edge node")
+        kind_options = {"wsn", "edge", "adversary"}
+        if kind not in kind_options:
+            print(f"Can only have pcap results from one of {kind_options}")
             continue
 
         a = PcapAnalyser(hostname)

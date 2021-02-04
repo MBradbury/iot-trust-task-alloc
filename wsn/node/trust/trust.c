@@ -49,7 +49,7 @@
 #define TRUST_RX_SIZE 2
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
+#ifndef TRUST_MODEL_NO_PERIODIC_BROADCAST
 #define TRUST_POLL_PERIOD (2 * 60 * CLOCK_SECOND)
 static struct etimer periodic_timer;
 #endif
@@ -167,12 +167,12 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
 
     LOG_DBG("Received trust info via POST from ");
     LOG_DBG_COAP_EP(request->src_ep);
-    LOG_DBG_(" of length %d\n", payload_len);
+    LOG_DBG_(" of length %d (mid=%"PRIu16")\n", payload_len, request->mid);
 
     if (payload_len <= 0 || payload_len > (MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE))
     {
-        LOG_WARN("Received payload either too short or too long for buffer %d (max %d)\n",
-            payload_len, (MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE));
+        LOG_WARN("Received payload either too short or too long for buffer %d (max %d) (mid=%"PRIu16")\n",
+            payload_len, (MAX_TRUST_PAYLOAD + DTLS_EC_SIG_SIZE), request->mid);
         coap_set_status_code(response, BAD_REQUEST_4_00);
         return;
     }
@@ -180,7 +180,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
     public_key_item_t* key = keystore_find_addr(&request->src_ep->ipaddr);
     if (key == NULL)
     {
-        LOG_DBG("Missing public key, need to request it.\n");
+        LOG_DBG("Missing public key, need to request it (mid=%"PRIu16")\n", request->mid);
         request_public_key(&request->src_ep->ipaddr);
 
         // Tell the requester to retry again in a bit when we expect to have the key
@@ -189,11 +189,11 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
     }
     else
     {
-        LOG_DBG("Have public key, adding to queue to be verified...\n");
+        LOG_DBG("Have public key, adding to queue to be verified (mid=%"PRIu16")\n", request->mid);
         trust_rx_item_t* item = memb_alloc(&trust_rx_memb);
         if (!item)
         {
-            LOG_ERR("res_trust_post_handler: out of memory\n");
+            LOG_ERR("res_trust_post_handler: out of memory (mid=%"PRIu16")\n", request->mid);
 
             // Out of memory, tell server to retry again after we expect to have processed
             // at least one element in the queue
@@ -213,7 +213,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
             memb_free(&trust_rx_memb, item);
             keystore_unpin(key);
 
-            LOG_ERR("res_trust_post_handler: queue verify failed\n");
+            LOG_ERR("res_trust_post_handler: queue verify failed (mid=%"PRIu16")\n", request->mid);
 
             // Out of memory, tell server to retry again after we expect to have processed
             // at least one element in the verify queue
@@ -225,7 +225,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
 
         LOG_DBG("res_trust_post_handler: successfully queued trust to be verified from ");
         LOG_DBG_COAP_EP(request->src_ep);
-        LOG_DBG_("\n");
+        LOG_DBG_(" (mid=%"PRIu16")\n", request->mid);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -256,17 +256,17 @@ static void trust_rx_continue(void* data)
     memb_free(&trust_rx_memb, item);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
+#ifndef TRUST_MODEL_NO_PERIODIC_BROADCAST
 static bool periodic_action(void)
 {
+    LOG_DBG("Generating a periodic trust info packet\n");
+
     trust_tx_item_t* item = memb_alloc(&trust_tx_memb);
     if (!item)
     {
-        LOG_WARN("Cannot allocate memory for periodic_action trust request\n");
+        LOG_ERR("Cannot allocate memory for periodic_action trust request\n");
         return false;
     }
-
-    LOG_DBG("Generating a periodic trust info packet\n");
 
     uip_create_linklocal_allnodes_mcast(&item->ep.ipaddr);
     item->ep.secure = 0;
@@ -285,7 +285,7 @@ static bool periodic_action(void)
     int payload_len = serialise_trust(NULL, item->payload_buf, MAX_TRUST_PAYLOAD);
     if (payload_len <= 0 || payload_len > MAX_TRUST_PAYLOAD)
     {
-        LOG_ERR("serialise_trust failed %d\n", payload_len);
+        LOG_ERR("trust periodic_action: serialise_trust failed %d\n", payload_len);
         memb_free(&trust_tx_memb, item);
         return false;
     }
@@ -296,6 +296,8 @@ static bool periodic_action(void)
         memb_free(&trust_tx_memb, item);
         return false;
     }
+
+    LOG_DBG("Periodic trust info packet queued to be signed\n");
 
     return true;
 }
@@ -312,23 +314,23 @@ static void trust_tx_continue(void* data)
         int coap_payload_len = coap_set_payload(&item->msg, item->payload_buf, payload_len);
         if (coap_payload_len < payload_len)
         {
-            LOG_WARN("Messaged length truncated to = %d\n", coap_payload_len);
+            LOG_WARN("trust_tx_continue: Messaged length truncated to = %d\n", coap_payload_len);
         }
 
         // No callback is set, as no confirmation of the message being received will be sent to us
         int ret = coap_send_request(&item->coap_callback, &item->ep, &item->msg, NULL);
         if (ret)
         {
-            LOG_DBG("coap_send_request trust done\n");
+            LOG_DBG("trust_tx_continue: coap_send_request trust done\n");
         }
         else
         {
-            LOG_ERR("coap_send_request trust failed %d\n", ret);
+            LOG_ERR("trust_tx_continue: coap_send_request trust failed %d\n", ret);
         }
     }
     else
     {
-        LOG_ERR("Sign of trust information failed %d\n", entry->result);
+        LOG_ERR("trust_tx_continue: Sign of trust information failed %d\n", entry->result);
     }
 
     queue_message_to_sign_done(entry);
@@ -348,7 +350,7 @@ static void init(void)
     oscore_protect_resource(&res_trust);
 #endif
 
-#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
+#ifndef TRUST_MODEL_NO_PERIODIC_BROADCAST
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
 
     LOG_DBG("Periodic broadcast of trust information enabled\n");
@@ -373,7 +375,7 @@ PROCESS_THREAD(trust_model, ev, data)
     {
         PROCESS_WAIT_EVENT();
 
-#ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
+#ifndef TRUST_MODEL_NO_PERIODIC_BROADCAST
         if (ev == PROCESS_EVENT_TIMER && data == &periodic_timer)
         {
             etimer_reset(&periodic_timer);

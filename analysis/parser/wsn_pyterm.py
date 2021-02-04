@@ -7,9 +7,11 @@ import re
 import ipaddress
 import ast
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import Union
 import pathlib
+from collections import defaultdict, Counter
+from pprint import pprint
 
 from analysis.parser.common import parse_contiki
 
@@ -72,6 +74,21 @@ class TrustChooseBanded(TrustChoose):
     def __init__(self):
         self.values = []
 
+class ReputationReceiveResult(Enum):
+    SUCCESS = 0
+    MISSING_KEY = 1
+    OOM = 2
+    QUEUE_FAIL = 3
+    VERIFY_FAIL = 4
+
+class ReputationSendResult(Enum):
+    SUCCESS = 0
+    SERIALISE_FAIL = 1
+    QUEUE_FAIL = 2
+    SIGN_FAIl = 3
+    SEND_FAIL = 4
+    OOM = 5
+
 class ChallengeResponseAnalyser:
     RE_TRUST_UPDATING_CR = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\)')
     #RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([0-9A-Za-z]+) TM ([0-9A-Za-z_]+) \((.*)\)\)')
@@ -83,6 +100,13 @@ class ChallengeResponseAnalyser:
 
     RE_CHOOSE_BANDED_TRUST_VALUE = re.compile(r'Trust value for edge ([0-9A-Fa-f]+) and capability ([0-9A-Za-z]+)=([0-9.-]+) at ([0-9]+)/([0-9]+)')
 
+
+    RE_TRUST_RCV_RECEIVED = re.compile(r'Received trust info via POST from (.+) of length [0-9]+ \(mid=([0-9]+)\)')
+    RE_TRUST_RCV_MISSING_KEY = re.compile(r'Missing public key, need to request it \(mid=([0-9]+)\)')
+    RE_TRUST_RCV_OOM = re.compile(r'res_trust_post_handler: out of memory \(mid=([0-9]+)\)')
+    RE_TRUST_RCV_VERIFY_FAILED = re.compile(r'res_trust_post_handler: queue verify failed \(mid=([0-9]+)\)')
+    RE_TRUST_RCV_SUCCESS = re.compile(r'res_trust_post_handler: successfully queued trust to be verified from (.+) \(mid=([0-9]+)\)')
+
     def __init__(self, hostname):
         self.hostname = hostname
 
@@ -92,6 +116,11 @@ class ChallengeResponseAnalyser:
         self._pending_tasks = {}
 
         self.trust_choose = None
+
+        self.reputation_receive_from = {}
+        self.reputation_receive_result = defaultdict(Counter)
+
+        self.reputation_send_count = Counter()
 
     def analyse(self, f):
         for (time, log_level, module, line) in parse_contiki(f):
@@ -163,6 +192,74 @@ class ChallengeResponseAnalyser:
                     v = TrustValue(m_edge, m_capability, time, m_value)
                     self.trust_choose.values.append(v)
 
+            # trust dissemination as reputation
+            elif module == "trust":
+                #print((time, log_level, module, line))
+
+                if line.startswith("Received trust info via POST from"):
+                    m = self.RE_TRUST_RCV_RECEIVED.match(line)
+                    m_coap_addr = m.group(1)
+                    m_mid = int(m.group(2))
+
+                    assert m_mid not in self.reputation_receive_from
+
+                    self.reputation_receive_from[m_mid] = m_coap_addr
+
+                elif line.startswith("Missing public key, need to request it"):
+                    m = self.RE_TRUST_RCV_MISSING_KEY.match(line)
+                    m_mid = int(m.group(1))
+
+                    self.reputation_receive_result[self.reputation_receive_from[m_mid]][ReputationReceiveResult.MISSING_KEY] += 1
+
+                    del self.reputation_receive_from[m_mid]
+
+                elif line.startswith("res_trust_post_handler: out of memory"):
+                    m = self.RE_TRUST_RCV_OOM.match(line)
+                    m_mid = int(m.group(1))
+
+                    self.reputation_receive_result[self.reputation_receive_from[m_mid]][ReputationReceiveResult.OOM] += 1
+
+                    del self.reputation_receive_from[m_mid]
+
+                elif line.startswith("res_trust_post_handler: queue verify failed"):
+                    m = self.RE_TRUST_RCV_VERIFY_FAILED.match(line)
+                    m_mid = int(m.group(1))
+
+                    self.reputation_receive_result[self.reputation_receive_from[m_mid]][ReputationReceiveResult.VERIFY_FAIL] += 1
+
+                    del self.reputation_receive_from[m_mid]
+
+                elif line.startswith("res_trust_post_handler: successfully queued trust to be verified from"):
+                    m = self.RE_TRUST_RCV_SUCCESS.match(line)
+                    m_coap_addr = m.group(1)
+                    m_mid = int(m.group(2))
+
+                    assert self.reputation_receive_from[m_mid] == m_coap_addr
+
+                    self.reputation_receive_result[self.reputation_receive_from[m_mid]][ReputationReceiveResult.SUCCESS] += 1
+
+                    del self.reputation_receive_from[m_mid]
+
+                elif line == "Periodic broadcast of trust information disabled":
+                    self.reputation_send_count = None
+
+                elif line == "Cannot allocate memory for periodic_action trust request":
+                    self.reputation_send_count[ReputationSendResult.OOM] += 1
+
+                elif line.startswith("trust periodic_action: serialise_trust failed"):
+                    self.reputation_send_count[ReputationSendResult.SERIALISE_FAIL] += 1
+
+                elif line.startswith("trust periodic_action: Unable to sign message"):
+                    self.reputation_send_count[ReputationSendResult.QUEUE_FAIL] += 1
+
+                elif line.startswith("trust_tx_continue: Sign of trust information failed"):
+                    self.reputation_send_count[ReputationSendResult.SIGN_FAIl] += 1
+
+                elif line.startswith("trust_tx_continue: coap_send_request trust failed"):
+                    self.reputation_send_count[ReputationSendResult.SEND_FAIL] += 1
+
+                elif line.startswith("trust_tx_continue: coap_send_request trust done"):
+                    self.reputation_send_count[ReputationSendResult.SUCCESS] += 1
 
             #if module not in ("A-cr", "trust-comm"):
             #    continue
@@ -226,4 +323,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.log_dir)
+    results = main(args.log_dir)
+
+    for (hostname, a) in results.items():
+        print(hostname)
+        pprint(dict(a.reputation_receive_result))
+        pprint(a.reputation_send_count)
