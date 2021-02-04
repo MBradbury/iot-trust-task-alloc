@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import subprocess
 import math
 import pathlib
 from ipaddress import IPv6Address
