@@ -619,6 +619,7 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
         {
             static public_key_item_t* pkitem;
             messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
+            assert(entry != NULL);
             assert(entry->data != NULL);
             //LOG_INFO("Processing pe_message_verified for keystore_add_continued\n");
             pkitem = keystore_add_continued(entry);
