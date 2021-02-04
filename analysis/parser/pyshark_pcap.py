@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import glob
 import os
@@ -13,18 +14,28 @@ from resource_rich.root.keystore import Keystore
 
 from common.configuration import hostname_to_ips
 
+from tools.keygen.util import ip_to_eui64
+
 import pyshark
+from pyshark.packet.packet import Packet
 
 class PcapAnalyser:
-    def __init__(self, hostname):
+    def __init__(self, hostname: str):
         self.hostname = hostname
         self.addr = hostname_to_ips[hostname]
-        self.addrs = {self.addr, "fe80" + self.addr[4:], self.addr[4:]}
+        self.addrs = {
+            # With prefix
+            self.addr,
 
-        eui64 = bytearray(int(ipaddress.IPv6Address(self.addr)).to_bytes(16, 'big')[8:])
-        eui64[0] ^= 0x2
+            # Link local
+            ipaddress.IPv6Address("fe80" + str(self.addr)[4:]),
 
-        self.eui64 = ':'.join(textwrap.wrap(bytes(eui64).hex(), 2))
+            # No prefix
+            ipaddress.IPv6Address(str(self.addr)[4:]),
+        }
+
+        eui64_bytes = ip_to_eui64(self.addr)
+        self.eui64 = ':'.join(textwrap.wrap(eui64_bytes.hex(), 2))
 
         self.tx = defaultdict(list)
         self.rx = defaultdict(list)
@@ -37,9 +48,9 @@ class PcapAnalyser:
 
         self.packet_kinds = {}
 
-    def get_tx_rx_list(self, packet):
+    def get_tx_rx_list(self, packet: Packet) -> Dict[str, List[Packet]]:
         try:
-            addr = packet['6lowpan'].src
+            addr = ipaddress.IPv6Address(packet['6lowpan'].src)
             is_tx = addr in self.addrs
         except AttributeError:
             addr = packet.wpan.src64
@@ -52,21 +63,21 @@ class PcapAnalyser:
             self.rx_addrs.add(addr)
             return self.rx
 
-    def _layer_matches_url(self, layer, uri):
+    def _layer_matches_url(self, layer: str, uri: str) -> bool:
         return getattr(layer, "opt_uri_path", "") in (uri, f'/{uri}') or \
                getattr(layer, "opt_uri_path_recon", "") in (uri, f'/{uri}')
 
-    def _print_packet_attributes(self, packet, *layers):
+    def _print_packet_attributes(self, packet: Packet, *layers):
         print(packet)
         for layer in layers:
             print(layer, {n: getattr(packet[layer], n) for n in packet[layer].field_names})
 
-    def _record_type(self, packet, xx, kind):
+    def _record_type(self, packet: Packet, xx: Dict[str, List[Packet]], kind: str):
         xx[kind].append(packet)
 
         self.packet_kinds[int(packet.number)] = kind
         
-    def analyse(self, packets):
+    def analyse(self, packets: pyshark.FileCapture):
         seen_cap_pub_sub_reqs = set()
 
         #for (packet, kind, time) in packets:
@@ -161,7 +172,15 @@ class PcapAnalyser:
 
                     # Unable to decrypt and authenticate properly
                     if getattr(packet['oscore'], "_ws_expert_message", "") == 'Authentication tag check failed':
+
+                        # For some reason wireshark does not handle the reassembled block1 messages
+                        # used by the routing application, so if this is one of those, lets ignore it
+                        # We count the individual block1 messages later
+                        if getattr(packet['coap'], "blocks", "") != "":
+                            continue
+
                         self._record_type(packet, xx, "oscore-nd")
+                        self._print_packet_attributes(packet, 'coap', 'oscore')
                         continue
 
                     # This is a response from the mqtt-coap-bridge
@@ -203,7 +222,7 @@ class PcapAnalyser:
             self._print_packet_attributes(packet)
             raise RuntimeError(f"Unprocessed general packet")
 
-def main(log_dir: pathlib.Path):
+def main(log_dir: pathlib.Path) -> Dict[str, PcapAnalyser]:
     print(f"Looking for results in {log_dir}")
 
     override_prefs={
