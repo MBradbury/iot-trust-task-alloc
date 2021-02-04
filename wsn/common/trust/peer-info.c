@@ -101,6 +101,11 @@ peer_info_add(const uip_ipaddr_t* addr)
 {
     peer_t* peer;
 
+#ifdef TRUST_MODEL_NO_PEER_PROVIDED
+    LOG_ERR("Cannot add peer information as we have been built with TRUST_MODEL_NO_PEER_PROVIDED\n");
+    return NULL;
+#endif
+
     // First lets check if we already have a record of this peer
     peer = peer_info_find(addr);
     if (peer != NULL)
