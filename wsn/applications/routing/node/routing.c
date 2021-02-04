@@ -16,7 +16,6 @@
 
 #include <stdio.h>
 
-#include "monitoring.h"
 #include "edge-info.h"
 #include "trust.h"
 #include "trust-models.h"
