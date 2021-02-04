@@ -14,6 +14,11 @@
 #define DOS_CERTIFICATE_VERIFICATION_PERIOD_MS 300
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+#define DOS_CERTIFICATE_VERIFICATION_PERIOD (clock_time_t)(DOS_CERTIFICATE_VERIFICATION_PERIOD_MS * CLOCK_SECOND / 1000)
+/*-------------------------------------------------------------------------------------------------------------------*/
+// Depending on what CLOCK_SECOND is set to, we run the risk of this being too low
+_Static_assert(DOS_CERTIFICATE_VERIFICATION_PERIOD >= 1, "DOS_CERTIFICATE_VERIFICATION_PERIOD_MS is too low");
+/*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "attack-dcv"
 #define LOG_LEVEL LOG_LEVEL_DBG
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -114,14 +119,17 @@ PROCESS_THREAD(dos_certificate_verification, ev, data)
     }
 
     LOG_INFO("Message has been created, starting to send periodically "
-             "every " CC_STRINGIFY(DOS_CERTIFICATE_VERIFICATION_PERIOD_MS) "ms\n");
+             "every " CC_STRINGIFY(DOS_CERTIFICATE_VERIFICATION_PERIOD_MS) "ms (%" PRIu32 " clock ticks)\n",
+             DOS_CERTIFICATE_VERIFICATION_PERIOD);
 
-    etimer_set(&send_timer, DOS_CERTIFICATE_VERIFICATION_PERIOD_MS);
+    etimer_set(&send_timer, DOS_CERTIFICATE_VERIFICATION_PERIOD);
 
     // Send the message periodically
     while (1)
     {
         PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_TIMER && data == &send_timer);
+
+        LOG_DBG("coap_send_request dos_certificate_verification start\n");
 
         // No callback is set, as no confirmation of the message being received will be sent to us
         int ret = coap_send_request(&coap_callback, &ep, &msg, NULL);

@@ -54,6 +54,12 @@
 static struct etimer periodic_timer;
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+// Number of seconds to ask for client to retry after.
+// This will be sent with a SERVICE_UNAVAILABLE_5_03
+#define ASK_RETRY_AFTER_CERTIFICATE_REQUEST (5 * 60)
+#define ASK_RETRY_AFTER_MEMORY_ALLOCATION_FAIL (2 * 60)
+#define ASK_RETRY_AFTER_QUEUE_FAIL (2 * 60)
+/*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(trust_model, "Trust Model process");
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct trust_tx_item
@@ -99,7 +105,7 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
         LOG_WARN("Cannot allocate memory for trust request\n");
 
         coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
-        coap_set_header_max_age(response, 60 * 2); // number of seconds
+        coap_set_header_max_age(response, ASK_RETRY_AFTER_MEMORY_ALLOCATION_FAIL);
 
         return;
     }
@@ -146,7 +152,7 @@ res_trust_get_handler(coap_message_t *request, coap_message_t *response, uint8_t
         // No memory available to queue message to sign
         // tell requester to try again in a bit
         coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
-        coap_set_header_max_age(response, 60 * 2); // number of seconds
+        coap_set_header_max_age(response, ASK_RETRY_AFTER_QUEUE_FAIL);
 
         memb_free(&trust_tx_memb, item);
     }
@@ -179,7 +185,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
 
         // Tell the requester to retry again in a bit when we expect to have the key
         coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
-        coap_set_header_max_age(response, 60 * 5); // number of seconds
+        coap_set_header_max_age(response, ASK_RETRY_AFTER_CERTIFICATE_REQUEST);
     }
     else
     {
@@ -192,7 +198,7 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
             // Out of memory, tell server to retry again after we expect to have processed
             // at least one element in the queue
             coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
-            coap_set_header_max_age(response, 60 * 2); // number of seconds
+            coap_set_header_max_age(response, ASK_RETRY_AFTER_MEMORY_ALLOCATION_FAIL);
 
             return;
         }
@@ -207,11 +213,19 @@ res_trust_post_handler(coap_message_t *request, coap_message_t *response, uint8_
             memb_free(&trust_rx_memb, item);
             keystore_unpin(key);
 
+            LOG_ERR("res_trust_post_handler: queue verify failed\n");
+
             // Out of memory, tell server to retry again after we expect to have processed
             // at least one element in the verify queue
             coap_set_status_code(response, SERVICE_UNAVAILABLE_5_03);
-            coap_set_header_max_age(response, 60 * 2); // number of seconds
+            coap_set_header_max_age(response, ASK_RETRY_AFTER_QUEUE_FAIL);
+
+            return;
         }
+
+        LOG_DBG("res_trust_post_handler: successfully queued trust to be verified from ");
+        LOG_DBG_COAP_EP(request->src_ep);
+        LOG_DBG_("\n");
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -336,10 +350,17 @@ static void init(void)
 
 #ifdef TRUST_MODEL_NO_PERIODIC_BROADCAST
     etimer_set(&periodic_timer, TRUST_POLL_PERIOD);
+
+    LOG_DBG("Periodic broadcast of trust information enabled\n");
+#else
+    LOG_DBG("Periodic broadcast of trust information disabled\n");
 #endif
 
     memb_init(&trust_tx_memb);
     memb_init(&trust_rx_memb);
+
+    LOG_DBG("TRUST_TX_SIZE = " CC_STRINGIFY(TRUST_TX_SIZE) "\n");
+    LOG_DBG("TRUST_RX_SIZE = " CC_STRINGIFY(TRUST_RX_SIZE) "\n");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(trust_model, ev, data)

@@ -396,6 +396,7 @@ keystore_add_start(void)
     public_key_item_t* item = list_head(public_keys_to_verify);
     if (!item)
     {
+        // Nothing to do, if there are no certificates queued to be verified
         return;
     }
 
