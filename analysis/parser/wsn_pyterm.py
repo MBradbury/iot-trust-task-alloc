@@ -79,7 +79,7 @@ class ReputationReceiveResult(Enum):
     MISSING_KEY = 1
     OOM = 2
     QUEUE_FAIL = 3
-    VERIFY_FAIL = 4
+    VERIFY_OOM_FAIL = 4
 
 class ReputationSendResult(Enum):
     SUCCESS = 0
@@ -254,7 +254,7 @@ class ChallengeResponseAnalyser:
                     m = self.RE_TRUST_RCV_VERIFY_FAILED.match(line)
                     m_mid = int(m.group(1))
 
-                    self.reputation_receive_result[self.reputation_receive_from[m_mid]][ReputationReceiveResult.VERIFY_FAIL] += 1
+                    self.reputation_receive_result[self.reputation_receive_from[m_mid]][ReputationReceiveResult.VERIFY_OOM_FAIL] += 1
 
                     del self.reputation_receive_from[m_mid]
 
@@ -364,6 +364,13 @@ if __name__ == "__main__":
 
     for (hostname, a) in results.items():
         print(hostname)
-        pprint(dict(a.reputation_receive_result))
+        print("Reputation send:")
         pprint(a.reputation_send_count)
+
+        print("Reputation receive:")
+        pprint(dict(a.reputation_receive_result))
+
+        print("Keystore add:")
         pprint(dict(a.keystore_add_count))
+
+        print()
