@@ -13,6 +13,7 @@ import ipaddress
 import secrets
 import itertools
 from more_itertools import chunked
+import json
 
 import fabric
 import patchwork.transfers
@@ -55,7 +56,8 @@ class Setup:
         #self.oscore_master_salt = secrets.token_bytes(16)
         self.oscore_master_salt = bytes.fromhex("642b2b8e9d0c4263924ceafcf7038b26")
 
-        # Not sure why, but having no id context seems to work better
+        # Not sure why, but having no id context seems to work
+        # Possibly an issue with interaction of aiocoap and Contiki-NG's OSCORE
         #self.oscore_id_context = b"\x01"
         self.oscore_id_context = None
 
@@ -182,22 +184,24 @@ class Setup:
 
             pathlib.Path(f'{oscore_context_dir}/{recipient_id.hex()}').mkdir(parents=True, exist_ok=False)
 
-            with open(f'{oscore_context_dir}/{recipient_id.hex()}/secret.json', 'w') as secret:
-                print('{', file=secret)
-                print(f'    "algorithm": "{self.oscore_algorithm}",', file=secret)
-                print('    "kdf-hashfun": "sha256",', file=secret)
-                print('    "window": 32,', file=secret)
-                print(f'    "sender-id_hex": "{sender_id.hex()}",', file=secret)
-                print(f'    "recipient-id_hex": "{recipient_id.hex()}",', file=secret)
-                print(f'    "secret_hex": "{shared_secret.hex()}",', file=secret)
+            with open(f'{oscore_context_dir}/{recipient_id.hex()}/secret.json', 'w', encoding="utf-8") as secret:
+
+                secret_json = {
+                    "algorithm": self.oscore_algorithm,
+                    "kdf-hashfun": "sha256",
+                    "window": 32,
+                    "sender-id_hex": sender_id.hex(),
+                    "recipient-id_hex": recipient_id.hex(),
+                    "secret_hex": shared_secret.hex(),
+                }
 
                 if self.oscore_master_salt is not None:
-                    print(f'    "salt_hex": "{self.oscore_master_salt.hex()}"', file=secret)
+                    secret_json["salt_hex"] = self.oscore_master_salt.hex()
 
                 if self.oscore_id_context is not None:
-                    print(f'    "id-context_hex": "{self.oscore_id_context.hex()}"', file=secret)
+                    secret_json["id-context_hex"] = self.oscore_id_context.hex()
 
-                print('}', file=secret)
+                json.dump(secret_json, secret, indent=4)
 
         # Also create the Wireshark configuration to allow these messages to be decrypted
         self._write_oscore_context_pref()
