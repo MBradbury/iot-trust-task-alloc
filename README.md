@@ -72,7 +72,12 @@ rm wireshark-{doc,dev,dbg}_*.deb
 sudo dpkg -i *.deb
 ```
 
-Install pyshark
+Install pyshark version 0.4.3 or greater
+```bash
+python3 -m pip install --upgrade pyshark
+```
+
+If you cannot install from pip, then install from source:
 ```bash
 python3 -m pip install --upgrade git+https://github.com/KimiNewt/pyshark.git#subdirectory=src
 ```
@@ -277,6 +282,11 @@ Individually:
 Batch:
 ```bash
 ./tools/regenerate_pcaps.py results/2021-02-03-am-dadspp-one-good-one-bad/
+```
+
+Once pcaps have been generated Wireshark can be used to view them via:
+```bash
+wireshark -o:oscore.contexts=results/2021-02-03-am-dadspp-one-good-one-bad/keystore/oscore.contexts.uat results/2021-02-03-am-dadspp-one-good-one-bad/edge.wsn6.packet.log.pcap
 ```
 
 ## Graphing Results
