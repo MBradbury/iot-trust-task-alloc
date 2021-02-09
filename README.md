@@ -270,18 +270,18 @@ In order to fetch results from the devices run:
 
 ## Generate pcap
 
-If the binaries were compiled with `--with-pcap` then there will be a `*.packet.log` file for each device. This now needs to be converter to a pcap file.
+If the binaries were compiled with `--with-pcap` then there will be a `*.packet.log` file for each device. This now needs to be converted to a pcap file.
 
-pcaps can either be converted individually using `./tools/regenerate_pcap.py` or processed for all packet logs in a directory using `./tools/regenerate_pcaps.py`.
+pcaps can either be converted individually using `./tools/regenerate_pcap.py` or processed for all packet logs in a directory using `./tools/regenerate_pcaps.py`. When a large number of packets have been collected, it will be necessary to disable the timeout with `--timeout None`.
 
 Individually:
 ```bash
-./tools/regenerate_pcap.py results/2021-02-03-am-dadspp-one-good-one-bad/edge.wsn6.packet.log
+./tools/regenerate_pcap.py results/2021-02-03-am-dadspp-one-good-one-bad/edge.wsn6.packet.log --timeout None
 ```
 
 Batch:
 ```bash
-./tools/regenerate_pcaps.py results/2021-02-03-am-dadspp-one-good-one-bad/
+./tools/regenerate_pcaps.py results/2021-02-03-am-dadspp-one-good-one-bad/ --timeout None
 ```
 
 Once pcaps have been generated Wireshark can be used to view them via:
