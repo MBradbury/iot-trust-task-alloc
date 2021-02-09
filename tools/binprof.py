@@ -207,22 +207,31 @@ keys = set(summarised_ram_symb.keys()) | set(classified_flash_symb.keys())
 for k in sorted(keys):
     print(f"{k} & {summarised_flash_symb[k]} & {round(100*summarised_flash_symb[k]/total_flash_symb, 1)} & {summarised_ram_symb[k]} & {round(100*summarised_ram_symb[k]/total_ram_symb, 1)} \\\\")
 print("\\midrule")
-print(f"Total Used & {total_flash_symb} & & {total_ram_symb} & \\\\")
+print(f"Total Used & {total_flash_symb} & 100 & {total_ram_symb} & 100 \\\\")
 print()
 
 config = [
     ('Certificates', 'PUBLIC_KEYSTORE_SIZE', 12, 'public_keys_memb'),
-    ('Reputation Tx Buffer', 'TRUST_TX_SIZE', 2, 'trust_tx_memb'),
-    ('Reputation Rx Buffer', 'TRUST_RX_SIZE', 2, 'trust_rx_memb'),
     ('Stereotypes', 'MAX_NUM_STEREOTYPES', 5, 'stereotypes_memb'),
     ('Edges', 'NUM_EDGE_RESOURCES', 4, 'edge_resources_memb'),
     ('Edge Capabilities', 'NUM_EDGE_CAPABILITIES', 3 * 4, 'edge_capabilities_memb'),
     ('Peers', 'NUM_PEERS', 8, 'peers_memb'),
     ('Peer Edges', 'NUM_PEERS', 8 * 4, 'peer_edges_memb'),
     ('Peer Edge Capabilities', 'NUM_PEERS', 8 * 4 * 3, 'peer_capabilities_memb'),
+    None,
+    ('Reputation Tx Buffer', 'TRUST_TX_SIZE', 2, 'trust_tx_memb'),
+    ('Reputation Rx Buffer', 'TRUST_RX_SIZE', 2, 'trust_rx_memb'),
+    None,
+    ('Sign Buffer', 'MESSAGES_TO_SIGN_SIZE', 3, 'messages_to_sign_memb'),
+    ('Verify Buffer', 'MESSAGES_TO_VERIFY_SIZE', 3, 'messages_to_verify_memb'),
 ]
 
-for (nice_name, cname, num, vname) in config:
+for conf in config:
+    if conf is None:
+        print("\\midrule")
+        continue
+
+    (nice_name, cname, num, vname) = conf
     try:
         [symb] = [x for x in ram_symb if x.name == vname + "_memb_mem"]
         size = symb.size
