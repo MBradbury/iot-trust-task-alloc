@@ -186,11 +186,15 @@ keystore_add(const certificate_t* cert)
     item = memb_alloc(&public_keys_memb);
     if (!item)
     {
-        LOG_WARN("keystore_add: out of memory\n");
+        LOG_WARN("keystore_add: out of memory (1st) for ");
+        LOG_WARN_BYTES(cert->subject, EUI64_LENGTH);
+        LOG_WARN_("\n");
 
         if (!keystore_free_up_space())
         {
-            LOG_ERR("Failed to free space for the certificate\n");
+            LOG_ERR("Failed to free space for the certificate ");
+            LOG_ERR_BYTES(cert->subject, EUI64_LENGTH);
+            LOG_ERR_("\n");
             return false;
         }
         else
@@ -198,12 +202,16 @@ keystore_add(const certificate_t* cert)
             item = memb_alloc(&public_keys_memb);
             if (item == NULL)
             {
-                LOG_ERR("keystore_add: out of memory\n");
+                LOG_WARN("keystore_add: out of memory (2nd) for ");
+                LOG_WARN_BYTES(cert->subject, EUI64_LENGTH);
+                LOG_WARN_("\n");
                 return false;
             }
             else
             {
-                LOG_INFO("Successfully found memory for the certificate\n");
+                LOG_INFO("Successfully found memory for the certificate ");
+                LOG_INFO_BYTES(cert->subject, EUI64_LENGTH);
+                LOG_INFO_("\n");
             }
         }
     }
@@ -410,7 +418,10 @@ keystore_add_start(void)
 
     if (encode_ret != NANOCBOR_OK || encoded_length > available_space)
     {
-        LOG_ERR("keystore_add: encode failed %zu > %zu\n", encoded_length, available_space);
+        LOG_ERR("keystore_add: encode failed %zu > %zu for ", encoded_length, available_space);
+        LOG_ERR_BYTES(item->cert.subject, EUI64_LENGTH);
+        LOG_ERR_("\n");
+
         list_remove(public_keys_to_verify, item);
         memb_free(&public_keys_memb, item);
         return;
@@ -423,7 +434,10 @@ keystore_add_start(void)
                                  add_buffer, encoded_length + DTLS_EC_SIG_SIZE,
                                  &root_cert.public_key))
     {
-        LOG_ERR("keystore_add: enqueue failed\n");
+        LOG_ERR("keystore_add: enqueue failed for ");
+        LOG_ERR_BYTES(item->cert.subject, EUI64_LENGTH);
+        LOG_ERR_("\n");
+
         list_remove(public_keys_to_verify, item);
         memb_free(&public_keys_memb, item);
         return;

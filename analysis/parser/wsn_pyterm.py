@@ -89,6 +89,15 @@ class ReputationSendResult(Enum):
     SEND_FAIL = 4
     OOM = 5
 
+class KeystoreAddResult(Enum):
+    SUCCESS = 0
+    OOM1 = 1
+    FAILED_FREE = 2
+    OOM2 = 3
+    ENCODE_FAIL = 4
+    ENQUEUE_FAIL = 5
+    VERIFY_FAIL = 6
+
 class ChallengeResponseAnalyser:
     RE_TRUST_UPDATING_CR = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\)')
     #RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([0-9A-Za-z]+) TM ([0-9A-Za-z_]+) \((.*)\)\)')
@@ -107,6 +116,24 @@ class ChallengeResponseAnalyser:
     RE_TRUST_RCV_VERIFY_FAILED = re.compile(r'res_trust_post_handler: queue verify failed \(mid=([0-9]+)\)')
     RE_TRUST_RCV_SUCCESS = re.compile(r'res_trust_post_handler: successfully queued trust to be verified from (.+) \(mid=([0-9]+)\)')
 
+    RE_KEYSTORE_ADD_OOM1 = re.compile(r'keystore_add: out of memory \(1st\) for ([0-9A-Fa-f]+)')
+    RE_KEYSTORE_ADD_FAILED_FREE = re.compile(r'Failed to free space for the certificate ([0-9A-Fa-f]+)')
+    RE_KEYSTORE_ADD_OOM2 = re.compile(r'keystore_add: out of memory \(2nd\) for ([0-9A-Fa-f]+)')
+    RE_KEYSTORE_ADD_ENCODE_FAIL = re.compile(r'keystore_add: encode failed [0-9]+ > [0-9]+ for ([0-9A-Fa-f]+)')
+    RE_KEYSTORE_ADD_ENQUEUE_FAIL = re.compile(r'keystore_add: enqueue failed for ([0-9A-Fa-f]+)')
+    RE_KEYSTORE_ADD_VERIFY_FAIL = re.compile(r'Failed to verfiy public key for ([0-9A-Fa-f]+) \(sig verification failed\)')
+    RE_KEYSTORE_ADD_VERIFY_SUCCESS = re.compile(r'Sucessfully verfied public key for ([0-9A-Fa-f]+)')
+
+    KEYSTORE_ADD_TO_RESULT = {
+        RE_KEYSTORE_ADD_OOM1: KeystoreAddResult.OOM1,
+        RE_KEYSTORE_ADD_FAILED_FREE: KeystoreAddResult.FAILED_FREE,
+        RE_KEYSTORE_ADD_OOM2: KeystoreAddResult.OOM2,
+        RE_KEYSTORE_ADD_ENCODE_FAIL: KeystoreAddResult.ENCODE_FAIL,
+        RE_KEYSTORE_ADD_ENQUEUE_FAIL: KeystoreAddResult.ENQUEUE_FAIL,
+        RE_KEYSTORE_ADD_VERIFY_FAIL: KeystoreAddResult.VERIFY_FAIL,
+        RE_KEYSTORE_ADD_VERIFY_SUCCESS: KeystoreAddResult.SUCCESS,
+    }
+
     def __init__(self, hostname):
         self.hostname = hostname
 
@@ -121,6 +148,8 @@ class ChallengeResponseAnalyser:
         self.reputation_receive_result = defaultdict(Counter)
 
         self.reputation_send_count = Counter()
+
+        self.keystore_add_count = defaultdict(Counter)
 
     def analyse(self, f):
         for (time, log_level, module, line) in parse_contiki(f):
@@ -261,6 +290,14 @@ class ChallengeResponseAnalyser:
                 elif line.startswith("trust_tx_continue: coap_send_request trust done"):
                     self.reputation_send_count[ReputationSendResult.SUCCESS] += 1
 
+            elif module == "keystore":
+                for (re_keystore_add, status) in self.KEYSTORE_ADD_TO_RESULT.items():
+                    m = re_keystore_add.match(line)
+                    if m:
+                        m_eui64 = m.group(1)
+                        self.keystore_add_count[m_eui64][status] += 1
+                        break
+
             #if module not in ("A-cr", "trust-comm"):
             #    continue
 
@@ -329,3 +366,4 @@ if __name__ == "__main__":
         print(hostname)
         pprint(dict(a.reputation_receive_result))
         pprint(a.reputation_send_count)
+        pprint(dict(a.keystore_add_count))
