@@ -34,12 +34,13 @@ class Setup:
 
     oscore_algorithm = "AES-CCM-16-64-128"
 
-    def __init__(self, trust_model: str, trust_choose: str, applications: list[str], with_pcap: bool, with_adversary: list[str]):
+    def __init__(self, trust_model: str, trust_choose: str, applications: list[str], with_pcap: bool, with_adversary: list[str], defines: dict[str, str]):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
         self.applications = applications
         self.with_pcap = with_pcap
         self.with_adversary = with_adversary
+        self.defines = defines
 
         self.build_number = 1
 
@@ -293,6 +294,9 @@ class Setup:
             if self.oscore_id_context is not None:
                 build_args["OSCORE_ID_CONTEXT"] = self.bytes_to_c_array(self.oscore_id_context)
 
+            if self.defines:
+                build_args["ADDITIONAL_CFLAGS"] = " ".join([f"-D{k}={v}" for (k,v) in self.defines.items()])
+
             for binary in self.binaries:
                 print(f"Building {binary} with '{build_args}'")
 
@@ -342,6 +346,21 @@ class Setup:
 if __name__ == "__main__":
     import argparse
 
+    # From: https://stackoverflow.com/questions/8526675/python-argparse-optional-append-argument-with-choices
+    class DefinesAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            if values:
+                if len(values) != 2:
+                    raise argparse.ArgumentError(self, f"Must have two arguments {values}")
+
+                name, value = values
+
+                attr = getattr(namespace, self.dest)
+                if attr is None:
+                    setattr(namespace, self.dest, {name: value})
+                else:
+                    attr[name] = value
+
     available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
     available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]
     available_adversary = [x[:-len(".c")] for x in os.listdir("wsn/adversary/attacks") if x.endswith(".c")]
@@ -353,7 +372,9 @@ if __name__ == "__main__":
     parser.add_argument('--applications', nargs="+", type=str, choices=available_applications, help='The applications to build for')
     parser.add_argument('--with-pcap', action='store_true', help='Enable capturing and outputting pcap dumps from the nodes')
     parser.add_argument('--with-adversary', nargs="*", type=str, choices=available_adversary, default=None, help='Enable building an adversary')
+    parser.add_argument('--defines', nargs="*", action=DefinesAction, metavar="define-name define-value", default={},
+                        help='Defines to pass to compilation')
     args = parser.parse_args()
 
-    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary)
+    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines)
     setup.run()
