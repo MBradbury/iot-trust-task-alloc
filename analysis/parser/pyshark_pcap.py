@@ -20,7 +20,7 @@ import pyshark
 from pyshark.packet.packet import Packet
 
 class PcapAnalyser:
-    def __init__(self, hostname: str):
+    def __init__(self, hostname: str, quiet: bool=False):
         self.hostname = hostname
         self.addr = hostname_to_ips[hostname]
         self.addrs = {
@@ -48,6 +48,8 @@ class PcapAnalyser:
 
         self.packet_kinds = {}
 
+        self.quiet = quiet
+
     def get_tx_rx_list(self, packet: Packet) -> Dict[str, List[Packet]]:
         try:
             addr = ipaddress.IPv6Address(packet['6lowpan'].src)
@@ -68,9 +70,10 @@ class PcapAnalyser:
                getattr(layer, "opt_uri_path_recon", "") in (uri, f'/{uri}')
 
     def _print_packet_attributes(self, packet: Packet, *layers):
-        print(packet)
-        for layer in layers:
-            print(layer, {n: getattr(packet[layer], n) for n in packet[layer].field_names})
+        if not self.quiet:
+            print(packet)
+            for layer in layers:
+                print(layer, {n: getattr(packet[layer], n) for n in packet[layer].field_names})
 
     def _record_type(self, packet: Packet, xx: Dict[str, List[Packet]], kind: str):
         xx[kind].append(packet)
@@ -132,7 +135,6 @@ class PcapAnalyser:
                     # Don't record this packet if it is going to be reassembled
                     if not hasattr(packet['6lowpan'], "reassembled_in"):
                         self._print_packet_attributes(packet, '6lowpan')
-                        print(dir(packet))
 
                         self._record_type(packet, xx, "6lowpan-fragment")
                     continue
@@ -252,7 +254,7 @@ class PcapAnalyser:
             self._print_packet_attributes(packet)
             raise RuntimeError(f"Unprocessed general packet")
 
-def main(log_dir: pathlib.Path) -> Dict[str, PcapAnalyser]:
+def main(log_dir: pathlib.Path, quiet: bool=False) -> Dict[str, PcapAnalyser]:
     print(f"Looking for results in {log_dir}")
 
     override_prefs={
@@ -273,11 +275,11 @@ def main(log_dir: pathlib.Path) -> Dict[str, PcapAnalyser]:
             print(f"Can only have pcap results from one of {kind_options}")
             continue
 
-        a = PcapAnalyser(hostname)
+        a = PcapAnalyser(hostname, quiet)
 
         # Need pass "-2" in order for packets to be processed twice,
         # this means that fragments will be reassembled
-        with pyshark.FileCapture(str(g), override_prefs=override_prefs, custom_parameters=["-2"], debug=True) as cap:
+        with pyshark.FileCapture(str(g), override_prefs=override_prefs, custom_parameters=["-2"], debug=True, keep_packets=False) as cap:
             a.analyse(cap)
 
         print(a.hostname, a.addrs, a.eui64)
@@ -293,7 +295,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Parse Challenge Response')
-    parser.add_argument('--log-dir', type=str, default="results", help='The directory which contains the log output')
+    parser.add_argument('--log-dir', type=pathlib.Path, default="results", help='The directory which contains the log output')
 
     args = parser.parse_args()
 
