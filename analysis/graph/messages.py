@@ -18,13 +18,7 @@ from analysis.graph.util import savefig
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
 
-def round_down(x, a):
-    return math.floor(x / a) * a
-
-def round_up(x, a):
-    return math.ceil(x / a) * a
-
-def packet_length(packet):
+def packet_length(packet) -> int:
     # Count the length of the fragments, if this packet was fragmented
     if '6lowpan' in packet and hasattr(packet['6lowpan'], "reassembled_length"):
         return int(packet['6lowpan'].reassembled_length)
@@ -34,7 +28,7 @@ def packet_length(packet):
 def main(log_dir: pathlib.Path):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
-    results = parse(log_dir)
+    results = parse(log_dir, quiet=True)
 
     XYs_tx = {
         hostname: [
@@ -59,11 +53,11 @@ def main(log_dir: pathlib.Path):
     }
 
     to_graph = {
-        ("tx", 75_000): XYs_tx,
-        ("rx", 35_000): XYs_rx,
+        ("tx", 125_000): XYs_tx,
+        ("rx", 55_000): XYs_rx,
     }
 
-    bin_width = timedelta(minutes=5)
+    bin_width = timedelta(minutes=6)
 
     min_time = min(r.min_snift_time for r in results.values())
     max_time = min(r.max_snift_time for r in results.values())
@@ -112,49 +106,50 @@ def main(log_dir: pathlib.Path):
 
             savefig(fig, log_dir / "graphs" / f"{name}-by-type-{hostname}.pdf")
 
-    # TODO: Draw some bar graphs of which nodes tasks were submitted to
-
     # Table of the percentage of bytes in each category
     hostnames = sorted(set(XYs_tx.keys()) | set(XYs_rx.keys()))
 
     for hostname in hostnames:
         #print(hostname)
 
-        print("\\begin{table}[t]")
-        print("\\centering")
-        print("\\begin{tabular}{l S[table-format=6] S[table-format=3.1] S[table-format=6] S[table-format=3.1]}")
-        print("    \\toprule")
-        print("    ~ & \\multicolumn{2}{c}{Tx} & \\multicolumn{2}{c}{Rx} \\\\")
-        print("    Category & {(\\si{\\byte})} & {(\\%)} & {(\\si{\\byte})} & {(\\%)} \\\\")
-        print("    \\midrule")
+        log_file = log_dir / "graphs" / f"{hostname}-messages.tex"
 
-        XY_tx = XYs_tx.get(hostname, [])
-        XY_rx = XYs_rx.get(hostname, [])
+        with open(log_file, "w") as f:
+            print("\\begin{table}[t]", file=f)
+            print("\\centering", file=f)
+            print("\\begin{tabular}{l S[table-format=6] S[table-format=3.1] S[table-format=6] S[table-format=3.1]}", file=f)
+            print("    \\toprule", file=f)
+            print("    ~ & \\multicolumn{2}{c}{Tx} & \\multicolumn{2}{c}{Rx} \\\\", file=f)
+            print("    Category & {(\\si{\\byte})} & {(\\%)} & {(\\si{\\byte})} & {(\\%)} \\\\", file=f)
+            print("    \\midrule", file=f)
 
-        XY_tx = {
-            name: sum(lengths)
-            for (name, dates, lengths) in XY_tx
-        }
-        total_tx = sum(XY_tx.values())
+            XY_tx = XYs_tx.get(hostname, [])
+            XY_rx = XYs_rx.get(hostname, [])
 
-        XY_rx = {
-            name: sum(lengths)
-            for (name, dates, lengths) in XY_rx
-        }
-        total_rx = sum(XY_rx.values())
+            XY_tx = {
+                name: sum(lengths)
+                for (name, dates, lengths) in XY_tx
+            }
+            total_tx = sum(XY_tx.values())
 
-        names = sorted(set(XY_tx.keys()) | set(XY_rx.keys()))
+            XY_rx = {
+                name: sum(lengths)
+                for (name, dates, lengths) in XY_rx
+            }
+            total_rx = sum(XY_rx.values())
 
-        for name in names:
-            print(f"{name} & {XY_tx.get(name, 0)} & {round(100*XY_tx.get(name, 0)/total_tx,1)} & {XY_rx.get(name, 0)} & {round(100*XY_rx.get(name, 0)/total_rx,1)} \\\\")
-        print("\\midrule")
-        print(f"Total & {total_tx} & 100 & {total_rx} & 100 \\\\")
+            names = sorted(set(XY_tx.keys()) | set(XY_rx.keys()))
 
-        print("\\bottomrule")
-        print("\\end{tabular}")
-        print(f"\\caption{{Message tx and rx for {hostname}}}")
-        #print("\\label{tab:ram-flash-usage}")
-        print("\\end{table}")
+            for name in names:
+                print(f"{name} & {XY_tx.get(name, 0)} & {round(100*XY_tx.get(name, 0)/total_tx,1)} & {XY_rx.get(name, 0)} & {round(100*XY_rx.get(name, 0)/total_rx,1)} \\\\", file=f)
+            print("\\midrule", file=f)
+            print(f"Total & {total_tx} & 100 & {total_rx} & 100 \\\\", file=f)
+
+            print("\\bottomrule", file=f)
+            print("\\end{tabular}", file=f)
+            print(f"\\caption{{Message tx and rx for {hostname}}}", file=f)
+            #print("\\label{tab:ram-flash-usage}", file=f)
+            print("\\end{table}", file=f)
 
 
 if __name__ == "__main__":
