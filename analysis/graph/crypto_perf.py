@@ -75,10 +75,10 @@ def main(log_dir: pathlib.Path):
     savefig(fig, log_dir / "graphs" / "crypto_perf_sha256_box.pdf")
 
 
-    def round_down(x, a):
+    def round_down(x: float, a: float) -> float:
         return math.floor(x / a) * a
 
-    def round_up(x, a):
+    def round_up(x: float, a: float) -> float:
         return math.ceil(x / a) * a
 
 
