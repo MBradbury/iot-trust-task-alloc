@@ -137,6 +137,9 @@ class ChallengeResponseAnalyser:
     def __init__(self, hostname):
         self.hostname = hostname
 
+        self.start_time = None
+        self.end_time = None
+
         self.tm_updates = []
 
         self.tasks = []
@@ -150,9 +153,15 @@ class ChallengeResponseAnalyser:
         self.reputation_send_count = Counter()
 
         self.keystore_add_count = defaultdict(Counter)
+        self.keystore_add_first_time = {}
 
     def analyse(self, f):
         for (time, log_level, module, line) in parse_contiki(f):
+
+            if self.start_time is None:
+                self.start_time = time
+
+            self.end_time = time
 
             if module == "trust-comm":
                 if line.startswith("Updating Edge"):
@@ -296,6 +305,10 @@ class ChallengeResponseAnalyser:
                     if m:
                         m_eui64 = m.group(1)
                         self.keystore_add_count[m_eui64][status] += 1
+
+                        if (m_eui64, status) not in self.keystore_add_first_time:
+                            self.keystore_add_first_time[(m_eui64, status)] = time
+
                         break
 
             #if module not in ("A-cr", "trust-comm"):
@@ -372,5 +385,11 @@ if __name__ == "__main__":
 
         print("Keystore add:")
         pprint(dict(a.keystore_add_count))
+
+        print("Keystore first:")
+        for ((eui64, status), time) in a.keystore_add_first_time.items():
+            print(eui64, status, time - a.start_time)
+
+        print("Duration:", a.end_time - a.start_time)
 
         print()
