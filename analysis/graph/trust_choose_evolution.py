@@ -118,7 +118,7 @@ def main(log_dir: pathlib.Path):
         ax2.set_ylabel('Number of tasks submitted (bars)')
 
         ax.set_ylim(0, 1)
-        ax2.set_ylim(0, 6)
+        ax2.set_ylim(0, 12)
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
