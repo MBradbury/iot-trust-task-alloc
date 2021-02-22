@@ -76,6 +76,7 @@ MEMB(challengers_memb, edge_challenger_t, NUM_EDGE_RESOURCES);
 LIST(challengers);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
+static coap_endpoint_t ep;
 static coap_callback_request_state_t coap_callback;
 static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + 32)];
@@ -154,8 +155,6 @@ generate_challenge(challenge_t* ch, uint8_t difficulty, uint32_t max_duration_se
 static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
-    edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
-
     tm_challenge_response_info_t info = {
         .type = TM_CHALLENGE_RESPONSE_ACK,
         .coap_status = NO_ERROR,
@@ -197,6 +196,15 @@ send_callback(coap_callback_request_state_t* callback_state)
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         timed_unlock_unlock(&coap_callback_in_use);
     } break;
+    }
+
+    edge_resource_t* edge = edge_info_find_addr(&ep.ipaddr);
+    if (edge == NULL)
+    {
+        LOG_WARN("Edge ");
+        LOG_WARN_COAP_EP(&ep);
+        LOG_WARN_(" was removed between sending a task and receiving an acknowledgement\n");
+        return;
     }
 
     tm_update_challenge_response(edge, &info);
@@ -275,14 +283,18 @@ periodic_action(void)
     // Choose an Edge node to send information to
     edge_resource_t* edge = next_challenge->edge;
 
+    // We need to store a local copy of the edge target
+    // As the edge resource object may be removed by the time we receive a response
+    coap_endpoint_copy(&ep, &edge->ep);
+
     if (!coap_endpoint_is_connected(&edge->ep))
     {
         LOG_DBG("We are not connected to ");
-        LOG_DBG_COAP_EP(&edge->ep);
+        LOG_DBG_COAP_EP(&ep);
         LOG_DBG_(", so will initiate a connection to it.\n");
 
         // Initiate a connect
-        coap_endpoint_connect(&edge->ep);
+        coap_endpoint_connect(&ep);
 
         // Wait for a bit and then try sending again
         //etimer_set(&publish_short_timer, SHORT_PUBLISH_PERIOD);
@@ -297,21 +309,18 @@ periodic_action(void)
     coap_set_random_token(&msg);
 
 #ifdef WITH_OSCORE
-    keystore_protect_coap_with_oscore(&msg, &edge->ep);
+    keystore_protect_coap_with_oscore(&msg, &ep);
 #endif
-
-    // Save the edge that this task is being submitted to
-    coap_callback.state.user_data = edge;
 
     // Regord when we sent this challenge
     next_challenge->generated = clock_time();
 
-    ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);
+    ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)
     {
         timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
-        LOG_DBG_COAP_EP(&edge->ep);
+        LOG_DBG_COAP_EP(&ep);
         LOG_DBG_("\n");
     }
     else

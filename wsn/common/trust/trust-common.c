@@ -315,7 +315,7 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
         return -1;
     }
 
-    // We have at least one Edge resource to support this application, so we need to inform the process
+    // We have lost at least one Edge resource to support this application, so we need to inform the process
     post_to_capability_process(capability, pe_edge_capability_remove, edge);
 
     // TODO: should potentially not remove capability information here

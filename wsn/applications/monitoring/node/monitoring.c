@@ -36,6 +36,7 @@
 static app_state_t app_state;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
+static coap_endpoint_t ep;
 static coap_callback_request_state_t coap_callback;
 static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + sizeof(int)) + (1 + sizeof(int))];
@@ -62,18 +63,8 @@ generate_sensor_data(uint8_t* buf, size_t buf_len)
 static struct etimer publish_periodic_timer, publish_short_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-process_task_ack(edge_resource_t* edge, edge_capability_t* cap, coap_message_t* response)
-{
-    // Do anything that needs to be done with the ack
-    // e.g., record the estimated time until the task response is sent
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
-static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
-    edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
-    edge_capability_t* cap = edge_info_capability_find(edge, MONITORING_APPLICATION_NAME);
-
     tm_task_submission_info_t info = {
         .coap_status = NO_ERROR,
         .coap_request_status = callback_state->state.status
@@ -88,7 +79,6 @@ send_callback(coap_callback_request_state_t* callback_state)
         if (response->code == CONTENT_2_05)
         {
             LOG_DBG("Message send complete with code CONTENT_2_05 (len=%d)\n", response->payload_len);
-            process_task_ack(edge, cap, response);
         }
         else
         {
@@ -110,6 +100,27 @@ send_callback(coap_callback_request_state_t* callback_state)
             coap_request_status_to_string(callback_state->state.status), callback_state->state.status);
         timed_unlock_unlock(&coap_callback_in_use);
     } break;
+    }
+
+    edge_resource_t* edge = edge_info_find_addr(&ep.ipaddr);
+    if (edge == NULL)
+    {
+        LOG_WARN("Edge ");
+        LOG_WARN_COAP_EP(&ep);
+        LOG_WARN_(" was removed between sending a task and receiving an acknowledgement\n");
+        return;
+    }
+
+    // Find the information on the capability for this edge
+    // If this capability no longer exists, then the Edge has informed us that it no longer
+    // offers that capability
+    edge_capability_t* cap = edge_info_capability_find(edge, MONITORING_APPLICATION_NAME);
+    if (cap == NULL)
+    {
+        LOG_WARN("Edge ");
+        LOG_WARN_COAP_EP(&ep);
+        LOG_WARN_(" removed capability " MONITORING_APPLICATION_NAME " between sending a task and receiving a acknowledgement\n");
+        return;
     }
 
     tm_update_task_submission(edge, cap, &info);
@@ -145,14 +156,18 @@ periodic_action(void)
         return;
     }
 
-    if (!coap_endpoint_is_connected(&edge->ep))
+    // We need to store a local copy of the edge target
+    // As the edge resource object may be removed by the time we receive a response
+    coap_endpoint_copy(&ep, &edge->ep);
+
+    if (!coap_endpoint_is_connected(&ep))
     {
         LOG_DBG("We are not connected to ");
-        LOG_DBG_COAP_EP(&edge->ep);
+        LOG_DBG_COAP_EP(&ep);
         LOG_DBG_(", so will initiate a connection to it.\n");
 
         // Initiate a connect
-        coap_endpoint_connect(&edge->ep);
+        coap_endpoint_connect(&ep);
 
         // Wait for a bit and then try sending again
         etimer_set(&publish_short_timer, SHORT_PUBLISH_PERIOD);
@@ -167,18 +182,15 @@ periodic_action(void)
     coap_set_random_token(&msg);
 
 #ifdef WITH_OSCORE
-    keystore_protect_coap_with_oscore(&msg, &edge->ep);
+    keystore_protect_coap_with_oscore(&msg, &ep);
 #endif
 
-    // Save the edge that this task is being submitted to
-    coap_callback.state.user_data = edge;
-
-    ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);
+    ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)
     {
         timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
-        LOG_DBG_COAP_EP(&edge->ep);
+        LOG_DBG_COAP_EP(&ep);
         LOG_DBG_("\n");
     }
     else

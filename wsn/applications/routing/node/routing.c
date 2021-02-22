@@ -45,6 +45,7 @@
 static app_state_t app_state;
 /*-------------------------------------------------------------------------------------------------------------------*/
 static coap_message_t msg;
+static coap_endpoint_t ep;
 static coap_callback_request_state_t coap_callback;
 static timed_unlock_t coap_callback_in_use;
 static uint8_t msg_buf[(1) + (1 + sizeof(uint32_t)) + (1 + (1 + sizeof(float)) * 2) * 2];
@@ -132,12 +133,6 @@ nanocbor_get_coordinate_from_payload(nanocbor_value_t* dec, coordinate_t* coord,
 static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
-    edge_resource_t* edge = (edge_resource_t*)callback_state->state.user_data;
-    assert(edge != NULL);
-
-    edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
-    assert(cap != NULL);
-
     tm_task_submission_info_t info = {
         .coap_status = NO_ERROR,
         .coap_request_status = callback_state->state.status
@@ -175,6 +170,27 @@ send_callback(coap_callback_request_state_t* callback_state)
         timed_unlock_unlock(&coap_callback_in_use);
         timed_unlock_unlock(&task_in_use);
     } break;
+    }
+
+    edge_resource_t* edge = edge_info_find_addr(&ep.ipaddr);
+    if (edge == NULL)
+    {
+        LOG_WARN("Edge ");
+        LOG_WARN_COAP_EP(&ep);
+        LOG_WARN_(" was removed between sending a task and receiving a acknowledgement\n");
+        return;
+    }
+
+    // Find the information on the capability for this edge
+    // If this capability no longer exists, then the Edge has informed us that it no longer
+    // offers that capability
+    edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
+    if (cap == NULL)
+    {
+        LOG_WARN("Edge ");
+        LOG_WARN_COAP_EP(&ep);
+        LOG_WARN_(" removed capability " ROUTING_APPLICATION_NAME " between sending a task and receiving a acknowledgement\n");
+        return;
     }
 
     tm_update_task_submission(edge, cap, &info);
@@ -298,14 +314,18 @@ event_triggered_action(const char* data)
         return;
     }
 
-    if (!coap_endpoint_is_connected(&edge->ep))
+    // We need to store a local copy of the edge target
+    // As the edge resource object may be removed by the time we receive a response
+    coap_endpoint_copy(&ep, &edge->ep);
+
+    if (!coap_endpoint_is_connected(&ep))
     {
         LOG_DBG("We are not connected to ");
         LOG_DBG_COAP_EP(&edge->ep);
         LOG_DBG_(", so will initiate a connection to it.\n");
 
         // Initiate a connect
-        coap_endpoint_connect(&edge->ep);
+        coap_endpoint_connect(&ep);
 
         // Wait for a bit and then try sending again
         //etimer_set(&publish_short_timer, SHORT_PUBLISH_PERIOD);
@@ -320,19 +340,16 @@ event_triggered_action(const char* data)
     coap_set_random_token(&msg);
 
 #ifdef WITH_OSCORE
-    keystore_protect_coap_with_oscore(&msg, &edge->ep);
+    keystore_protect_coap_with_oscore(&msg, &ep);
 #endif
 
-    // Save the edge that this task is being submitted to
-    coap_callback.state.user_data = edge;
-
-    ret = coap_send_request(&coap_callback, &edge->ep, &msg, send_callback);
+    ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)
     {
         timed_unlock_lock(&task_in_use);
         timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
-        LOG_DBG_COAP_EP(&edge->ep);
+        LOG_DBG_COAP_EP(&ep);
         LOG_DBG_("\n");
     }
     else
@@ -394,7 +411,7 @@ routing_process_task_timeout(void)
 {
     LOG_WARN("Timed out while waiting for response for the routing task\n");
 
-    edge_resource_t* edge = (edge_resource_t*)coap_callback.state.user_data;
+    edge_resource_t* edge = edge_info_find_addr(&ep.ipaddr);
     if (!edge)
     {
         LOG_ERR("Unable to find edge this task was sent to: ");
