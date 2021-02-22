@@ -321,7 +321,7 @@ event_triggered_action(const char* data)
     if (!coap_endpoint_is_connected(&ep))
     {
         LOG_DBG("We are not connected to ");
-        LOG_DBG_COAP_EP(&edge->ep);
+        LOG_DBG_COAP_EP(&ep);
         LOG_DBG_(", so will initiate a connection to it.\n");
 
         // Initiate a connect
@@ -388,22 +388,28 @@ routing_response_process_status(coap_message_t *request)
 
     // Update trust model
     edge_resource_t* edge = edge_info_find_addr(&request->src_ep->ipaddr);
-    if (edge)
-    {
-        edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
-
-        // Update trust model with notification of task success/failure
-        const tm_task_result_info_t info = {
-            .result = (status == ROUTING_SUCCESS) ? TM_TASK_RESULT_INFO_SUCCESS : TM_TASK_RESULT_INFO_FAIL
-        };
-        tm_update_task_result(edge, cap, &info);
-    }
-    else
+    if (edge == NULL)
     {
         LOG_ERR("Failed to find edge (");
         LOG_ERR_6ADDR(&request->src_ep->ipaddr);
         LOG_ERR_(") to update trust of\n");
+        return;
     }
+
+    edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
+    if (cap == NULL)
+    {
+        LOG_ERR("Failed to find edge (");
+        LOG_ERR_6ADDR(&request->src_ep->ipaddr);
+        LOG_ERR_(") capability %s to update trust of\n", ROUTING_APPLICATION_NAME);
+        return;
+    }
+
+    // Update trust model with notification of task success/failure
+    const tm_task_result_info_t info = {
+        .result = (status == ROUTING_SUCCESS) ? TM_TASK_RESULT_INFO_SUCCESS : TM_TASK_RESULT_INFO_FAIL
+    };
+    tm_update_task_result(edge, cap, &info);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -417,6 +423,7 @@ routing_process_task_timeout(void)
         LOG_ERR("Unable to find edge this task was sent to: ");
         LOG_ERR_COAP_EP(coap_callback.state.remote_endpoint);
         LOG_ERR_("\n");
+        return;
     }
 
     edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
@@ -425,6 +432,7 @@ routing_process_task_timeout(void)
         LOG_ERR("Failed to find capability " ROUTING_APPLICATION_NAME " for edge ");
         LOG_ERR_COAP_EP(coap_callback.state.remote_endpoint);
         LOG_ERR_("\n");
+        return;
     }
 
     // When the response times out, we need to log that an error occurred
@@ -432,6 +440,30 @@ routing_process_task_timeout(void)
         .result = TM_TASK_RESULT_INFO_TIMEOUT
     };
     tm_update_task_result(edge, cap, &info);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static void
+routing_process_task_result(coap_message_t *request, const tm_result_quality_info_t* info)
+{
+    edge_resource_t* edge = edge_info_find_addr(&request->src_ep->ipaddr);
+    if (!edge)
+    {
+        LOG_ERR("Unable to find edge this task was sent to: ");
+        LOG_ERR_COAP_EP(coap_callback.state.remote_endpoint);
+        LOG_ERR_("\n");
+        return;
+    }
+
+    edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
+    if (!cap)
+    {
+        LOG_ERR("Failed to find capability " ROUTING_APPLICATION_NAME " for edge ");
+        LOG_ERR_COAP_EP(coap_callback.state.remote_endpoint);
+        LOG_ERR_("\n");
+        return;
+    }
+
+    tm_update_result_quality(edge, cap, info);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -561,10 +593,7 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
                 .good = (first_src_isclose && last_dest_isclose)
             };
 
-            edge_resource_t* edge = edge_info_find_addr(&request->src_ep->ipaddr);
-            edge_capability_t* cap = edge_info_capability_find(edge, ROUTING_APPLICATION_NAME);
-
-            tm_update_result_quality(edge, cap, &info);
+            routing_process_task_result(request, &info);
 
             timed_unlock_unlock(&task_in_use);
         }
