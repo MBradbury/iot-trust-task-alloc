@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import asyncio
 import os
@@ -26,7 +28,7 @@ class TrustModel(IntEnum):
     Continuous = 2
     ChallengeResponse = 3
 
-    def encode(self):
+    def encode(self) -> int:
         return int(self)
 
 @dataclass(frozen=True)
@@ -35,7 +37,7 @@ class StereotypeRequest:
     tags: StereotypeTags
 
     @staticmethod
-    def decode(payload: bytes):
+    def decode(payload: bytes) -> StereotypeRequest:
         model, tags = cbor2.loads(payload)
 
         model = TrustModel(model)
