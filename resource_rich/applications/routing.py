@@ -101,7 +101,7 @@ class RoutingClient(client_common.Client):
 
             route_chunks = list(chunked(route, elements_per_coap_packet))
 
-            not_cancelled = await self._write_task_result_result(dest, status, len(route_chunks)):
+            not_cancelled = await self._write_task_result_result(dest, status, len(route_chunks))
 
             # Keep going if not cancelled
             if not_cancelled:
@@ -112,7 +112,7 @@ class RoutingClient(client_common.Client):
                     if not not_cancelled:
                         break
         else:
-            not_cancelled = await self._write_task_result_result(dest, status, 0):
+            not_cancelled = await self._write_task_result_result(dest, status, 0)
 
         if not_cancelled:
             logger.warning("Result delivered too late, IoT device asked to cancel task")
