@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import logging
 import random
@@ -6,7 +7,7 @@ import asyncio
 
 from routing import RoutingClient as RoutingClientGood, NAME, _format_route
 import client_common
-from bad import PeriodicBad
+from bad import PeriodicBad, FakeRestartClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(f"app-{NAME}-bad")
@@ -19,13 +20,15 @@ BAD_RESPONSE_CHOICES = ["success", "no_route", "gave_up"]
 GBR_LAT_LONG_NOTH_EAST = (61.061, 2.0919117)
 GBR_LAT_LONG_SOUTH_WEST = (49.674, -14.015517)
 
-class RoutingClientBad(RoutingClientGood):
-    def __init__(self, approach, duration):
+class RoutingClientBad(RoutingClientGood, FakeRestartClient):
+    def __init__(self, approach: str, duration: float, fake_restart_period: Optional[float]):
         super().__init__()
 
         self.approach = approach
 
-        self.bad = PeriodicBad(duration, NAME)
+        self.bad = PeriodicBad(duration, NAME, self._bad_changed)
+
+        self.fake_restart_period = fake_restart_period
 
     async def start(self):
         await super().start()
@@ -34,6 +37,17 @@ class RoutingClientBad(RoutingClientGood):
     async def shutdown(self):
         self.bad.shutdown()
         await super().shutdown()
+
+    def _bad_changed(self):
+        # If we do not have a fake restart period, then we are not doing this kind of attack
+        if self.fake_restart_period is None:
+            return
+
+        # If we have just become good, then during our bad period the trust/reputation
+        # values for us may have decreased. So lets try unannouncing and reanncouncing ourselves.
+        # Some IoT devices may choose to remove the stored trust values for us because of this.
+        if not self.bad.is_bad:
+            self._do_fake_restart(self.fake_restart_period)
 
     async def _send_result(self, dest, message_response):
         if self.bad.is_bad:
@@ -97,6 +111,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='challenge-reponse always bad')
     parser.add_argument('--approach', type=str, choices=MISBEHAVE_CHOICES + ["random"], required=True, help='How will this application misbehave')
     parser.add_argument('--duration', type=float, required=True, help='How long will this application misbehave for in seconds')
+    parser.add_argument('--fake-restart-period', type=float, required=False, default=None,
+                        help='How long to wait for a fake restart after becoming good again')
     args = parser.parse_args()
 
     client = RoutingClientBad(args.approach, args.duration)

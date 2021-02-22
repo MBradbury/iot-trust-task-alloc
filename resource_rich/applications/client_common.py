@@ -28,6 +28,7 @@ class Client:
         self.name = name
         self.reader = None
         self.writer = None
+        self.running = False
 
         self.message_prefix = f"{application_edge_marker}{self.name}{serial_sep}"
 
@@ -148,8 +149,10 @@ class Client:
 
     async def _inform_application_started(self):
         await self._write_to_application("start")
+        self.running = True
 
     async def _inform_application_stopped(self):
+        self.running = False
         await self._write_to_application("stop")
 
 
