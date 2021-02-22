@@ -18,6 +18,25 @@ MEMB(edge_capabilities_memb, edge_capability_t, NUM_EDGE_RESOURCES * NUM_EDGE_CA
 /*-------------------------------------------------------------------------------------------------------------------*/
 LIST(edge_resources);
 /*-------------------------------------------------------------------------------------------------------------------*/
+static bool
+free_up_edge_capabilities(void)
+{
+    // TODO: might need to address bias in which inactive edge capability is selected for removal
+
+    for (edge_resource_t* eiter = list_head(edge_resources); eiter != NULL; eiter = list_item_next(eiter))
+    {
+        for (edge_capability_t* citer = list_head(eiter->capabilities); citer != NULL; citer = list_item_next(citer))
+        {
+            if (!edge_capability_is_active(citer))
+            {
+                return edge_info_capability_remove(eiter, citer);
+            }
+        }
+    }
+
+    return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static edge_capability_t*
 edge_capability_new(edge_resource_t* edge)
 {
@@ -32,7 +51,13 @@ edge_capability_new(edge_resource_t* edge)
     edge_capability_t* cap = memb_alloc(&edge_capabilities_memb);
     if (cap == NULL)
     {
-        return NULL;
+        free_up_edge_capabilities();
+
+        cap = memb_alloc(&edge_capabilities_memb);
+        if (cap == NULL)
+        {
+            return NULL;
+        }
     }
 
     edge_capability_tm_init(&cap->tm);
@@ -46,13 +71,35 @@ edge_capability_free(edge_capability_t* capability)
     memb_free(&edge_capabilities_memb, capability);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static bool
+free_up_edge_resource(void)
+{
+    // TODO: might need to address bias in which inactive edge is selected for removal
+
+    for (edge_resource_t* eiter = list_head(edge_resources); eiter != NULL; eiter = list_item_next(eiter))
+    {
+        if (!edge_info_is_active(eiter))
+        {
+            return edge_info_remove(eiter);
+        }
+    }
+
+    return false;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static edge_resource_t*
 edge_resource_new(void)
 {
     edge_resource_t* edge = memb_alloc(&edge_resources_memb);
     if (edge == NULL)
     {
-        return NULL;
+        free_up_edge_resource();
+
+        edge = memb_alloc(&edge_resources_memb);
+        if (edge == NULL)
+        {
+            return NULL;
+        }
     }
 
     edge_resource_tm_init(&edge->tm);
@@ -114,12 +161,17 @@ edge_info_add(const uip_ipaddr_t* addr)
     return edge;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-void
+bool
 edge_info_remove(edge_resource_t* edge)
 {
-    list_remove(edge_resources, edge);
+    bool removed = list_remove(edge_resources, edge);
 
-    edge_resource_free(edge);
+    if (removed)
+    {
+        edge_resource_free(edge);
+    }
+
+    return removed;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t*
@@ -160,6 +212,11 @@ edge_info_find_eui64(const uint8_t* eui64)
 size_t edge_info_count(void)
 {
     return list_length(edge_resources);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_info_is_active(const edge_resource_t* edge)
+{
+    return (edge->flags & EDGE_RESOURCE_ACTIVE) != 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t*
@@ -258,18 +315,23 @@ const char* edge_info_name(const edge_resource_t* edge)
     return edge_info_name_buffer;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_capability_is_active(const edge_capability_t* capability)
+{
+    return (capability->flags & EDGE_CAPABILITY_ACTIVE) != 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 bool edge_info_has_active_capability(const char* name)
 {
     for (edge_resource_t* iter = list_head(edge_resources); iter != NULL; iter = list_item_next(iter))
     {
         // Skip inactive edges
-        if ((iter->flags & EDGE_RESOURCE_ACTIVE) == 0)
+        if (!edge_info_is_active(iter))
         {
             continue;
         }
 
         edge_capability_t* capability = edge_info_capability_find(iter, name);
-        if (capability != NULL && (capability->flags & EDGE_CAPABILITY_ACTIVE) != 0)
+        if (capability != NULL && edge_capability_is_active(capability))
         {
             return true;
         }

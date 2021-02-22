@@ -20,12 +20,27 @@ edge_resource_t* choose_edge(const char* capability_name)
 
     for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
     {
-        edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
-        if (capability != NULL)
+        // Skip inactive edges
+        if (!edge_info_is_active(iter))
         {
-            candidates[candidates_len] = iter;
-            candidates_len++;
+            continue;
         }
+
+        edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
+        if (capability == NULL)
+        {
+            continue;
+        }
+
+        // Skip inactive capabilities
+        if (!edge_capability_is_active(capability))
+        {
+            continue;
+        }
+
+        // Consider this edge
+        candidates[candidates_len] = iter;
+        candidates_len++;
     }
 
     // No valid options

@@ -56,7 +56,7 @@ typedef struct edge_resource
 void edge_info_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_add(const uip_ipaddr_t* addr);
-void edge_info_remove(edge_resource_t* edge);
+bool edge_info_remove(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_resource_t* edge_info_find_addr(const uip_ipaddr_t* addr);
 edge_resource_t* edge_info_find_eui64(const uint8_t* eui64);
@@ -66,6 +66,8 @@ edge_resource_t* edge_info_next(edge_resource_t* iter);
 /*-------------------------------------------------------------------------------------------------------------------*/
 size_t edge_info_count(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_info_is_active(const edge_resource_t* edge);
+/*-------------------------------------------------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_add(edge_resource_t* edge, const char* name);
 bool edge_info_capability_remove_by_name(edge_resource_t* edge, const char* name);
@@ -73,6 +75,8 @@ bool edge_info_capability_remove(edge_resource_t* edge, edge_capability_t* capab
 void edge_info_capability_clear(edge_resource_t* edge);
 /*-------------------------------------------------------------------------------------------------------------------*/
 edge_capability_t* edge_info_capability_find(edge_resource_t* edge, const char* name);
+/*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_capability_is_active(const edge_capability_t* capability);
 /*-------------------------------------------------------------------------------------------------------------------*/
 extern process_event_t pe_edge_capability_add;
 extern process_event_t pe_edge_capability_remove;

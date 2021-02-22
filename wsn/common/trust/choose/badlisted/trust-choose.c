@@ -25,11 +25,23 @@ edge_resource_t* choose_edge(const char* capability_name)
         //edge_resource_tm_print(&iter->tm);
         //LOG_DBG_("\n");
 
+        // Skip inactive edges
+        if (!edge_info_is_active(iter))
+        {
+            continue;
+        }
+
         // Make sure the edge has the desired capability
         edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
         if (capability == NULL)
         {
             //LOG_DBG("Excluding edge %s because it lacks the capability\n", edge_info_name(iter));
+            continue;
+        }
+
+        // Skip inactive capabilities
+        if (!edge_capability_is_active(capability))
+        {
             continue;
         }
 

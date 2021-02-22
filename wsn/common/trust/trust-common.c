@@ -141,6 +141,7 @@ mqtt_publish_announce_handler(const char *topic, const char* topic_end,
 
     certificate_t cert;
     NANOCBOR_CHECK(certificate_decode(&dec, &cert));
+
     return process_certificate(eui64, &cert);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -190,9 +191,11 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
             cap->flags &= ~EDGE_CAPABILITY_ACTIVE;
         }
 
+#ifndef NO_ACTIVE_REMOVAL_ON_UNANNOUNCE
         // TODO: should potentially not remove capability information here
         // as it will throw away trust history
         edge_info_capability_clear(edge);
+#endif
     }
     else
     {
@@ -258,6 +261,7 @@ mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability
         return -1;
     }
 
+    // Mark the capability as active
     capability->flags |= EDGE_CAPABILITY_ACTIVE;
 
     LOG_INFO("Added capability (%s) for edge with identity ", capability_name);
@@ -315,9 +319,13 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
         return -1;
     }
 
+    // Mark the capability as inactive
+    capability->flags &= ~EDGE_CAPABILITY_ACTIVE;
+
     // We have lost at least one Edge resource to support this application, so we need to inform the process
     post_to_capability_process(capability, pe_edge_capability_remove, edge);
 
+#ifndef NO_ACTIVE_REMOVAL_ON_UNANNOUNCE
     // TODO: should potentially not remove capability information here
     // as it will throw away trust history
     bool result = edge_info_capability_remove(edge, capability);
@@ -334,6 +342,7 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
         LOG_ERR_6ADDR(&edge->ep.ipaddr);
         LOG_ERR_(" as it does not have that capability\n");
     }
+#endif
 
     return 0;
 }

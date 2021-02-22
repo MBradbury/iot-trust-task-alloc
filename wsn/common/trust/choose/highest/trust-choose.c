@@ -21,10 +21,22 @@ edge_resource_t* choose_edge(const char* capability_name)
 
     for (edge_resource_t* iter = edge_info_iter(); iter != NULL; iter = edge_info_next(iter))
     {
+        // Skip inactive edges
+        if (!edge_info_is_active(iter))
+        {
+            continue;
+        }
+
         edge_capability_t* capability = edge_info_capability_find(iter, capability_name);
         if (capability == NULL)
         {
             LOG_WARN("Cannot find capability %s for edge %s\n", capability_name, edge_info_name(iter));
+            continue;
+        }
+
+        // Skip inactive capabilities
+        if (!edge_capability_is_active(capability))
+        {
             continue;
         }
 
