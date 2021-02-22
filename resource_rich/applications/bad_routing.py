@@ -115,6 +115,6 @@ if __name__ == "__main__":
                         help='How long to wait for a fake restart after becoming good again')
     args = parser.parse_args()
 
-    client = RoutingClientBad(args.approach, args.duration)
+    client = RoutingClientBad(args.approach, args.duration, args.fake_restart_period)
 
     client_common.main(NAME, client)
