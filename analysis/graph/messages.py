@@ -53,7 +53,7 @@ def main(log_dir: pathlib.Path):
     }
 
     to_graph = {
-        ("tx", 125_000): XYs_tx,
+        ("tx", 140_000): XYs_tx,
         ("rx", 55_000): XYs_rx,
     }
 
