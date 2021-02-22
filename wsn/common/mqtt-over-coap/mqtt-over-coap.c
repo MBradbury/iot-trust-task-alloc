@@ -53,7 +53,6 @@ static process_event_t pe_state_machine;
 #define NET_CONNECT_PERIODIC        (CLOCK_SECOND * 1)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Default configuration values */
-//#define DEFAULT_KEEP_ALIVE_TIMER    (CLOCK_SECOND * 60)  // https://github.com/emqx/emqx-coap#coap-client-keep-alive
 #define DEFAULT_PING_INTERVAL       (CLOCK_SECOND * 30)
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Payload length of ICMPv6 echo requests used to measure RSSI with def rt */
