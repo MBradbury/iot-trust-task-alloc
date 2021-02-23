@@ -53,8 +53,8 @@ class PeriodicBad:
                 to_sleep_for = max(self.duration - (end - start), 0)
                 await asyncio.sleep(to_sleep_for)
 
-        except asyncio.CancelledError:
-            pass
+        except asyncio.CancelledError as ex:
+            logger.warning(f"Canelling periodic task due to {ex}")
 
 class FakeRestartClient(Client):
     async def _fake_restart_application(self, wait_duration: float):
@@ -64,8 +64,8 @@ class FakeRestartClient(Client):
             await asyncio.sleep(wait_duration)
 
             await self._inform_application_started()
-        except asyncio.CancelledError:
-            pass
+        except asyncio.CancelledError as ex:
+            logger.warning(f"Canelling _fake_restart_application task due to {ex}")
 
     def _do_fake_restart_application(self, wait_duration: float) -> asyncio.Task:
         return asyncio.create_task(self._fake_restart_application(wait_duration))
@@ -77,8 +77,8 @@ class FakeRestartClient(Client):
             await asyncio.sleep(wait_duration)
 
             await self._inform_edge_bridge_started()
-        except asyncio.CancelledError:
-            pass
+        except asyncio.CancelledError as ex:
+            logger.warning(f"Canelling _fake_restart_server task due to {ex}")
 
     def _do_fake_restart_server(self, wait_duration: float) -> asyncio.Task:
         return asyncio.create_task(self._do_fake_restart_server(wait_duration))
