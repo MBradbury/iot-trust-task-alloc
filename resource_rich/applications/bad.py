@@ -4,7 +4,7 @@ import asyncio
 from config import edge_marker
 from client_common import Client
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bad-application")
 logger.setLevel(logging.DEBUG)
 

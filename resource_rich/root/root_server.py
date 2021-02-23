@@ -86,7 +86,6 @@ def keystore_aiocoap_oscore_credentials(keystore: Keystore) -> CredentialsMap:
 
 async def start(oscore_site: OscoreSiteWrapper, bridge: MQTTCOAPBridge):
     bridge.context = await aiocoap.Context.create_server_context(oscore_site)
-
     await bridge.start()
 
 def main(mqtt_database,
