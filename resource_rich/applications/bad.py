@@ -32,9 +32,13 @@ class PeriodicBad:
             self.periodic_task.cancel()
 
     async def _periodic(self):
+        loop = asyncio.get_running_loop()
+
         try:
+            await asyncio.sleep(self.duration)
+
             while True:
-                await asyncio.sleep(self.duration)
+                start = loop.time()
 
                 self.is_bad = not self.is_bad
 
@@ -42,6 +46,12 @@ class PeriodicBad:
 
                 if self.cb:
                     self.cb()
+
+                end = loop.time()
+
+                # Avoid drift by calculating the time it took to execute the task
+                to_sleep_for = max(self.duration - (end - start), 0)
+                await asyncio.sleep(to_sleep_for)
 
         except asyncio.CancelledError:
             pass
