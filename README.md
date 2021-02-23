@@ -170,8 +170,32 @@ git clone https://github.com/MBradbury/iot-trust-task-alloc.git
 cd iot-trust-task-alloc && git submodule update --init
 ```
 
+## Building the border router
+
+The root node needs the Contiki-NG border router to be built and deployed in order to function.
+
+On your development machine:
+```bash
+cd $CONTIKING_DIR/examples/rpl-border-router
+make TARGET=zoul PLATFORM=remote-revb
+```
+
+This should have produced `border-router.zoul` which now needs to be copied to the root node. Replace `wsn1` with the IP address or hostname of the root node.
+
+```bash
+scp build/zoul/remote-revb/border-router.bin pi@wsn1:~/pi-client/
+```
 
 # Instructions to Deploy
+
+For simplicity a number of test scripts have been written to aid in simplifying running experiments. These test scripts should be preferred instead of running tests manually, unless the additional flexibility is required.
+
+You should edit these bash scripts in order to configure the parameters passed to the runner scripts they call. For example, on the Edge node you might want to set the routing application to behave badly instead of the default correct behaviour.
+
+```bash
+#nohup python3 -m tools.run.edge --application monitoring 2 --application routing 0 --application challenge_response 1 &
+nohup python3 -m tools.run.edge --application monitoring 2 --application bad_routing 0 " --duration inf --approach random" --application challenge_response 1 &
+```
 
 1. Configure and build
 
@@ -180,7 +204,42 @@ Edit `~/wsn/iot-trust-task-alloc/tools/setup.py` to specify the nodes used in th
 
 ```bash
 cd ~/wsn/iot-trust-task-alloc
-./tools/setup.py <trust-model>
+./tools/setup.py <trust-model> <trust-choose>
+```
+
+2. On Root
+
+```bash
+cd ~/iot-trust-task-alloc
+./tests/run/root.sh
+```
+
+3. On Observer for Sensor Nodes
+
+```bash
+cd ~/iot-trust-task-alloc
+./tests/run/wsn.sh
+```
+
+4. On Edges
+
+```bash
+cd ~/iot-trust-task-alloc
+./tests/run/edge.sh
+```
+
+# Instructions to Deploy (Manual)
+
+Alternatively you can deploy applications manually instead of using the test scripts. This allows greater control over specific aspects of the deployment.
+
+1. Configure and build
+
+Edit `~/wsn/iot-trust-task-alloc/tools/setup.py` to specify the nodes used in the network then run it.
+
+
+```bash
+cd ~/wsn/iot-trust-task-alloc
+./tools/setup.py <trust-model> <trust-choose>
 ```
 
 2. On Root
