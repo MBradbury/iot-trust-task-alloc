@@ -202,10 +202,7 @@ def exception_handler(loop, context, services):
     # TODO: Gracefully stop services and notify sensor node we have shutdown
     #loop.create_task(asyncio.gather(*[service.stop() for service in services], return_exceptions=True))
 
-def main(name, main_service, services=None):
-    if services is None:
-        services = []
-
+def main(name, service):
     logger.info(f"Starting {name} application")
 
     loop = asyncio.get_event_loop()
@@ -213,14 +210,12 @@ def main(name, main_service, services=None):
     # May want to catch other signals too
     signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
     for sig in signals:
-        loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, [main_service] + services)))
+        loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, [service])))
 
-    loop.set_exception_handler(lambda l, c: exception_handler(l, c, [main_service] + services))
+    loop.set_exception_handler(lambda l, c: exception_handler(l, c, [service]))
 
     try:
-        for service in services:
-            loop.create_task(do_run(service))
-        loop.run_until_complete(do_run(main_service))
+        loop.run_until_complete(do_run(service))
     finally:
         loop.close()
         logger.info(f"Successfully shutdown the {name} application.")
