@@ -141,12 +141,20 @@ class MQTTConnector:
     def __init__(self, bridge):
         self.bridge = bridge
         self.client = asyncio_mqtt.Client('::1', protocol=mqtt.MQTTv5)
+        self._on_publish_task = None
 
     async def start(self):
         await self.client.connect()
-        asyncio.create_task(self.on_publish())
+
+        self._on_publish_task = asyncio.create_task(self.on_publish())
 
     async def stop(self):
+        self._on_publish_task.cancel()
+        try:
+            await self._on_publish_task
+        except asyncio.CancelledError:
+            pass
+
         await self.client.disconnect()
 
     async def on_publish(self):
