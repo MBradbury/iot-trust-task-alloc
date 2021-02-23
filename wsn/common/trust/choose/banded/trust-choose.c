@@ -11,6 +11,8 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+// Note: BAND_SIZE should be set such that the stereotypical trust value is within 1 - BAND_SIZE
+// Otherwise new entrants will always be excluded
 #ifndef BAND_SIZE
 #define BAND_SIZE 0.25f
 #endif
