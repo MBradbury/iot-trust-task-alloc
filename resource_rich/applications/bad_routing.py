@@ -34,10 +34,10 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
 
     async def start(self):
         await super().start()
-        self.bad.start()
+        await self.bad.start()
 
     async def shutdown(self):
-        self.bad.shutdown()
+        await self.bad.shutdown()
         await super().shutdown()
 
     def _bad_changed(self):
@@ -46,10 +46,10 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
         # Some IoT devices may choose to remove the stored trust values for us because of this.
         if not self.bad.is_bad:
             if self.fake_srvr_restart_period is not None:
-                self._do_fake_restart_server(self.fake_srvr_restart_period)
+                asyncio.create_task(self._fake_restart_server(self.fake_srvr_restart_period))
 
             elif self.fake_app_restart_period is not None:
-                self._do_fake_restart_application(self.fake_app_restart_period)
+                asyncio.create_task(self._fake_restart_application(self.fake_app_restart_period))
 
     async def _send_result(self, dest, message_response):
         if self.bad.is_bad:

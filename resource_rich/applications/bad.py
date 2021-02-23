@@ -18,7 +18,7 @@ class PeriodicBad:
         self.is_bad = False
         self.periodic_task = None
 
-    def start(self):
+    async def start(self):
         if self.duration == float('inf'):
             # Always bad
             self.is_bad = True
@@ -27,9 +27,13 @@ class PeriodicBad:
 
         logger.info(f"{self.name} becoming {'bad' if self.is_bad else 'good'}")
 
-    def shutdown(self):
+    async def shutdown(self):
         if self.periodic_task is not None:
             self.periodic_task.cancel()
+            try:
+                await self.periodic_task
+            except asyncio.CancelledError:
+                pass
 
     async def _periodic(self):
         loop = asyncio.get_running_loop()
@@ -53,8 +57,9 @@ class PeriodicBad:
                 to_sleep_for = max(self.duration - (end - start), 0)
                 await asyncio.sleep(to_sleep_for)
 
-        except asyncio.CancelledError as ex:
-            logger.warning(f"Canelling periodic task due to {ex}")
+        except asyncio.CancelledError:
+            logger.warning(f"Cancelling periodic task")
+            raise
 
 class FakeRestartClient(Client):
     async def _fake_restart_application(self, wait_duration: float):
@@ -64,11 +69,9 @@ class FakeRestartClient(Client):
             await asyncio.sleep(wait_duration)
 
             await self._inform_application_started()
-        except asyncio.CancelledError as ex:
-            logger.warning(f"Canelling _fake_restart_application task due to {ex}")
-
-    def _do_fake_restart_application(self, wait_duration: float) -> asyncio.Task:
-        return asyncio.create_task(self._fake_restart_application(wait_duration))
+        except asyncio.CancelledError:
+            logger.warning(f"Cancelling _fake_restart_application task")
+            raise
 
     async def _fake_restart_server(self, wait_duration: float):
         try:
@@ -77,11 +80,9 @@ class FakeRestartClient(Client):
             await asyncio.sleep(wait_duration)
 
             await self._inform_edge_bridge_started()
-        except asyncio.CancelledError as ex:
-            logger.warning(f"Canelling _fake_restart_server task due to {ex}")
-
-    def _do_fake_restart_server(self, wait_duration: float) -> asyncio.Task:
-        return asyncio.create_task(self._do_fake_restart_server(wait_duration))
+        except asyncio.CancelledError:
+            logger.warning(f"Canelling _fake_restart_server task")
+            raise
 
     # Taken from edge_bridge.py
     async def _inform_edge_bridge_started(self):
