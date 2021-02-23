@@ -21,14 +21,16 @@ GBR_LAT_LONG_NOTH_EAST = (61.061, 2.0919117)
 GBR_LAT_LONG_SOUTH_WEST = (49.674, -14.015517)
 
 class RoutingClientBad(RoutingClientGood, FakeRestartClient):
-    def __init__(self, approach: str, duration: float, fake_restart_period: Optional[float]):
+    def __init__(self, approach: str, duration: float,
+                 fake_app_restart_period: Optional[float], fake_srvr_restart_period: Optional[float]):
         super().__init__()
 
         self.approach = approach
 
         self.bad = PeriodicBad(duration, NAME, self._bad_changed)
 
-        self.fake_restart_period = fake_restart_period
+        self.fake_app_restart_period = fake_app_restart_period
+        self.fake_srvr_restart_period = fake_srvr_restart_period
 
     async def start(self):
         await super().start()
@@ -39,15 +41,15 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
         await super().shutdown()
 
     def _bad_changed(self):
-        # If we do not have a fake restart period, then we are not doing this kind of attack
-        if self.fake_restart_period is None:
-            return
-
         # If we have just become good, then during our bad period the trust/reputation
         # values for us may have decreased. So lets try unannouncing and reanncouncing ourselves.
         # Some IoT devices may choose to remove the stored trust values for us because of this.
         if not self.bad.is_bad:
-            self._do_fake_restart(self.fake_restart_period)
+            if self.fake_srvr_restart_period is not None:
+                self._do_fake_restart_server(self.fake_srvr_restart_period)
+
+            elif self.fake_app_restart_period is not None:
+                self._do_fake_restart_application(self.fake_app_restart_period)
 
     async def _send_result(self, dest, message_response):
         if self.bad.is_bad:
@@ -111,10 +113,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='challenge-reponse always bad')
     parser.add_argument('--approach', type=str, choices=MISBEHAVE_CHOICES + ["random"], required=True, help='How will this application misbehave')
     parser.add_argument('--duration', type=float, required=True, help='How long will this application misbehave for in seconds')
-    parser.add_argument('--fake-restart-period', type=float, required=False, default=None,
-                        help='How long to wait for a fake restart after becoming good again')
+    parser.add_argument('--fake-app-restart-period', type=float, required=False, default=None,
+                        help='How long to wait for a fake application restart after becoming good again')
+    parser.add_argument('--fake-srvr-restart-period', type=float, required=False, default=None,
+                        help='How long to wait for a fake server restart after becoming good again')
     args = parser.parse_args()
 
-    client = RoutingClientBad(args.approach, args.duration, args.fake_restart_period)
+    client = RoutingClientBad(args.approach, args.duration, args.fake_app_restart_period, args.fake_srvr_restart_period)
 
     client_common.main(NAME, client)
