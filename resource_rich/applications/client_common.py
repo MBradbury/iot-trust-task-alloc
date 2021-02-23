@@ -69,7 +69,7 @@ class Client:
 
             # Process cancel
             if line.endswith(f"{serial_sep}cancel"):
-                was_cancelled = True
+                self.was_cancelled = True
                 continue
 
             # Create task here to allow multiple jobs from clients to be

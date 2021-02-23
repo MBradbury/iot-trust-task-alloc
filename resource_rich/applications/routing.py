@@ -114,7 +114,7 @@ class RoutingClient(client_common.Client):
         else:
             not_cancelled = await self._write_task_result_result(dest, status, 0)
 
-        if not_cancelled:
+        if not not_cancelled:
             logger.warning("Result delivered too late, IoT device asked to cancel task")
 
     async def _write_task_result_result(self, dest, status, n) -> bool:
