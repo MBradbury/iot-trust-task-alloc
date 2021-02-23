@@ -4,7 +4,7 @@ import asyncio
 from config import edge_marker
 from client_common import Client
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("bad-application")
 logger.setLevel(logging.DEBUG)
 
@@ -63,6 +63,8 @@ class PeriodicBad:
 
 class FakeRestartClient(Client):
     async def _fake_restart_application(self, wait_duration: float):
+        logger.info("Performing fake restart of the application...")
+
         try:
             await self._inform_application_stopped()
 
@@ -73,7 +75,11 @@ class FakeRestartClient(Client):
             logger.warning(f"Cancelling _fake_restart_application task")
             raise
 
+        logger.info("Finished performing fake restart of the application!")
+
     async def _fake_restart_server(self, wait_duration: float):
+        logger.info("Performing fake restart of the server...")
+
         try:
             await self._inform_edge_bridge_stopped()
 
@@ -84,16 +90,14 @@ class FakeRestartClient(Client):
             logger.warning(f"Canelling _fake_restart_server task")
             raise
 
+        logger.info("Finished performing fake restart of the server!")
+
     # Taken from edge_bridge.py
     async def _inform_edge_bridge_started(self):
-        line = f"{edge_marker}start\n".encode("utf-8")
-        self.proc.stdin.write(line)
-        await self.proc.stdin.drain()
+        await self.write(f"{edge_marker}start\n")
         logger.debug("Sent fake start event")
 
     # Taken from edge_bridge.py
     async def _inform_edge_bridge_stopped(self):
-        line = f"{edge_marker}stop\n".encode("utf-8")
-        self.proc.stdin.write(line)
-        await self.proc.stdin.drain()
+        await self.write(f"{edge_marker}stop\n")
         logger.debug("Sent fake stop event")

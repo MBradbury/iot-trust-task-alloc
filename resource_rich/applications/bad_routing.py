@@ -9,7 +9,7 @@ from routing import RoutingClient as RoutingClientGood, NAME, _format_route
 import client_common
 from bad import PeriodicBad, FakeRestartClient
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(f"app-{NAME}-bad")
 logger.setLevel(logging.DEBUG)
 
