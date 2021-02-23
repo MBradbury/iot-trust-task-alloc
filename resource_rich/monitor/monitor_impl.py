@@ -119,23 +119,3 @@ class MonitorBase:
 
     def flush(self):
         self.packet_log_file.flush()
-
-
-"""class ScapyMonitor(MonitorBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pcap_log_file = PcapWriter(f"{log_dir}/{name}.data.pcap", sync=True)
-
-    def close(self):
-        self.pcap_log_file.close()
-        super().close()
-
-    def _output_packet(self, message: bytes, kind: str, now: datetime):
-        packet = Dot15d4(message)
-        packet.time = now.timestamp()
-
-        self.pcap_log_file.write(packet)
-
-    def flush(self):
-        self.pcap_log_file.flush()
-        super().flush()"""
