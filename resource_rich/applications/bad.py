@@ -127,6 +127,8 @@ class PeriodicFakeRestart:
     async def _periodic(self):
         loop = asyncio.get_running_loop()
 
+        logger.info(f"Starting periodic {self.kind} fake restart every {self.period}s for {self.duration}s")
+
         try:
             await asyncio.sleep(self.period)
 
