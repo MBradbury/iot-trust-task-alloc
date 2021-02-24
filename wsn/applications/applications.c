@@ -40,7 +40,9 @@ void post_to_capability_process(const edge_capability_t* cap, process_event_t pe
     struct process* proc = find_process_for_capability(cap);
     if (proc != NULL)
     {
-        process_post(proc, pe, data);
+        // Need to call process_post_synch instead of process_post, as we cannot be sure that
+        // data will still be alive by the time the asynchronus post is called
+        process_post_synch(proc, pe, data);
     }
     else
     {

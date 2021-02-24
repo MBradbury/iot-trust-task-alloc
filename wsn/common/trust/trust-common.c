@@ -191,11 +191,24 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
             cap->flags &= ~EDGE_CAPABILITY_ACTIVE;
         }
 
+        // Only remove information if NO_ACTIVE_REMOVAL_ON_UNANNOUNCE is not defined
 #ifndef NO_ACTIVE_REMOVAL_ON_UNANNOUNCE
-        // TODO: should potentially not remove capability information here
-        // as it will throw away trust history
+        LOG_INFO("Removed all capabilities for edge ");
+        LOG_INFO_6ADDR(&edge->ep.ipaddr);
+        LOG_INFO_("\n");
+
+        // Remove all capabilities and keep the edge object
         edge_info_capability_clear(edge);
-#endif
+
+#ifdef AGGRESSIVE_REMOVAL_ON_UNANNOUNCE
+        // Could remove all capabilites and the edge object
+        LOG_INFO("Removed edge ");
+        LOG_INFO_6ADDR(&edge->ep.ipaddr);
+        LOG_INFO_("\n");
+
+        edge_info_remove(edge);
+#endif /* AGGRESSIVE_REMOVAL_ON_UNANNOUNCE */
+#endif /* NO_ACTIVE_REMOVAL_ON_UNANNOUNCE */
     }
     else
     {
@@ -325,9 +338,8 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
     // We have lost at least one Edge resource to support this application, so we need to inform the process
     post_to_capability_process(capability, pe_edge_capability_remove, edge);
 
+    // Only remove information if NO_ACTIVE_REMOVAL_ON_UNANNOUNCE is not defined
 #ifndef NO_ACTIVE_REMOVAL_ON_UNANNOUNCE
-    // TODO: should potentially not remove capability information here
-    // as it will throw away trust history
     bool result = edge_info_capability_remove(edge, capability);
     if (result)
     {
@@ -342,7 +354,19 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
         LOG_ERR_6ADDR(&edge->ep.ipaddr);
         LOG_ERR_(" as it does not have that capability\n");
     }
-#endif
+
+#ifdef AGGRESSIVE_REMOVAL_ON_UNANNOUNCE
+    // If there are no remaining capabilities remove the edge
+    if (list_empty(edge->capabilities))
+    {
+        LOG_INFO("Removed edge ");
+        LOG_INFO_6ADDR(&edge->ep.ipaddr);
+        LOG_INFO_(" as it has no remaining capabilities\n");
+
+        edge_info_remove(edge);
+    }
+#endif /* AGGRESSIVE_REMOVAL_ON_UNANNOUNCE */
+#endif /* NO_ACTIVE_REMOVAL_ON_UNANNOUNCE */
 
     return 0;
 }
