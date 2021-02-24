@@ -38,6 +38,8 @@ static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 #define PUBLISH_CAPABILITY_PERIOD_LONG  (PUBLISH_CAPABILITY_PERIOD_SHORT * (APPLICATION_NUM + 20))
 #define PUBLISH_ANNOUNCE_SHORT_TO_LONG 5
 /*-------------------------------------------------------------------------------------------------------------------*/
+PROCESS(capability, "Announce and Capability process");
+/*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer publish_announce_timer;
 static struct etimer publish_capability_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -208,7 +210,11 @@ trigger_faster_publish(void)
     {
         LOG_DBG("publish_announce_timer: Resetting timer = %d\n", PUBLISH_CAPABILITY_PERIOD_SHORT);
 
+        // This function might be called outside of the capability context
+        // so we need to ensure that the publish_announce_timer will be linked to the capability process
+        PROCESS_CONTEXT_BEGIN(&capability);
         etimer_reset_with_new_interval(&publish_announce_timer, PUBLISH_CAPABILITY_PERIOD_SHORT);
+        PROCESS_CONTEXT_END(&capability);
     }
     else
     {
@@ -353,8 +359,6 @@ init(void)
 
     return true;
 }
-/*-------------------------------------------------------------------------------------------------------------------*/
-PROCESS(capability, "Announce and Capability process");
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(capability, ev, data)
 {
