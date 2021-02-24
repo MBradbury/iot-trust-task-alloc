@@ -135,11 +135,10 @@ move_to_next_challenge(void)
         LOG_DBG_(" ");
     }
 
-    // The final challenge might have been removed, if so we need to stop the timeout timer
-    if (next_challenge == NULL)
-    {
-        etimer_stop(&challenge_response_timer);
-    }
+    // Either we are on a new challenge, or
+    // the final challenge might have been removed,
+    // in either case we need to stop the timeout timer
+    etimer_stop(&challenge_response_timer);
 
     LOG_DBG_("\n");
 }
