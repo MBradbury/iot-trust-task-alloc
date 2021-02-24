@@ -101,3 +101,51 @@ class FakeRestartClient(Client):
     async def _inform_edge_bridge_stopped(self):
         await self.write(f"{edge_marker}stop\n")
         logger.debug("Sent fake stop event")
+
+class PeriodicFakeRestart:
+    def __init__(self, kind: str, duration, period, client: FakeRestartClient):
+        self.kind = kind
+        self.duration = duration
+        self.period = period
+        self.client = client
+
+        self.periodic_task = None
+
+    async def start(self):
+        self.periodic_task = asyncio.create_task(self._periodic())
+
+    async def shutdown(self):
+        if self.periodic_task is not None:
+            self.periodic_task.cancel()
+            try:
+                await self.periodic_task
+            except asyncio.CancelledError:
+                pass
+
+            self.periodic_task = None
+
+    async def _periodic(self):
+        loop = asyncio.get_running_loop()
+
+        try:
+            await asyncio.sleep(self.period)
+
+            while True:
+                start = loop.time()
+
+                if self.kind == "application":
+                    await self.client._fake_restart_application(self.duration)
+                elif self.kind == "server":
+                    await self.client._fake_restart_server(self.duration)
+                else:
+                    raise RuntimeError(f"Unknown fake restart kind {self.kind}")
+
+                end = loop.time()
+
+                # Avoid drift by calculating the time it took to execute the task
+                to_sleep_for = max(self.period - (end - start), 0)
+                await asyncio.sleep(to_sleep_for)
+
+        except asyncio.CancelledError:
+            logger.warning(f"Cancelling periodic task")
+            raise
