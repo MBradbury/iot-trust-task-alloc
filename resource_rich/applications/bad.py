@@ -85,7 +85,14 @@ class FakeRestartClient(Client):
 
             await asyncio.sleep(wait_duration)
 
+            # Need to say that the server has started
             await self._inform_edge_bridge_started()
+
+            # Also need to say that the applications have also started
+            await self._inform_application_started()
+
+            logger.warning("Only restarting one application, don't know which others to restart")
+
         except asyncio.CancelledError:
             logger.warning(f"Canelling _fake_restart_server task")
             raise
