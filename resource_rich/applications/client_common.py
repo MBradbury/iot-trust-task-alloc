@@ -31,6 +31,8 @@ class Client:
         self.reader = None
         self.writer = None
 
+        self.message_prefix = f"{application_edge_marker}{self.name}{serial_sep}"
+
         self.stats = Statistics()
         self.executor = ProcessPoolExecutor(max_workers=max_workers)
         self._task_runner = task_runner
