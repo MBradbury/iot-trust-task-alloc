@@ -95,6 +95,10 @@ class FakeRestartClient(Client):
 
             # Also start the other applications we have been informed are running
             for app in apps:
+                # Its horrible, but we need to wait a bit between each application
+                # to give time for the previous announce to be sent.
+                await asyncio.sleep(1.5)
+
                 await self._inform_application_started(application_name=app)
 
         except asyncio.CancelledError:
