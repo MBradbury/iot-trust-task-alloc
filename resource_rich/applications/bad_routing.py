@@ -22,7 +22,8 @@ GBR_LAT_LONG_SOUTH_WEST = (49.674, -14.015517)
 
 class RoutingClientBad(RoutingClientGood, FakeRestartClient):
     def __init__(self, approach: str, duration: float,
-                 fake_restart_type: Optional[str], fake_restart_duration: Optional[float], fake_restart_period: Optional[float]):
+                 fake_restart_type: Optional[str], fake_restart_duration: Optional[float],
+                 fake_restart_period: Optional[float], fake_restart_applications: list):
         super().__init__()
 
         self.approach = approach
@@ -31,12 +32,12 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
 
         self.fake_restart_type = fake_restart_type
         self.fake_restart_duration = fake_restart_duration
-        self.fake_restart_period = fake_restart_period
 
-        if self.fake_restart_type and self.fake_restart_duration and self.fake_restart_period:
+        if self.fake_restart_type and self.fake_restart_duration and fake_restart_period:
             self._periodic_fake_restart = PeriodicFakeRestart(self.fake_restart_type,
                                                               self.fake_restart_duration,
-                                                              self.fake_restart_period,
+                                                              fake_restart_period,
+                                                              fake_restart_applications
                                                               self)
         else:
             self._periodic_fake_restart = None
@@ -139,8 +140,15 @@ if __name__ == "__main__":
                         help='How long to wait for a fake restart after becoming good again')
     parser.add_argument('--fake-restart-period', type=float, required=False, default=None,
                         help='Perform a restart every one of these durations')
+    parser.add_argument('--fake-restart-applications', type=str, nargs='+', required=False, default=[],
+                        help='The applications to restart when performing a server restart')
     args = parser.parse_args()
 
-    client = RoutingClientBad(args.approach, args.duration, args.fake_restart_type, args.fake_restart_duration, args.fake_restart_period)
+    client = RoutingClientBad(args.approach, 
+                              args.duration,
+                              args.fake_restart_type,
+                              args.fake_restart_duration,
+                              args.fake_restart_period,
+                              args.fake_restart_applications)
 
     client_common.main(NAME, client)

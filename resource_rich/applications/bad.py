@@ -77,7 +77,7 @@ class FakeRestartClient(Client):
 
         logger.info("Finished performing fake restart of the application!")
 
-    async def _fake_restart_server(self, wait_duration: float):
+    async def _fake_restart_server(self, wait_duration: float, apps: Optional[list]=None):
         logger.info("Performing fake restart of the server...")
 
         try:
@@ -88,8 +88,12 @@ class FakeRestartClient(Client):
             # Need to say that the server has started
             await self._inform_edge_bridge_started()
 
-            # Also need to say that the applications have also started
+            # Also need to say this application has also started
             await self._inform_application_started()
+
+            # Also start the other applications we have been informed are running
+            for app in apps:
+                await self._inform_application_started(application_name=app)
 
             logger.warning("Only restarting one application, don't know which others to restart")
 
@@ -110,10 +114,11 @@ class FakeRestartClient(Client):
         logger.debug("Sent fake stop event")
 
 class PeriodicFakeRestart:
-    def __init__(self, kind: str, duration, period, client: FakeRestartClient):
+    def __init__(self, kind: str, duration: float, period: float, apps: list, client: FakeRestartClient):
         self.kind = kind
         self.duration = duration
         self.period = period
+        self.apps = apps
         self.client = client
 
         self.periodic_task = None
@@ -145,7 +150,7 @@ class PeriodicFakeRestart:
                 if self.kind == "application":
                     await self.client._fake_restart_application(self.duration)
                 elif self.kind == "server":
-                    await self.client._fake_restart_server(self.duration)
+                    await self.client._fake_restart_server(self.duration, self.apps)
                 else:
                     raise RuntimeError(f"Unknown fake restart kind {self.kind}")
 

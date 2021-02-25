@@ -28,9 +28,6 @@ class Client:
         self.name = name
         self.reader = None
         self.writer = None
-        self.running = False
-
-        self.message_prefix = f"{application_edge_marker}{self.name}{serial_sep}"
 
         self.stats = Statistics()
         self.executor = ProcessPoolExecutor(max_workers=max_workers)
@@ -144,17 +141,18 @@ class Client:
         self.writer.write(encoded_message)
         await self.writer.drain()
 
-    async def _write_to_application(self, message: str):
-        await self.write(f"{self.message_prefix}{message}\n")
+    async def _write_to_application(self, message: str, application_name: Optional[str]=None):
+        # By default send this message to the application this process represents
+        if not application_name:
+            application_name = self.name
 
-    async def _inform_application_started(self):
-        await self._write_to_application("start")
-        self.running = True
+        await self.write(f"{application_edge_marker}{application_name}{serial_sep}{message}\n")
 
-    async def _inform_application_stopped(self):
-        self.running = False
-        await self._write_to_application("stop")
+    async def _inform_application_started(self, application_name: Optional[str]=None):
+        await self._write_to_application("start", application_name=application_name)
 
+    async def _inform_application_stopped(self, application_name: Optional[str]=None):
+        await self._write_to_application("stop", application_name=application_name)
 
     async def _write_task_stats(self):
         await self._write_to_application(f"{self.task_stats_prefix}{self._stats_string()}")
