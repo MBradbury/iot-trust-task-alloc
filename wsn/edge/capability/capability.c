@@ -301,6 +301,7 @@ periodic_publish_capability(void)
     bool ret;
 
     // Check if it is available
+    // Do not include the certificate in these messages as they are intended to be lightweight and periodic
     if (applications_available[application_capability_publish_idx])
     {
         ret = publish_add_capability(application_name, false);
