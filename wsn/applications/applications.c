@@ -57,15 +57,15 @@ void edge_capability_add_common(edge_resource_t* edge)
 
     if (key)
     {
-        LOG_DBG("Creating context and pinning ");
+        /*LOG_DBG("Pinning ");
         LOG_DBG_6ADDR(&edge->ep.ipaddr);
         LOG_DBG_("'s keys\n");
 
-        keystore_pin(key);
+        keystore_pin(key);*/
     }
     else
     {
-        LOG_WARN("Cannot create context and pin ");
+        LOG_WARN("Cannot create pin ");
         LOG_DBG_6ADDR(&edge->ep.ipaddr);
         LOG_DBG_("'s keys. Requesting public key...\n");
         // Ideally this point has been reached after:
@@ -81,7 +81,7 @@ void edge_capability_add_common(edge_resource_t* edge)
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_remove_common(edge_resource_t* edge)
 {
-    LOG_DBG("Removing context and unpinning ");
+    /*LOG_DBG("Removing context and unpinning ");
     LOG_DBG_6ADDR(&edge->ep.ipaddr);
     LOG_DBG_("'s keys\n");
 
@@ -91,7 +91,7 @@ void edge_capability_remove_common(edge_resource_t* edge)
     // The key should never be NULL here
     assert(key != NULL);
 
-    keystore_unpin(key);
+    keystore_unpin(key);*/
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void application_stats_init(application_stats_t* application_stats)
