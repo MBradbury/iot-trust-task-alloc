@@ -97,9 +97,8 @@ process_application_serial_message(const char* data, const char* data_end)
         LOG_INFO("publishing add capability\n");
         publish_add_capability(application_name, true);
 
-        // The add may fail at the receiving node because the Edge
-        // has not announced itself. So lets also schedule a faster announce.
-        trigger_faster_publish();
+        // No need to trigger a faster publish of the announce here
+        // as we will send the certificate with the add capability
     }
     else if (match_action(data, data_end, APPLICATION_SERIAL_STOP))
     {
