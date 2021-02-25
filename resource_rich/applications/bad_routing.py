@@ -37,7 +37,7 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
             self._periodic_fake_restart = PeriodicFakeRestart(self.fake_restart_type,
                                                               self.fake_restart_duration,
                                                               fake_restart_period,
-                                                              fake_restart_applications
+                                                              fake_restart_applications,
                                                               self)
         else:
             self._periodic_fake_restart = None
