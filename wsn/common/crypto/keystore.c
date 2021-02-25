@@ -276,7 +276,14 @@ static void request_public_key_callback(coap_callback_request_state_t* callback_
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool request_public_key(const uip_ip6addr_t* addr)
 {
-    if (keystore_find_addr(addr) != NULL)
+    uip_ip6addr_t norm_addr;
+    uip_ip6addr_normalise(addr, &norm_addr);
+
+    uint8_t eui64[EUI64_LENGTH];
+    eui64_from_ipaddr(&norm_addr, eui64);
+
+    // Check if we have the key and have verified it
+    if (keystore_find(eui64) != NULL)
     {
         LOG_DBG("Already have the public key for ");
         LOG_DBG_6ADDR(addr);
@@ -284,6 +291,20 @@ bool request_public_key(const uip_ip6addr_t* addr)
         return false;
     }
 
+    // Check if we have the key and are in the process of verifying
+    if (keystore_find_in_list(eui64, public_keys_to_verify) != NULL)
+    {
+        LOG_DBG("Already processing the public key for ");
+        LOG_DBG_6ADDR(addr);
+        LOG_DBG_(", do not need to request it.\n");
+
+        // Poll to ensure that the process is making progress with the certificates to verify
+        process_poll(&keystore_add_verifier);
+
+        return false;
+    }
+
+    // Check if we are already requesting a key
     if (timed_unlock_is_locked(&in_use))
     {
         LOG_WARN("Already requesting a public key for ");
