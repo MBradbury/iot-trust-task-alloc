@@ -32,7 +32,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLISH_ANNOUNCE_PERIOD_SHORT   (CLOCK_SECOND * 2 * 60)
+#define PUBLISH_ANNOUNCE_PERIOD_SHORT   (CLOCK_SECOND * 1 * 60)
 #define PUBLISH_ANNOUNCE_PERIOD_LONG    (PUBLISH_ANNOUNCE_PERIOD_SHORT * 15)
 #define PUBLISH_CAPABILITY_PERIOD_SHORT (CLOCK_SECOND * 5)
 #define PUBLISH_CAPABILITY_PERIOD_LONG  (PUBLISH_CAPABILITY_PERIOD_SHORT * (APPLICATION_NUM + 20))
@@ -208,12 +208,12 @@ trigger_faster_publish(void)
     remaining = timer_remaining(&publish_announce_timer.timer);
     if (remaining > PUBLISH_ANNOUNCE_PERIOD_SHORT)
     {
-        LOG_DBG("publish_announce_timer: Resetting timer = %d\n", PUBLISH_CAPABILITY_PERIOD_SHORT);
+        LOG_DBG("publish_announce_timer: Resetting timer = %d\n", PUBLISH_ANNOUNCE_PERIOD_SHORT);
 
         // This function might be called outside of the capability context
         // so we need to ensure that the publish_announce_timer will be linked to the capability process
         PROCESS_CONTEXT_BEGIN(&capability);
-        etimer_reset_with_new_interval(&publish_announce_timer, PUBLISH_CAPABILITY_PERIOD_SHORT);
+        etimer_reset_with_new_interval(&publish_announce_timer, PUBLISH_ANNOUNCE_PERIOD_SHORT);
         PROCESS_CONTEXT_END(&capability);
     }
     else
@@ -266,7 +266,7 @@ periodic_publish_announce(void)
     }
 
     // If on the short interval, might need to transition to the long interval
-    if (publish_announce_timer.timer.interval == PUBLISH_ANNOUNCE_PERIOD_SHORT)
+    if (publish_announce_timer.timer.interval <= PUBLISH_ANNOUNCE_PERIOD_SHORT)
     {
         // Only increment short count, if we managed to successfully publish the announce
         if (ret)
