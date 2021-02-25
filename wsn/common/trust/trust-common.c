@@ -208,6 +208,8 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
 
         edge_info_remove(edge);
 #endif /* AGGRESSIVE_REMOVAL_ON_UNANNOUNCE */
+#else
+#   pragma message "Will not actively remove information on unannounce"
 #endif /* NO_ACTIVE_REMOVAL_ON_UNANNOUNCE */
     }
     else
@@ -366,6 +368,8 @@ mqtt_publish_capability_remove_handler(const uint8_t* eui64, const char* capabil
         edge_info_remove(edge);
     }
 #endif /* AGGRESSIVE_REMOVAL_ON_UNANNOUNCE */
+#else
+#   pragma message "Will not actively remove information on capability remove"
 #endif /* NO_ACTIVE_REMOVAL_ON_UNANNOUNCE */
 
     return 0;
