@@ -186,9 +186,9 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
         // this Edge are no longer available
         for (edge_capability_t* cap = list_head(edge->capabilities); cap != NULL; cap = list_item_next(cap))
         {
-            post_to_capability_process(cap, pe_edge_capability_remove, edge);
-
             cap->flags &= ~EDGE_CAPABILITY_ACTIVE;
+
+            post_to_capability_process(cap, pe_edge_capability_remove, edge);
         }
 
         // Only remove information if NO_ACTIVE_REMOVAL_ON_UNANNOUNCE is not defined
@@ -212,11 +212,11 @@ mqtt_publish_unannounce_handler(const char *topic, const char* topic_end,
     }
     else
     {
-        LOG_ERR("Failed to find edge resource ");
-        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
-        LOG_ERR_(" with address ");
-        LOG_ERR_6ADDR(ip_addr);
-        LOG_ERR_("\n");
+        LOG_DBG("Failed to find edge resource ");
+        LOG_DBG_BYTES(eui64, EUI64_LENGTH);
+        LOG_DBG_(" with address ");
+        LOG_DBG_6ADDR(ip_addr);
+        LOG_DBG_(" when trying to remove it due to an unannounce\n");
     }
 
     return 0;
