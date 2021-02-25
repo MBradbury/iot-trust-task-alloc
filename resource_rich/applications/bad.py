@@ -97,8 +97,6 @@ class FakeRestartClient(Client):
             for app in apps:
                 await self._inform_application_started(application_name=app)
 
-            logger.warning("Only restarting one application, don't know which others to restart")
-
         except asyncio.CancelledError:
             logger.warning(f"Canelling _fake_restart_server task")
             raise
