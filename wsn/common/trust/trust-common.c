@@ -243,6 +243,7 @@ mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability
     {
         certificate_t cert;
         NANOCBOR_CHECK(certificate_decode(&arr, &cert));
+
         process_certificate(eui64, &cert);
     }
     else
@@ -259,29 +260,40 @@ mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability
         return -1;
     }
 
-    // Do not process capabilities we already know about
     edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
-    if (capability)
+    if (capability != NULL)
     {
-        LOG_DBG("Notified of capability (%s) already known of\n", capability_name);
-        return -1;
+        // Do not process active capabilities we already know about
+        if (edge_capability_is_active(capability))
+        {
+            LOG_DBG("Notified of active capability (%s) already known of\n", capability_name);
+            return -1;
+        }
+        else
+        {
+            LOG_INFO("Notified of inactive capability (%s) already known of\n", capability_name);
+        }
     }
-
-    capability = edge_info_capability_add(edge, capability_name);
-    if (capability == NULL)
+    else
     {
-        LOG_ERR("Failed to create capability (%s) for edge with identity ", capability_name);
-        LOG_ERR_6ADDR(&edge->ep.ipaddr);
-        LOG_ERR_("\n");
-        return -1;
+        capability = edge_info_capability_add(edge, capability_name);
+        if (capability == NULL)
+        {
+            LOG_ERR("Failed to create capability (%s) for edge with identity ", capability_name);
+            LOG_ERR_6ADDR(&edge->ep.ipaddr);
+            LOG_ERR_("\n");
+            return -1;
+        }
+        else
+        {
+            LOG_INFO("Added capability (%s) for edge with identity ", capability_name);
+            LOG_INFO_6ADDR(&edge->ep.ipaddr);
+            LOG_INFO_("\n");
+        }
     }
 
     // Mark the capability as active
     capability->flags |= EDGE_CAPABILITY_ACTIVE;
-
-    LOG_INFO("Added capability (%s) for edge with identity ", capability_name);
-    LOG_INFO_6ADDR(&edge->ep.ipaddr);
-    LOG_INFO_("\n");
 
     // We have at least one Edge resource to support this application, so we need to inform the process
     post_to_capability_process(capability, pe_edge_capability_add, edge);
