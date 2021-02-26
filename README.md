@@ -197,7 +197,27 @@ You should edit these bash scripts in order to configure the parameters passed t
 nohup python3 -m tools.run.edge --application monitoring 2 --application bad_routing 0 " --duration inf --approach random" --application challenge_response 1 &
 ```
 
-1. Configure and build
+1. Specify the configuration
+
+You will need to create a file that details the configuration of your tests. A default file exists at `common/configuration.py.example` that can be copied to `common/configuration.py` and edited. In this example file there are six devices deployed with `wsn1` acting as the root, `wsn2` and `wsn6` acting as edge nodes, and the remaining devices acting as IoT nodes.
+
+The `hostname_to_ips` variable specifies a mapping from hostnames (which needs to be configured on the linux machines acting as observers) and the IPv6 addresses of the attached IoT devices. The root IPv6 address is set to fd00::1 and is hardcoded in `tools/run/root.py`. The other IPv6 addresses can be found in a number of ways. One approach is to follow the Contiki-NG [tutorial to ping devices](https://github.com/contiki-ng/contiki-ng/wiki/Tutorial:-IPv6-ping). Alternatively when flashing firmware the 'Primary IEEE Address' of a device will be shown similarly to the example below. This can be converted into IPV6 address by: (1) removing the colons, (2) replacing the leading 00 with 2, (3) adding fd00:: before the 2, and finally (4) adding colons every four hex characters from the right. So `00:12:4B:00:14:D5:2B:D6` becomes `fd00::212:4B00:14D5:2BD6`.
+
+```
+Opening port /dev/ttyUSB0, baud 460800
+Reading data from edge.bin
+Cannot auto-detect firmware filetype: Assuming .bin
+Connecting to target...
+CC2538 PG2.0: 512KB Flash, 32KB SRAM, CCFG at 0x0027FFD4
+Primary IEEE Address: 00:12:4B:00:14:D5:2B:D6
+Erasing 524288 bytes starting at address 0x00200000
+    Erase done
+Writing 516096 bytes starting at address 0x00202000
+```
+
+The `root_node` variable specifies which observer will run the root node, `device_stereotypes` specify the stereotype tags that should be included in the certificates of the different entities, and `hostname_to_names` defines alternate names that will be included in generated graphs.
+
+2. Build
 
 Edit `~/wsn/iot-trust-task-alloc/tools/setup.py` to specify the nodes used in the network then run it.
 
@@ -207,21 +227,21 @@ cd ~/wsn/iot-trust-task-alloc
 ./tools/setup.py <trust-model> <trust-choose>
 ```
 
-2. On Root
+3. On Root
 
 ```bash
 cd ~/iot-trust-task-alloc
 ./tests/run/root.sh
 ```
 
-3. On Observer for Sensor Nodes
+4. On Observer for Sensor Nodes
 
 ```bash
 cd ~/iot-trust-task-alloc
 ./tests/run/wsn.sh
 ```
 
-4. On Edges
+5. On Edges
 
 ```bash
 cd ~/iot-trust-task-alloc
