@@ -32,11 +32,11 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 static char pub_topic[MAX_PUBLISH_TOPIC_LEN];
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define PUBLISH_ANNOUNCE_PERIOD_SHORT   (CLOCK_SECOND * 1 * 60)
-#define PUBLISH_ANNOUNCE_PERIOD_LONG    (PUBLISH_ANNOUNCE_PERIOD_SHORT * 15)
+#define PUBLISH_ANNOUNCE_PERIOD_SHORT   (CLOCK_SECOND * 30)
+#define PUBLISH_ANNOUNCE_PERIOD_LONG    (PUBLISH_ANNOUNCE_PERIOD_SHORT * 2 * 15)
 #define PUBLISH_CAPABILITY_PERIOD_SHORT (CLOCK_SECOND * 5)
 #define PUBLISH_CAPABILITY_PERIOD_LONG  (PUBLISH_CAPABILITY_PERIOD_SHORT * (APPLICATION_NUM + 20))
-#define PUBLISH_ANNOUNCE_SHORT_TO_LONG 5
+#define PUBLISH_ANNOUNCE_SHORT_TO_LONG 3
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(capability, "Announce and Capability process");
 /*-------------------------------------------------------------------------------------------------------------------*/
