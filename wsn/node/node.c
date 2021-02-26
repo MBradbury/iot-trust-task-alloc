@@ -24,6 +24,9 @@ PROCESS_THREAD(node, ev, data)
 #ifdef BUILD_NUMBER
     LOG_INFO("BUILD NUMBER = %u\n", BUILD_NUMBER);
 #endif
+#ifdef ADDITIONAL_CFLAGS
+    LOG_INFO("Built with ADDITIONAL_CFLAGS = '" ADDITIONAL_CFLAGS "'\n");
+#endif
 
     timed_unlock_global_init();
     root_endpoint_init();
