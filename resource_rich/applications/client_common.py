@@ -22,7 +22,7 @@ class Client:
 
     # This comes from Contiki-NG's circular buffer
     # Currently there is no way to increase this value
-    max_serial_len = 128
+    max_serial_len = 127
 
     task_stats_prefix = f"app{serial_sep}stats{serial_sep}"
 
