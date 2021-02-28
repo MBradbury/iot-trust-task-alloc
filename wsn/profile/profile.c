@@ -23,11 +23,21 @@ PROCESS_THREAD(profile, ev, data)
 
     LOG_INFO("There are " CC_STRINGIFY(RTIMER_SECOND) " ticks per second\n");
 
-    //process_start(&profile_ecc_sign_verify, NULL);
-    //PROCESS_YIELD_UNTIL(!process_is_running(&profile_ecc_sign_verify));
+#if defined(PROFILE_ECC)
+    LOG_INFO("Profiling ECC\n");
+
+    process_start(&profile_ecc_sign_verify, NULL);
+    PROCESS_YIELD_UNTIL(!process_is_running(&profile_ecc_sign_verify));
+
+#elif defined(PROFILE_AES)
+    LOG_INFO("Profiling AES\n");
 
     process_start(&profile_aes_ccm, NULL);
     PROCESS_YIELD_UNTIL(!process_is_running(&profile_aes_ccm));
+
+#else
+#   error "Not profiling anything"
+#endif
 
     PROCESS_END();
 }

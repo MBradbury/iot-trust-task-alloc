@@ -16,12 +16,20 @@ endif
 
 #CFLAGS += -Wconversion
 
+ifeq ($(PROFILE_ECC),1)
+    CFLAGS += -DPROFILE_ECC
+else ifeq ($(PROFILE_AES),1)
+    CFLAGS += -DPROFILE_AES
+else
+    $(error "Unknown profile option please specify either PROFILE_ECC=1 or PROFILE_AES=1")
+endif
+
 # Add additional CFLAGS
 CFLAGS += -DCRYPTO_SUPPORT_LOG_LEVEL=LOG_LEVEL_DBG
 CFLAGS += -DKEYSTORE_LOG_LEVEL=LOG_LEVEL_DBG
 
 # Include application modules
-MODULES_REL += ../common ${addprefix ../common/,crypto trust/stereotypes}
+MODULES_REL += ../common ${addprefix ../common/,crypto crypto/platforms/cc2538 trust/stereotypes}
 
 include ../common/nanocbor/Makefile.include
 
