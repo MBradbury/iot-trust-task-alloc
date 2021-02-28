@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import math
 import pathlib
@@ -25,7 +26,7 @@ def packet_length(packet) -> int:
     else:
         return int(packet.length)
 
-def main(log_dir: pathlib.Path):
+def main(log_dir: pathlib.Path, tx_ymax: Optional[float], rx_ymax: Optional[float]):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse(log_dir, quiet=True)
@@ -53,8 +54,8 @@ def main(log_dir: pathlib.Path):
     }
 
     to_graph = {
-        ("tx", 140_000): XYs_tx,
-        ("rx", 55_000): XYs_rx,
+        ("tx", tx_ymax): XYs_tx,
+        ("rx", rx_ymax): XYs_rx,
     }
 
     bin_width = timedelta(minutes=6)
@@ -157,9 +158,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Messages sent and received')
     parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
+    parser.add_argument("--tx-ymax", type=float, default=None, help="The tx ymax")
+    parser.add_argument("--rx-ymax", type=float, default=None, help="The rx ymax")
 
     args = parser.parse_args()
 
     for log_dir in args.log_dir:
         print(f"Graphing for {log_dir}")
-        main(log_dir)
+        main(log_dir, args.tx_ymax, args.rx_ymax)

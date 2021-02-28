@@ -25,7 +25,7 @@ capability_to_task = {
     "routing": RoutingTask,
 }
 
-def main(log_dir: pathlib.Path):
+def main(log_dir: pathlib.Path, ax2_ymax: float):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse(log_dir)
@@ -118,7 +118,7 @@ def main(log_dir: pathlib.Path):
         ax2.set_ylabel('Number of tasks submitted (bars)')
 
         ax.set_ylim(0, 1)
-        ax2.set_ylim(0, 12)
+        ax2.set_ylim(0, ax2_ymax)
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
@@ -132,9 +132,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Graph Trust Value Over Time')
     parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
+    parser.add_argument("--ax2-ymax", type=float, default=20, help="The ymax for ax2")
 
     args = parser.parse_args()
 
     for log_dir in args.log_dir:
         print(f"Graphing for {log_dir}")
-        main(log_dir)
+        main(log_dir, args.ax2_ymax)
