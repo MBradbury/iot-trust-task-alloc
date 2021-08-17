@@ -44,9 +44,13 @@ git submodule update --init
 
 Edit `~/.bashrc` to add the path to Contiki-NG before the interactivity check:
 ```bash
-export CONTIKING_DIR="~/wsn/contiki-ng"
-export COOJA_DIR="$CONTIKING_DIR/tools/cooja"
+export CONTIKING_OSCORE_DIR="~/wsn/contiki-ng"
+export COOJA_DIR="$CONTIKING_OSCORE_DIR/tools/cooja"
 ```
+
+Please note that any time you see a `~` you may need to replace with the path to your home directory. This can be obtained via `realpath ~`.
+
+In order for builds to succeed you will need to modify `os/net/security/tinydtls/sha2/sha2.c` by commenting out line 35 (`#include "tinydtls.h"`).
 
 3. Clone this repository
 
