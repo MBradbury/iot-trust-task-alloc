@@ -29,7 +29,7 @@ CFLAGS += -DCRYPTO_SUPPORT_LOG_LEVEL=LOG_LEVEL_DBG
 CFLAGS += -DKEYSTORE_LOG_LEVEL=LOG_LEVEL_DBG
 
 # Include application modules
-MODULES_REL += ../common ${addprefix ../common/,crypto crypto/platforms/cc2538 trust/stereotypes}
+MODULES_REL += ../common ${addprefix ../common/,crypto crypto/targets/remote-revb trust/stereotypes}
 
 include ../common/nanocbor/Makefile.include
 

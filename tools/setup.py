@@ -27,6 +27,8 @@ from common.configuration import hostname_to_ips as ips, root_node, device_stere
 
 root_ip = ips[root_node]
 
+available_targets = ["remote-revb", "nRF52840"]
+
 class Setup:
 
     # See: wsn/common/crypto/keystore.c for the corresponding definition
@@ -34,13 +36,17 @@ class Setup:
 
     oscore_algorithm = "AES-CCM-16-64-128"
 
-    def __init__(self, trust_model: str, trust_choose: str, applications: list[str], with_pcap: bool, with_adversary: list[str], defines: dict[str, str]):
+    def __init__(self, trust_model: str, trust_choose: str, applications: list[str],
+                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str], target: str):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
         self.applications = applications
         self.with_pcap = with_pcap
         self.with_adversary = with_adversary
         self.defines = defines
+        self.target = target
+
+        assert target in available_targets
 
         self.build_number = 1
 
@@ -257,6 +263,20 @@ class Setup:
             print(contiking_format_certificate(self.certs[ip], "our_cert", ip), file=static_keys)
             print('/*-------------------------------------------------------------------------------------------------------------------*/', file=static_keys)
 
+    def _target_build_args(self):
+        if self.target == "remote-revb":
+            return {
+                "TARGET": "zoul",
+                "PLATFORM": "remote-revb",
+            }
+        elif self.target == "nRF52840":
+            return {
+                "TARGET": "nrf52840"
+            }
+        else:
+            raise RuntimeError(f"Unknown target {self.target}")
+
+
     def _generate_static_keys_and_build(self):
         # Back-up static-keys.c
         if os.path.exists("wsn/common/crypto/static-keys.c"):
@@ -280,10 +300,10 @@ class Setup:
                 "BUILD_NUMBER": self.build_number,
                 "TRUST_MODEL": self.trust_model,
                 "TRUST_CHOOSE": self.trust_choose,
-                "TARGET": "zoul",
-                "PLATFORM": "remote-revb",
                 "APPLICATIONS": '"' + " ".join(self.applications) + '"',
             }
+
+            build_args.update(self._target_build_args())
 
             if self.with_pcap:
                 build_args["MAKE_WITH_PCAP"] = "1"
@@ -374,7 +394,8 @@ if __name__ == "__main__":
     parser.add_argument('--with-adversary', nargs="*", type=str, choices=available_adversary, default=None, help='Enable building an adversary')
     parser.add_argument('--defines', nargs="*", action=DefinesAction, metavar="define-name define-value", default={},
                         help='Defines to pass to compilation')
+    parser.add_argument('--target', choices=available_targets, default=available_targets[0], help="Which target to compile for")
     args = parser.parse_args()
 
-    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines)
+    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines, args.target)
     setup.run()
