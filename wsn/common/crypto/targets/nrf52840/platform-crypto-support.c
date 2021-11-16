@@ -6,9 +6,7 @@
 #include "os/sys/log.h"
 
 #include "nrf_crypto_init.h"
-#include "nrf_crypto_ecdh.h"
 #include "nrf_crypto_hash.h"
-#include "nrf_crypto_rng.h"
 
 #include "assert.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
