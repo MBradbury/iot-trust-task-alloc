@@ -13,7 +13,6 @@
 #include "keystore-oscore.h"
 #include "timed-unlock.h"
 #include "root-endpoint.h"
-
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "keystore"
 #ifdef KEYSTORE_LOG_LEVEL
@@ -474,7 +473,7 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
 
     list_remove(public_keys_to_verify, item);
 
-    if (entry->result == PKA_STATUS_SUCCESS)
+    if (platform_crypto_success(entry->result))
     {
         LOG_INFO("Sucessfully verfied public key for ");
         LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
@@ -665,17 +664,17 @@ PROCESS_THREAD(keystore_add_verifier, ev, data)
                 keystore_pin(pkitem);
 
                 static ecdh2_state_t ecdh2_unver_state;
-                ecdh2_unver_state.ecc_multiply_state.process = &keystore_add_verifier;
+                ECDH_GET_PROCESS(ecdh2_unver_state) = &keystore_add_verifier;
                 PROCESS_PT_SPAWN(&ecdh2_unver_state.pt, ecdh2(&ecdh2_unver_state, &pkitem->cert.public_key));
 
-                if (ECDH_GET_RESULT(ecdh2_unver_state) == PKA_STATUS_SUCCESS)
+                if (platform_crypto_success(ECDH_GET_RESULT(ecdh2_unver_state)))
                 {
                     generate_shared_secret(pkitem,
                         ecdh2_unver_state.shared_secret, sizeof(ecdh2_unver_state.shared_secret));
                 }
                 else
                 {
-                    LOG_ERR("Failed to generate shared secret with error %d\n",
+                    LOG_ERR("Failed to generate shared secret with error %" CRYPTO_RESULT_SPEC "\n",
                         ECDH_GET_RESULT(ecdh2_unver_state));
                 }
 

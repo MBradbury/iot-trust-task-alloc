@@ -27,7 +27,7 @@ from common.configuration import hostname_to_ips as ips, root_node, device_stere
 
 root_ip = ips[root_node]
 
-available_targets = ["remote-revb", "nRF52840"]
+available_targets = ["remote-revb", "nRF52840DK"]
 
 class Setup:
 
@@ -37,7 +37,7 @@ class Setup:
     oscore_algorithm = "AES-CCM-16-64-128"
 
     def __init__(self, trust_model: str, trust_choose: str, applications: list[str],
-                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str], target: str):
+                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str], target: str, verbose_make: bool):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
         self.applications = applications
@@ -45,6 +45,7 @@ class Setup:
         self.with_adversary = with_adversary
         self.defines = defines
         self.target = target
+        self.verbose_make = verbose_make
 
         assert target in available_targets
 
@@ -269,9 +270,10 @@ class Setup:
                 "TARGET": "zoul",
                 "PLATFORM": "remote-revb",
             }
-        elif self.target == "nRF52840":
+        elif self.target == "nRF52840DK":
             return {
-                "TARGET": "nrf52840"
+                "TARGET": "nrf52840",
+                "BOARD": "dk",
             }
         else:
             raise RuntimeError(f"Unknown target {self.target}")
@@ -316,6 +318,9 @@ class Setup:
 
             if self.defines:
                 build_args["ADDITIONAL_CFLAGS"] = '"' + " ".join([f"-D{k}={v}" for (k,v) in self.defines.items()]) + '"'
+
+            if self.verbose_make:
+                build_args["V"] = "1"
 
             for binary in self.binaries:
                 print(f"Building {binary} with '{build_args}'")
@@ -395,7 +400,8 @@ if __name__ == "__main__":
     parser.add_argument('--defines', nargs="*", action=DefinesAction, metavar="define-name define-value", default={},
                         help='Defines to pass to compilation')
     parser.add_argument('--target', choices=available_targets, default=available_targets[0], help="Which target to compile for")
+    parser.add_argument('--verbose-make', action='store_true', help='Outputs greater detail while compiling')
     args = parser.parse_args()
 
-    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines, args.target)
+    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines, args.target, args.verbose_make)
     setup.run()

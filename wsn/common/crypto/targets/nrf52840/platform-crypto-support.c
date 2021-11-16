@@ -5,8 +5,12 @@
 #include "os/sys/rtimer.h"
 #include "os/sys/log.h"
 
-#include "dev/sha256.h"
-#include "dev/ecc-curve.h"
+#include "nrf_crypto_init.h"
+#include "nrf_crypto_ecdh.h"
+#include "nrf_crypto_hash.h"
+#include "nrf_crypto_rng.h"
+
+#include "assert.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "crypto-plat"
 #ifdef CRYPTO_SUPPORT_LOG_LEVEL
@@ -22,16 +26,13 @@ static process_event_t pe_crypto_lock_released;
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool platform_crypto_success(uint8_t ret)
 {
-    return ret == CRYPTO_SUCCESS || ret == PKA_STATUS_SUCCESS;
+    return ret == NRF_SUCCESS;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void platform_crypto_support_init(void)
 {
-    crypto_init();
-    crypto_disable();
-
-    pka_init();
-    pka_disable();
+    ret_code_t ret = nrf_crypto_init();
+    assert(ret == NRF_SUCCESS);
 
     PT_SEM_INIT(&crypto_processor_mutex, 1);
 
@@ -75,55 +76,10 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
     return true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static inline
-uint32_t ec_uint8x4_to_uint32_left(const uint8_t* field)
-{
-  return ((uint32_t)field[0] << 24)
-       | ((uint32_t)field[1] << 16)
-       | ((uint32_t)field[2] <<  8)
-       | ((uint32_t)field[3]      );
-}
-static void
-ec_uint8v_to_uint32v(const uint8_t* data, size_t size_in_bytes, uint32_t* result)
-{
-    // The data provided in key is expected to be encoded in big-endian
-    /*
-        x-: 2D98EA01 F754D34B BC3003DF 5050200A BF445EC7 28556D7E D7D5C54C 55552B6D // Orig
-        x+: 6D2B5555 4CC5D5D7 7E6D5528 C75E44BF 0A205050 DF0330BC 4BD354F7 01EA982D // New
-    */
-    for (int i = (size_in_bytes / sizeof(uint32_t)) - 1; i >= 0 ; i--)
-    {
-        *result = ec_uint8x4_to_uint32_left(&data[i * sizeof(uint32_t)]);
-        result++;
-    }
-}
-static inline
-void ec_uint8x4_from_uint32_left(uint8_t* field, uint32_t data)
-{
-    field[0] = (uint8_t)((data & 0xFF000000) >> 24);
-    field[1] = (uint8_t)((data & 0x00FF0000) >> 16);
-    field[2] = (uint8_t)((data & 0x0000FF00) >>  8);
-    field[3] = (uint8_t)((data & 0x000000FF)      );
-}
-static void
-ec_uint32v_to_uint8v(const uint32_t* data, size_t size_in_bytes, uint8_t* result)
-{
-    /*
-        x+: 6D2B5555 4CC5D5D7 7E6D5528 C75E44BF 0A205050 DF0330BC 4BD354F7 01EA982D // Orig
-        x-: 2D98EA01 F754D34B BC3003DF 5050200A BF445EC7 28556D7E D7D5C54C 55552B6D // New
-    */
-    for (int i = (size_in_bytes / sizeof(uint32_t)) - 1; i >= 0 ; i--)
-    {
-        ec_uint8x4_from_uint32_left(result, data[i]);
-
-        result += sizeof(uint32_t);
-    }
-}
-/*-------------------------------------------------------------------------------------------------------------------*/
 uint8_t
 sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
 {
-    sha256_state_t sha256_state;
+    nrf_crypto_hash_context_t ctx;
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     rtimer_clock_t time;
@@ -131,41 +87,37 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
     LOG_DBG("Starting sha256(%zu)...\n", len);
     time = RTIMER_NOW();
 #endif
+    ret_code_t ret;
 
-    bool enabled = CRYPTO_IS_ENABLED();
-    if (!enabled)
+    ret = nrf_crypto_hash_init(&ctx, &g_nrf_crypto_hash_sha256_info);
+    if (ret != NRF_SUCCESS)
     {
-        crypto_enable();
-    }
-
-    uint8_t ret;
-
-    ret = sha256_init(&sha256_state);
-    if (ret != CRYPTO_SUCCESS)
-    {
-        LOG_ERR("sha256_init failed with %u\n", ret);
+        LOG_ERR("nrf_crypto_hash_init failed with %" CRYPTO_RESULT_SPEC "\n", ret);
         goto end;
     }
 
-    ret = sha256_process(&sha256_state, buffer, len);
-    if (ret != CRYPTO_SUCCESS)
+    ret = nrf_crypto_hash_update(&ctx, buffer, len);
+    if (ret != NRF_SUCCESS)
     {
-        LOG_ERR("sha256_process failed with %u\n", ret);
+        LOG_ERR("nrf_crypto_hash_update failed with %" CRYPTO_RESULT_SPEC "\n", ret);
         goto end;
     }
 
-    ret = sha256_done(&sha256_state, hash);
-    if (ret != CRYPTO_SUCCESS)
+    size_t digest_length = SHA256_DIGEST_LEN_BYTES;
+    ret = nrf_crypto_hash_finalize(&ctx, hash, &digest_length);
+    if (ret != NRF_SUCCESS)
     {
-        LOG_ERR("sha256_done failed with %u\n", ret);
+        LOG_ERR("nrf_crypto_hash_finalize failed with %" CRYPTO_RESULT_SPEC "\n", ret);
+        goto end;
+    }
+    if (digest_length != SHA256_DIGEST_LEN_BYTES)
+    {
+        LOG_ERR("nrf_crypto_hash_finalize to create an appropriate digest length instead %zu\n", digest_length);
+        ret = NRF_ERROR_INVALID_LENGTH;
         goto end;
     }
 
 end:
-    if (!enabled)
-    {
-        crypto_disable();
-    }
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
@@ -182,7 +134,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     if (buffer_len - msg_len < DTLS_EC_KEY_SIZE * 2)
     {
         LOG_ERR("Insufficient buffer space\n");
-        state->ecc_sign_state.result = PKA_STATUS_INVALID_PARAM;
+        state->result = NRF_ERROR_INVALID_PARAM;
         PT_EXIT(&state->pt);
     }
 
@@ -192,10 +144,10 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
 
     uint8_t digest[SHA256_DIGEST_LEN_BYTES];
     uint8_t sha256_ret = sha256_hash(buffer, msg_len, digest);
-    if (sha256_ret != CRYPTO_SUCCESS)
+    if (sha256_ret != NRF_SUCCESS)
     {
         LOG_ERR("sha256_hash failed with %u\n", sha256_ret);
-        state->ecc_sign_state.result = sha256_ret;
+        state->result = sha256_ret;
 
         PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
         inform_crypto_mutex_released();
@@ -203,44 +155,61 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
         PT_EXIT(&state->pt);
     }
 
-    ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_sign_state.hash);
-
-    state->ecc_sign_state.curve_info = &nist_p_256;
-
-    // Set secret key from our private key
-    ec_uint8v_to_uint32v(our_privkey.k, DTLS_EC_KEY_SIZE, state->ecc_sign_state.secret);
-
-    crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
-
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_sign()...\n");
     static rtimer_clock_t time;
     time = RTIMER_NOW();
 #endif
 
-    pka_enable();
-    PT_SPAWN(&state->pt, &state->ecc_sign_state.pt, ecc_dsa_sign(&state->ecc_sign_state));
-    pka_disable();
+    nrf_crypto_ecc_private_key_t priv_key;
+    state->result = nrf_crypto_ecc_private_key_from_raw(
+        &g_nrf_crypto_ecc_secp256r1_curve_info,
+        &priv_key,
+        our_privkey.k,
+        DTLS_EC_KEY_SIZE);
+    if (state->result != NRF_SUCCESS)
+    {
+        LOG_ERR("nrf_crypto_ecc_private_key_from_raw failed with %" CRYPTO_RESULT_SPEC "\n", state->result);
+
+        PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+        inform_crypto_mutex_released();
+
+        PT_EXIT(&state->pt);
+    }
+
+    size_t signature_length = NRF_CRYPTO_ECDSA_SECP256R1_SIGNATURE_SIZE;
+    state->result = nrf_crypto_ecdsa_sign(
+        &state->ctx,
+        &priv_key,
+        digest, SHA256_DIGEST_LEN_BYTES,
+        state->signature, &signature_length
+    );
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
-    LOG_DBG("ecc_dsa_sign(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
+    LOG_DBG("nrf_crypto_ecdsa_sign(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
 #endif
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
     inform_crypto_mutex_released();
 
-    if (state->ecc_sign_state.result != PKA_STATUS_SUCCESS)
+    if (state->result != NRF_SUCCESS)
     {
-        LOG_ERR("Failed to sign message with %d\n", state->ecc_sign_state.result);
+        LOG_ERR("Failed to sign message with %" CRYPTO_RESULT_SPEC "\n", state->result);
+        PT_EXIT(&state->pt);
+    }
+
+    if (signature_length != NRF_CRYPTO_ECDSA_SECP256R1_SIGNATURE_SIZE)
+    {
+        LOG_ERR("Failed to create correct signature length instead %zu\n", signature_length);
+        state->result  = NRF_ERROR_INVALID_LENGTH;
         PT_EXIT(&state->pt);
     }
 
     LOG_DBG("Message sign success!\n");
 
     // Add signature into the message
-    ec_uint32v_to_uint8v(state->ecc_sign_state.point_r.x,   DTLS_EC_KEY_SIZE, buffer + msg_len                   );
-    ec_uint32v_to_uint8v(state->ecc_sign_state.signature_s, DTLS_EC_KEY_SIZE, buffer + msg_len + DTLS_EC_KEY_SIZE);
+    memcpy(buffer + msg_len, state->signature, NRF_CRYPTO_ECDSA_SECP256R1_SIGNATURE_SIZE);
 
     PT_END(&state->pt);
 }
@@ -253,7 +222,7 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
     if (buffer_len < DTLS_EC_KEY_SIZE * 2)
     {
         LOG_ERR("No signature\n");
-        state->ecc_verify_state.result = PKA_STATUS_INVALID_PARAM;
+        state->result = NRF_ERROR_INVALID_PARAM;
         PT_EXIT(&state->pt);
     }
 
@@ -263,19 +232,13 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
 
     const size_t msg_len = buffer_len - DTLS_EC_KEY_SIZE * 2;
 
-    const uint8_t* sig_r = buffer + msg_len;
-    const uint8_t* sig_s = buffer + msg_len + DTLS_EC_KEY_SIZE;
-
-    // Extract signature from buffer
-    ec_uint8v_to_uint32v(sig_r, DTLS_EC_KEY_SIZE, state->ecc_verify_state.signature_r);
-    ec_uint8v_to_uint32v(sig_s, DTLS_EC_KEY_SIZE, state->ecc_verify_state.signature_s);
+    const uint8_t* signature = buffer + msg_len;
 
     uint8_t digest[SHA256_DIGEST_LEN_BYTES];
-    uint8_t sha256_ret = sha256_hash(buffer, msg_len, digest);
-    if (sha256_ret != CRYPTO_SUCCESS)
+    ret_code_t sha256_ret = sha256_hash(buffer, msg_len, digest);
+    if (sha256_ret != NRF_SUCCESS)
     {
-        LOG_ERR("sha256_hash failed with %u\n", sha256_ret);
-        state->ecc_verify_state.result = sha256_ret;
+        LOG_ERR("sha256_hash failed with %" CRYPTO_RESULT_SPEC "\n", sha256_ret);
 
         PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
         inform_crypto_mutex_released();
@@ -283,37 +246,49 @@ PT_THREAD(ecc_verify(verify_state_t* state, const ecdsa_secp256r1_pubkey_t* pubk
         PT_EXIT(&state->pt);
     }
 
-    ec_uint8v_to_uint32v(digest, sizeof(digest), state->ecc_verify_state.hash);
-
-    state->ecc_verify_state.curve_info = &nist_p_256;
-
-    ec_uint8v_to_uint32v(pubkey->x, DTLS_EC_KEY_SIZE, state->ecc_verify_state.public.x);
-    ec_uint8v_to_uint32v(pubkey->y, DTLS_EC_KEY_SIZE, state->ecc_verify_state.public.y);
-
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_verify()...\n");
     static rtimer_clock_t time;
     time = RTIMER_NOW();
 #endif
 
-    pka_enable();
-    PT_SPAWN(&state->pt, &state->ecc_verify_state.pt, ecc_dsa_verify(&state->ecc_verify_state));
-    pka_disable();
+    nrf_crypto_ecc_public_key_t pub_key;
+    state->result = nrf_crypto_ecc_public_key_from_raw(
+        &g_nrf_crypto_ecc_secp256r1_curve_info,
+        &pub_key,
+        (const uint8_t*)pubkey,
+        sizeof(*pubkey));
+    if (state->result != NRF_SUCCESS)
+    {
+        LOG_ERR("nrf_crypto_ecc_public_key_from_raw failed with %" CRYPTO_RESULT_SPEC "\n", state->result);
+
+        PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+        inform_crypto_mutex_released();
+
+        PT_EXIT(&state->pt);
+    }
+
+    state->result = nrf_crypto_ecdsa_verify(
+        &state->ctx,
+        &pub_key,
+        digest, SHA256_DIGEST_LEN_BYTES,
+        signature, DTLS_EC_KEY_SIZE * 2);
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
-    LOG_DBG("ecc_dsa_verify(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
+    LOG_DBG("nrf_crypto_ecdsa_verify(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
 #endif
 
-    if (state->ecc_verify_state.result != PKA_STATUS_SUCCESS)
+    if (state->result != NRF_SUCCESS)
     {
-        if (state->ecc_verify_state.result == PKA_STATUS_SIGNATURE_INVALID)
+        // TODO: fix
+        /*if (state->result == PKA_STATUS_SIGNATURE_INVALID)
         {
             LOG_ERR("Failed to verify message with PKA_STATUS_SIGNATURE_INVALID\n");
         }
-        else
+        else*/
         {
-            LOG_ERR("Failed to verify message with %d\n", state->ecc_verify_state.result);
+            LOG_ERR("Failed to verify message with %" CRYPTO_RESULT_SPEC "\n", state->result);
         }
     }
     else
@@ -341,38 +316,60 @@ PT_THREAD(ecdh2(ecdh2_state_t* state, const ecdsa_secp256r1_pubkey_t* other_pubk
     time = RTIMER_NOW();
 #endif
 
-    // Prepare Points
-    state->ecc_multiply_state.curve_info = &nist_p_256;
-
-    // Set point to be the input public key
-    ec_uint8v_to_uint32v(other_pubkey->x, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.point_in.x);
-    ec_uint8v_to_uint32v(other_pubkey->y, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.point_in.y);
-
-    // Use our private key as the secret
-    ec_uint8v_to_uint32v(our_privkey.k, DTLS_EC_KEY_SIZE, state->ecc_multiply_state.secret);
-
-    pka_enable();
-    PT_SPAWN(&state->pt, &(state->ecc_multiply_state.pt), ecc_multiply(&state->ecc_multiply_state));
-    pka_disable();
-
-    if (state->ecc_multiply_state.result == PKA_STATUS_SUCCESS)
+    nrf_crypto_ecc_public_key_t pub_key;
+    state->result = nrf_crypto_ecc_public_key_from_raw(
+        &g_nrf_crypto_ecc_secp256r1_curve_info,
+        &pub_key,
+        (const uint8_t*)other_pubkey,
+        sizeof(*other_pubkey));
+    if (state->result != NRF_SUCCESS)
     {
-        ec_uint32v_to_uint8v(state->ecc_multiply_state.point_out.x, DTLS_EC_KEY_SIZE, state->shared_secret);
+        LOG_ERR("nrf_crypto_ecc_public_key_from_raw failed with %" CRYPTO_RESULT_SPEC "\n", state->result);
+
+        PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+        inform_crypto_mutex_released();
+
+        PT_EXIT(&state->pt);
     }
+
+    nrf_crypto_ecc_private_key_t priv_key;
+    state->result = nrf_crypto_ecc_private_key_from_raw(
+        &g_nrf_crypto_ecc_secp256r1_curve_info,
+        &priv_key,
+        our_privkey.k,
+        DTLS_EC_KEY_SIZE);
+    if (state->result != NRF_SUCCESS)
+    {
+        LOG_ERR("nrf_crypto_ecc_private_key_from_raw failed with %" CRYPTO_RESULT_SPEC "\n", state->result);
+
+        PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
+        inform_crypto_mutex_released();
+
+        PT_EXIT(&state->pt);
+    }
+
+    size_t shared_secret_size = DTLS_EC_KEY_SIZE;
+    state->result = nrf_crypto_ecdh_compute(
+        &state->ctx,
+        &priv_key,
+        &pub_key,
+        state->shared_secret, &shared_secret_size);
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     time = RTIMER_NOW() - time;
     LOG_DBG("ecdh2(), %" PRIu32 " us\n", RTIMERTICKS_TO_US_64(time));
 #endif
 
-    if (state->ecc_multiply_state.result != PKA_STATUS_SUCCESS)
+    if (state->result != NRF_SUCCESS)
     {
-        LOG_ERR("ecdh2 failed with %d\n", state->ecc_multiply_state.result);
+        LOG_ERR("ecdh2 failed with %" CRYPTO_RESULT_SPEC "\n", state->result);
     }
     else
     {
         LOG_DBG("echd2 success!\n");
     }
+
+    assert(shared_secret_size == DTLS_EC_KEY_SIZE);
 
     PT_SEM_SIGNAL(&state->pt, &crypto_processor_mutex);
     inform_crypto_mutex_released();

@@ -3,8 +3,16 @@
 
 #include "contiki.h"
 #include "os/sys/log.h"
-#include "dev/cc2538-sensors.h"
 #include "os/lib/assert.h"
+#include "os/lib/sensors.h"
+
+#if defined(CONTIKI_TARGET_ZOUL)
+#   include "dev/cc2538-sensors.h"
+#elif defined(CONTIKI_TARGET_NRF52840)
+#   include "arch/cpu/nrf/os/temp-arch.h"
+#else
+#   error "Unsupported board"
+#endif
 
 #include "coap.h"
 #include "coap-callback-api.h"
@@ -46,8 +54,13 @@ generate_sensor_data(uint8_t* buf, size_t buf_len)
 {
     uint32_t time_secs = clock_seconds();
 
+#if defined(CONTIKI_TARGET_ZOUL)
     int temp_value = cc2538_temp_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
     int vdd3_value = vdd3_sensor.value(CC2538_SENSORS_VALUE_TYPE_CONVERTED);
+#elif defined(CONTIKI_TARGET_NRF52840)
+    int temp_value = temperature_sensor.value(0);
+    int vdd3_value = -1;
+#endif
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, buf, buf_len);
@@ -229,8 +242,12 @@ init(void)
 {
     init_trust_weights_monitoring();
 
+#if defined(CONTIKI_TARGET_ZOUL)
     SENSORS_ACTIVATE(cc2538_temp_sensor);
     SENSORS_ACTIVATE(vdd3_sensor);
+#elif defined(CONTIKI_TARGET_NRF52840)
+    SENSORS_ACTIVATE(temperature_sensor);
+#endif
 
     app_state_init(&app_state, MONITORING_APPLICATION_NAME, MONITORING_APPLICATION_URI);
 

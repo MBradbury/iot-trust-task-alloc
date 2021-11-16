@@ -91,7 +91,7 @@ PROCESS_THREAD(signer, ev, data)
         sitem = (messages_to_sign_entry_t*)queue_dequeue(messages_to_sign);
 
         static sign_state_t sign_state;
-        sign_state.ecc_sign_state.process = &signer;
+        ECC_SIGN_GET_PROCESS(sign_state) = &signer;
         PROCESS_PT_SPAWN(&sign_state.pt, ecc_sign(&sign_state, sitem->message, sitem->message_buffer_len, sitem->message_len));
 
         sitem->result = ECC_SIGN_GET_RESULT(sign_state);
@@ -152,7 +152,7 @@ PROCESS_THREAD(verifier, ev, data)
         vitem = (messages_to_verify_entry_t*)queue_dequeue(messages_to_verify);
 
         static verify_state_t verify_state;
-        verify_state.ecc_verify_state.process = &verifier;
+        ECC_VERIFY_GET_PROCESS(verify_state) = &verifier;
         PROCESS_PT_SPAWN(&verify_state.pt, ecc_verify(&verify_state, vitem->pubkey, vitem->message, vitem->message_len));
 
         vitem->result = ECC_VERIFY_GET_RESULT(verify_state);

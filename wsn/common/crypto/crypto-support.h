@@ -6,6 +6,8 @@
 
 #include "keys.h"
 #include "platform-crypto-support.h"
+
+#include "contiki.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef SHA256_DIGEST_LEN_BYTES
 #define SHA256_DIGEST_LEN_BYTES (256 / 8)

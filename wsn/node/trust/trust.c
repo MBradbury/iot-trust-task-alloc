@@ -234,7 +234,7 @@ static void trust_rx_continue(void* data)
     messages_to_verify_entry_t* entry = (messages_to_verify_entry_t*)data;
     trust_rx_item_t* item = (trust_rx_item_t*)entry->data;
 
-    if (entry->result == PKA_STATUS_SUCCESS)
+    if (platform_crypto_success(entry->result))
     {
         uip_ipaddr_t ipaddr;
         eui64_to_ipaddr(item->key->cert.subject, &ipaddr);
@@ -308,7 +308,7 @@ static void trust_tx_continue(void* data)
     messages_to_sign_entry_t* entry = (messages_to_sign_entry_t*)data;
     trust_tx_item_t* item = entry->data;
 
-    if (entry->result == PKA_STATUS_SUCCESS)
+    if (platform_crypto_success(entry->result))
     {
         int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
         int coap_payload_len = coap_set_payload(&item->msg, item->payload_buf, payload_len);

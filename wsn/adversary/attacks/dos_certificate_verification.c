@@ -78,7 +78,7 @@ static bool build_message_continue(void* data)
         return false;
     }
 
-    if (entry->result == PKA_STATUS_SUCCESS)
+    if (crypto_success(entry->result))
     {
         int payload_len = entry->message_len + DTLS_EC_SIG_SIZE;
         int coap_payload_len = coap_set_payload(&msg, payload_buf, payload_len);
