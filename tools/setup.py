@@ -333,7 +333,11 @@ class Setup:
                 build_args_str = " ".join(f"{k}={v}" for (k,v) in final_build_args.items())
 
                 subprocess.run(f"make -C wsn/{binary} {build_args_str}", shell=True, check=True)
-                shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
+                if self.target == "remote-revb":
+                    shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
+                if self.target == "nRF52840DK":
+                    shutil.move(f"wsn/{binary}/build/nrf52840/dk/{binary}.bin", f"setup/{name}/{binary}.bin")
+
 
             shutil.move("wsn/common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
 
