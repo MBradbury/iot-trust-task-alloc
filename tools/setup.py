@@ -122,7 +122,7 @@ class Setup:
                 f"make distclean -C wsn/{binary} TRUST_MODEL={self.trust_model} TRUST_CHOOSE={self.trust_choose} MAKE_ATTACKS=dummy",
                 shell=True,
                 check=True,
-                capture_output=True
+                #capture_output=True
             )
 
     def _build_keystore(self):
