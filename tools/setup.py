@@ -29,6 +29,12 @@ root_ip = ips[root_node]
 
 available_targets = ["remote-revb", "nRF52840DK"]
 
+target_output_dir = {
+    "remote-revb": "zoul/remote-revb",
+    "nRF52840DK": "nrf52840/dk"
+
+}
+
 class Setup:
 
     # See: wsn/common/crypto/keystore.c for the corresponding definition
@@ -37,7 +43,7 @@ class Setup:
     oscore_algorithm = "AES-CCM-16-64-128"
 
     def __init__(self, trust_model: str, trust_choose: str, applications: list[str],
-                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str], target: str, verbose_make: bool):
+                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str], target: str, verbose_make: bool, no_deploy: bool):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
         self.applications = applications
@@ -46,6 +52,7 @@ class Setup:
         self.defines = defines
         self.target = target
         self.verbose_make = verbose_make
+        self.no_deploy = no_deploy
 
         assert target in available_targets
 
@@ -85,13 +92,14 @@ class Setup:
 
         self._generate_static_keys_and_build()
 
-        password = getpass.getpass("Password: ")
+        if not self.no_deploy:
+            password = getpass.getpass("Password: ")
 
-        print("Deploying build binaries to targets")
-        self._deploy(password)
+            print("Deploying build binaries to targets")
+            self._deploy(password)
 
-        print("Deploying keystore to root")
-        self._deploy_keystore(password)
+            print("Deploying keystore to root")
+            self._deploy_keystore(password)
 
         print(f"Finished setup deployment (build={self.build_number})!")
 
@@ -333,10 +341,12 @@ class Setup:
                 build_args_str = " ".join(f"{k}={v}" for (k,v) in final_build_args.items())
 
                 subprocess.run(f"make -C wsn/{binary} {build_args_str}", shell=True, check=True)
-                if self.target == "remote-revb":
-                    shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
-                if self.target == "nRF52840DK":
-                    shutil.move(f"wsn/{binary}/build/nrf52840/dk/{binary}.bin", f"setup/{name}/{binary}.bin")
+                shutil.move(f"wsn/{binary}/build/{target_output_dir[self.target]}/{binary}.bin", f"setup/{name}/{binary}.bin")
+
+                #if self.target == "remote-revb":
+                    #shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
+                #if self.target == "nRF52840DK":
+                    #shutil.move(f"wsn/{binary}/build/nrf52840/dk/{binary}.bin", f"setup/{name}/{binary}.bin")
 
 
             shutil.move("wsn/common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
@@ -405,7 +415,8 @@ if __name__ == "__main__":
                         help='Defines to pass to compilation')
     parser.add_argument('--target', choices=available_targets, default=available_targets[0], help="Which target to compile for")
     parser.add_argument('--verbose-make', action='store_true', help='Outputs greater detail while compiling')
+    parser.add_argument('--no-deploy', action='store_true', default=False, help='Disable deployment')
     args = parser.parse_args()
 
-    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines, args.target, args.verbose_make)
+    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines, args.target, args.verbose_make, args.no_deploy)
     setup.run()
