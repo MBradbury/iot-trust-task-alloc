@@ -32,7 +32,6 @@ available_targets = ["remote-revb", "nRF52840DK"]
 target_output_dir = {
     "remote-revb": "zoul/remote-revb",
     "nRF52840DK": "nrf52840/dk"
-
 }
 
 class Setup:
@@ -130,7 +129,6 @@ class Setup:
                 f"make distclean -C wsn/{binary} TRUST_MODEL={self.trust_model} TRUST_CHOOSE={self.trust_choose} MAKE_ATTACKS=dummy",
                 shell=True,
                 check=True,
-                #capture_output=True
             )
 
     def _build_keystore(self):
@@ -342,12 +340,6 @@ class Setup:
 
                 subprocess.run(f"make -C wsn/{binary} {build_args_str}", shell=True, check=True)
                 shutil.move(f"wsn/{binary}/build/{target_output_dir[self.target]}/{binary}.bin", f"setup/{name}/{binary}.bin")
-
-                #if self.target == "remote-revb":
-                    #shutil.move(f"wsn/{binary}/build/zoul/remote-revb/{binary}.bin", f"setup/{name}/{binary}.bin")
-                #if self.target == "nRF52840DK":
-                    #shutil.move(f"wsn/{binary}/build/nrf52840/dk/{binary}.bin", f"setup/{name}/{binary}.bin")
-
 
             shutil.move("wsn/common/crypto/static-keys.c", f"setup/{name}/static-keys.c")
 
