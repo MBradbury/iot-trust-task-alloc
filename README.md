@@ -30,7 +30,7 @@ This system assumes the use of [Zolertia RE-Mote rev.b](https://zolertia.io/prod
 
 ```bash
 sudo apt-get install git build-essential gcc-arm-none-eabi python3 texlive-extra-utils cm-super texlive-latex-extra dvipng poppler-utils srecord rsync
-python3 -m pip install pexpect
+python3 -m pip install pexpect fabric patchwork cbor2
 ```
 
 2. Download Contiki-NG
@@ -39,6 +39,7 @@ python3 -m pip install pexpect
 mkdir ~/wsn
 cd ~/wsn
 git clone -b petras https://github.com/MBradbury/contiki-ng.git
+cd contiki-ng
 git submodule update --init
 ```
 
@@ -52,7 +53,20 @@ Please note that any time you see a `~` you may need to replace with the path to
 
 In order for builds to succeed you will need to modify `os/net/security/tinydtls/sha2/sha2.c` by commenting out line 35 (`#include "tinydtls.h"`).
 
-3. Clone this repository
+3. Setting up building for nRF52840
+
+The nRF52840 SDK included with Contiki-NG does not contain all the appropriate headers, source files and libraries to be able to compile code that depends on CryptoCell. So you will need to download and overwrite the nRF52 SDK submodule.
+
+The SDK is located in: `~/wsn/contiki-ng/arch/cpu/nrf52840/lib/nrf52-sdk`
+
+```bash
+cd ~/wsn/contiki-ng/arch/cpu/nrf52840/lib/
+mv nrf52-sdk nrf52-sdk-original
+wget https://www.nordicsemi.com/-/media/Software-and-other-downloads/SDKs/nRF5/Binaries/nRF5SDK160098a08e2.zip
+unzip nRF5SDK160098a08e2.zip -d nrf52-sdk
+```
+
+4. Clone this repository
 
 ```bash
 cd ~/wsn
@@ -60,9 +74,11 @@ git clone https://github.com/MBradbury/iot-trust-task-alloc.git
 cd iot-trust-task-alloc && git submodule update --init
 ```
 
-4. Install Wireshark
+5. Install Wireshark
 
-Install the latest version of wireshark to be able to analyse OSCORE packets. Instructions originated from [here](https://ask.wireshark.org/question/9916/wireshark-302-linux-for-debianubuntu/)
+NOTE: These instructions are old. Please instead install Wireshark 3.4 or later as you normally would.
+
+Install the latest version of wireshark to be able to analyse OSCORE packets. Instructions originated from [here](https://ask.wireshark.org/question/9916/wireshark-302-linux-for-debianubuntu/).
 
 ```bash
 cd ~
