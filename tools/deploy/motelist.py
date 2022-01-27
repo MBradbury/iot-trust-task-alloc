@@ -10,9 +10,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.mote_type == "zolertia":
-        subprocess.check_output("motelist-zolertia",
-                                cwd="tools/deploy/motelist_backend",
-                                shell=True)
+        subprocess.run("motelist-zolertia",
+                       cwd="tools/deploy/motelist_backend",
+                       shell=True,
+                       check=True)
 
     elif args.mote_type == "nRF52840":
         raise NotImplementedError()
