@@ -23,7 +23,12 @@ from tools.keygen.keygen import generate_and_save_key
 from tools.keygen.contiking_format import *
 from tools.keygen.util import ip_to_eui64
 from common.certificate import TBSCertificate, SignedCertificate
-from common.configuration import hostname_to_ips as ips, root_node, device_stereotypes
+
+try:
+    from common.configuration import hostname_to_ips as ips, root_node, device_stereotypes
+except ImportError:
+    print("Failed to import common.configuration, have you modified the example configuration with your setup?")
+    raise
 
 root_ip = ips[root_node]
 
@@ -54,6 +59,9 @@ class Setup:
         self.no_deploy = no_deploy
 
         assert target in available_targets
+
+        assert self.applications is not None
+        assert len(self.applications) > 0
 
         self.build_number = 1
 
@@ -124,9 +132,19 @@ class Setup:
             print(f"{self.build_number}", file=build_number_file)
 
     def _clean_build_dirs(self):
+        build_args = {
+            "TRUST_MODEL": self.trust_model,
+            "TRUST_CHOOSE": self.trust_choose,
+            "MAKE_ATTACKS": "dummy",
+        }
+
+        build_args.update(self._target_build_args())
+
+        build_args_str = " ".join(f"{k}={v}" for (k,v) in build_args.items())
+
         for binary in self.binaries:
             subprocess.run(
-                f"make distclean -C wsn/{binary} TRUST_MODEL={self.trust_model} TRUST_CHOOSE={self.trust_choose} MAKE_ATTACKS=dummy",
+                f"make distclean -C wsn/{binary} {build_args_str}",
                 shell=True,
                 check=True,
             )
