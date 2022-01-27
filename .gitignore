@@ -6,6 +6,7 @@ wsn/*/build
 wsn/common/crypto/static-keys.c
 *.pem
 *.zoul
+*.nrf52840
 
 # Project Editing
 *.sublime-project
