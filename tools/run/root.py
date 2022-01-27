@@ -15,8 +15,14 @@ parser.add_argument('--log-dir', type=str, default=DEFAULT_LOG_DIR, help='The di
 
 # Flash.py
 parser.add_argument("--mote", default="/dev/ttyUSB0", help="The mote to flash.")
-parser.add_argument("--mote_type", choices=["zolertia", "telosb"], default="zolertia", help="The type of mote.")
-parser.add_argument("--firmware_type", choices=["contiki", "riot"], default="contiki", help="The OS that was used to create the firmware.")
+parser.add_argument("--mote_type",
+                    choices=supported_mote_types,
+                    default=supported_mote_types[0],
+                    help="The type of mote.")
+parser.add_argument("--firmware_type",
+                    choices=supported_firmware_types,
+                    default=supported_firmware_types[0],
+                    help="The OS that was used to create the firmware.")
 
 parser.add_argument("--no-flush-oscore", action="store_true", default=False, help="Disable flushing OSCORE cache")
 
@@ -44,8 +50,8 @@ print(f"Logging root_server to {root_server_log_path}", flush=True)
 with open(motelist_log_path, 'w') as motelist_log:
     teed = Teed()
     motelist = Popen(
-        f"./motelist-zolertia",
-        cwd=os.path.expanduser("~/pi-client/tools"),
+        f"motelist --mote-type {parser.mote_type}",
+        cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -64,7 +70,7 @@ with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     flash = Popen(
         f"python3 flash.py '{args.mote}' border-router.bin {args.mote_type} {args.firmware_type}",
-        cwd=os.path.expanduser("~/pi-client"),
+        cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
