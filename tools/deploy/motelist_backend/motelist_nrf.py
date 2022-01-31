@@ -1,28 +1,11 @@
 #!/usr/bin/env python3
-# Mostly implemented from: https://github.com/adafruit/Adafruit_Adalink/blob/master/adalink/cores/nrf52840.py
+# Initially inspired by: https://github.com/adafruit/Adafruit_Adalink/blob/master/adalink/cores/nrf52840.py
 
-import subprocess
 import sys
 
-def readmem(node_id: str, mem: int, num_bytes: int) -> int:
-    assert num_bytes <= 4
-
-    command = f"nrfjprog --memrd {mem:#08x} --n 4 --snr {node_id}"
-    memrd = subprocess.run(command,
-                           shell=True,
-                           capture_output=True,
-                           text=True)
-
-    # Expected output format
-    # $ nrfjprog --memrd 0x100000A4 --n 4 --snr 683867147
-    # 0x100000A4: 62319643                              |C.1b|
-
-    if memrd.stderr:
-        raise RuntimeError(memrd.stderr)
-
-    word = memrd.stdout.split(" ")[1]
-
-    return int(word, base=16)
+import pynrfjprog.HighLevel
+import pynrfjprog.APIError
+from pynrfjprog.Parameters import ReadbackProtection
 
 class NRFCommon:
     SRAM_LOOKUP = {
@@ -52,14 +35,17 @@ class NRFCommon:
         0xFFFFFFFF: 'Unspecified'
     }
 
-    def __init__(self, node_id: str):
-        self.node_id = node_id
+    def __init__(self, probe):
+        self.probe = probe
 
-    def _readmem(self, offset, num, fn):
+    def _read(self, address: int, length: int):
+        return self.probe.read(address, length)
+
+    def _readmem(self, offset: int, num: int, fn) -> str:
         try:
-            mem = readmem(self.node_id, self.FCIR + offset, 4)
+            mem = self._read(self.FICR + offset, num)
             return fn(mem)
-        except RuntimeError as ex:
+        except pynrfjprog.APIError.APIError as ex:
             print(ex, file=sys.stderr)
             return "Err"
 
@@ -77,43 +63,38 @@ class NRFCommon:
 
     def sram(self):
         return self._readmem(self.RAM_OFFSET, 2,
-            lambda mem: self.SRAM_LOOKUP.get(mem, f'{mem:#02X}'))
+            lambda mem: self.SRAM_LOOKUP.get(int.from_bytes(mem, 'little'), mem.hex()))
 
     def flash(self):
         return self._readmem(self.FLASH_OFFSET, 2,
-            lambda mem: self.FLASH_LOOKUP.get(mem, f'{mem:#04X}'))
+            lambda mem: self.FLASH_LOOKUP.get(int.from_bytes(mem, 'little'), mem.hex()))
 
     def package(self):
         return self._readmem(self.PACKAGE_OFFSET, 2,
-            lambda mem: self.PACKAGE_LOOKUP.get(mem, f'{mem:#04X}'))
+            lambda mem: self.PACKAGE_LOOKUP.get(int.from_bytes(mem, 'little'), mem.hex()))
 
     def did(self):
         try:
-            did_high = readmem(self.node_id, self.FCIR + self.DEVICE_ID_OFFSET_LOW, 4)
-            did_low  = readmem(self.node_id, self.FCIR + self.DEVICE_ID_OFFSET_HIGH, 4)
-            return f'{did_high:08X}{did_low:08X}'
-        except RuntimeError as ex:
+            did = self._read(self.FICR + self.DEVICE_ID_OFFSET_LOW, 8)
+            did.reverse()
+            return did.hex()
+        except pynrfjprog.APIError.APIError as ex:
             print(ex, file=sys.stderr)
             return "Err"
 
     def addr(self):
         try:
-            addr_high = (readmem(self.node_id, self.FCIR + self.ADDR_OFFSET_HIGH, 4) & 0x0000ffff) | 0x0000c000
-            addr_low  = readmem(self.node_id, self.FCIR + self.ADDR_OFFSET_LOW, 4)
-            return '{0:02X}:{1:02X}:{2:02X}:{3:02X}:{4:02X}:{5:02X}'.format(
-                (addr_high >>  8) & 0xFF,
-                (addr_high >>  0) & 0xFF,
-                (addr_low  >> 24) & 0xFF,
-                (addr_low  >> 16) & 0xFF,
-                (addr_low  >>  8) & 0xFF,
-                (addr_low  >>  0) & 0xFF)
-        except RuntimeError as ex:
+            addr = self._read(self.FICR + self.ADDR_OFFSET_LOW, 8)
+            addr = addr[0:6]
+            addr.reverse()
+            return addr.hex(":")
+        except pynrfjprog.APIError.APIError as ex:
             print(ex, file=sys.stderr)
             return "Err"
 
     def details(self):
         result = {
-            "Part ID": self.part(),
+            #"Part ID": self.part(),
             "Device ID": self.did(),
             "Variant": self.variant(),
         }
@@ -122,8 +103,8 @@ class NRFCommon:
             result["Package"] = self.package()
 
         result.update({
-            "SRAM": self.sram(),
-            "Flash": self.flash(),
+            #"SRAM": self.sram(),
+            #"Flash": self.flash(),
             "MAC": self.addr(),
         })
 
@@ -131,7 +112,7 @@ class NRFCommon:
 
 class NRF52(NRFCommon):
     # https://infocenter.nordicsemi.com/topic/ps_nrf52833/ficr.html?cp=4_1_0_3_3
-    FCIR = 0x10000000
+    FICR = 0x10000000
     PART_OFFSET = 0x100
     VARIANT_OFFSET = 0x104
     PACKAGE_OFFSET = 0x108
@@ -172,7 +153,7 @@ class NRF52840(NRF52):
             
 class NRF5340(NRFCommon):
     # https://infocenter.nordicsemi.com/topic/ps_nrf5340/chapters/ficr.network/doc/ficr.network.html?cp=3_0_0_5_3_0
-    FCIR = 0x01FF0000
+    FICR = 0x00FF0000
     PART_OFFSET = 0x20C
     VARIANT_OFFSET = 0x210
     PACKAGE_OFFSET = 0x214
@@ -192,7 +173,7 @@ class NRF5340(NRFCommon):
 
 class NRF9160(NRFCommon):
     # https://infocenter.nordicsemi.com/topic/ps_nrf9160/ficr.html
-    FCIR = 0x00FF0000
+    FICR = 0x00FF0000
     PART_OFFSET = 0x140
     VARIANT_OFFSET = 0x148
     RAM_OFFSET = 0x218
@@ -221,34 +202,42 @@ def get_information_getter(device_version):
 def motelist():
     result = []
 
-    node_ids = subprocess.run("nrfjprog --ids",
-                              check=True,
-                              shell=True,
-                              capture_output=True,
-                              text=True)
-    node_ids = node_ids.stdout.strip().split("\n")
+    with pynrfjprog.HighLevel.API() as api:
+        for node_id in api.get_connected_probes():
+            with pynrfjprog.HighLevel.DebugProbe(api, node_id) as probe:
+                probe_info = probe.get_probe_info()
+                device_info = probe.get_device_info()
 
-    for node_id in node_ids:
-        deviceversion = subprocess.run(f"nrfjprog --deviceversion --snr {node_id}",
-                                       check=True,
-                                       shell=True,
-                                       capture_output=True,
-                                       text=True)
+                node_info = {
+                    "Serial": probe_info.serial_number,
+                    "Speed (kHz)": probe_info.clockspeed_khz,
+                    "COM": ",".join([com_port.path for com_port in probe_info.com_ports]),
+                    "Type": device_info.device_type.name,
+                    "Family": device_info.device_family.name,
+                    "RBP": probe.get_readback_protection().name,
+                    #"1": device_info.code_address,
+                    #"2": device_info.code_page_size,
+                    "ROM (KiB)": device_info.code_size / 1024,
+                    #"3": device_info.uicr_address,
+                    #"4": device_info.info_page_size,
+                    #"5": device_info.code_ram_present,
+                    #"6": device_info.code_ram_address,
+                    #"7": device_info.data_ram_address,
+                    "RAM (KiB)": device_info.ram_size / 1024,
+                    #"8": device_info.qspi_present,
+                    #"9": device_info.xip_address,
+                    #"0": device_info.xip_size,
+                    #"-": device_info.pin_reset_pin,
+                }
 
-        device_version = deviceversion.stdout.strip()
+                # Won't be able to do this with readback protection
+                if probe.get_readback_protection() == ReadbackProtection.NONE:
+                    information_getter = get_information_getter(device_info.device_type.name)
+                    if information_getter is not None:
+                        info = information_getter(probe)
+                        node_info.update(info.details())
 
-        node_info = {
-            "Node ID": node_id,
-            "Device Version": device_version,
-        }
-
-        information_getter = get_information_getter(device_version)
-        if information_getter is not None:
-            info = information_getter(node_id)
-
-            node_info.update(info.details())
-
-        result.append(node_info)
+                result.append(node_info)
 
     return result
 
