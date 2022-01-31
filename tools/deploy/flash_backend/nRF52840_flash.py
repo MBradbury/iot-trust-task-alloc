@@ -16,6 +16,21 @@ r
 g
 q""", file=f)
 
+def get_serial_number_for_mote(mote: str) -> str:
+    motelist = subprocess.run(os.path.expanduser("~/bin/motelist/motelist.py --csv"),
+                              shell=True,
+                              check=True,
+                              capture_output=True)
+
+    motelistreader = csv.DictReader(io.StringIO(motelist.stdout.decode("utf-8")),
+                                    delimiter=";")
+
+    for row in motelistreader:
+        if row["Port"] == mote:
+            return row["Serial"]
+
+    raise RuntimeError(f"Unable to find serial number for mote {mote}")
+
 def flash_nrf52840(filename, mote=None, serial_number=None):
     if (mote is None) == (serial_number is None):
         raise ArgumentError("Need to specify at most one of mote and serial number")
@@ -23,17 +38,7 @@ def flash_nrf52840(filename, mote=None, serial_number=None):
     # Need to find serial number for mote
     if mote is not None:
         assert serial_number is None
-
-        motelist = subprocess.run(os.path.expanduser("~/bin/motelist/motelist.py --csv"),
-                                  shell=True, check=True, capture_output=True)
-        motelistreader = csv.DictReader(io.StringIO(motelist.stdout.decode("utf-8")), delimiter=";")
-
-        for row in motelistreader:
-            if row["Port"] == mote:
-                serial_number = row["Serial"]
-                break
-        else:
-            raise RuntimeError(f"Unable to find serial number for mote {mote}")
+        serial_number = get_serial_number_for_mote(mote)
 
     opts = {
         "-Device": "NRF52",
@@ -46,7 +51,7 @@ def flash_nrf52840(filename, mote=None, serial_number=None):
 
     write_flash_jlink(filename)
 
-    subprocess.check_call(f"{JLINK_EXE} {opts_str} -CommanderScript flash.jlink", shell=True)
+    subprocess.run(f"{JLINK_EXE} {opts_str} -CommanderScript flash.jlink", shell=True, check=True)
 
 if __name__ == "__main__":
     import argparse
