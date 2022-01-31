@@ -35,7 +35,12 @@
       name: python3-serial
       state: present
 
-  - name: pip install cryptography
+  - name: pip install twisted
+    ansible.builtin.pip:
+      name: twisted
+      state: present
+
+  - name: pip install pyserial
     ansible.builtin.pip:
       name: pyserial
       state: present
@@ -81,7 +86,6 @@
         ansible.builtin.get_url:
           url: http://repo.mosquitto.org/debian/mosquitto-bullseye.list
           dest: /etc/apt/sources.list.d/
-          state: present
 
       - name: Refresh apt cache
         ansible.builtin.apt:
