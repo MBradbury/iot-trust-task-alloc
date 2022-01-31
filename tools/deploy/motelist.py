@@ -2,6 +2,22 @@
 import subprocess
 import os
 
+def main(mote_type: str):
+    if mote_type == "zolertia":
+        subprocess.run("motelist-zolertia",
+                       cwd="tools/deploy/motelist_backend",
+                       shell=True,
+                       check=True)
+
+    elif mote_type == "nRF52840":
+        subprocess.run("python3 motelist.py",
+                       cwd=os.path.expanduser("~/bin/motelist"),
+                       shell=True,
+                       check=True)
+
+    else:
+        raise RuntimeError(f"Unknown mote type {mote_type}")
+
 if __name__ == "__main__":
     import argparse
 
@@ -10,17 +26,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.mote_type == "zolertia":
-        subprocess.run("motelist-zolertia",
-                       cwd="tools/deploy/motelist_backend",
-                       shell=True,
-                       check=True)
-
-    elif args.mote_type == "nRF52840":
-        subprocess.run("motelist.py",
-                       cwd=os.path.expanduser("~/bin/motelist"),
-                       shell=True,
-                       check=True)
-
-    else:
-        raise RuntimeError(f"Unknown mote type {args.mote_type}")
+    main(args.mote_type)

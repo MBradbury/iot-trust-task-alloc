@@ -5,6 +5,7 @@ import subprocess
 import time
 import os
 import sys
+import pathlib
 
 from resource_rich.monitor.monitor_impl import MonitorBase
 
@@ -12,6 +13,10 @@ from tools.run import supported_mote_types, supported_firmware_types, DEFAULT_LO
 from tools.run.util import Teed, Popen, StreamNoTimestamp
 
 parser = argparse.ArgumentParser(description='Edge runner')
+parser.add_argument("firmware_path", metavar="firmware-path",
+                    type=pathlib.Path,
+                    help="The path to the firmware to deploy")
+
 parser.add_argument('--log-dir', type=str, default=DEFAULT_LOG_DIR, help='The directory to store log output')
 
 # Flash.py
@@ -78,6 +83,7 @@ flash_log_path = os.path.join(args.log_dir, f"edge.{hostname}.flash.log")
 edge_bridge_log_path = os.path.join(args.log_dir, f"edge.{hostname}.edge_bridge.log")
 application_log_path = os.path.join(args.log_dir, f"edge.{hostname}.{{}}.log")
 
+print(f"CWD: {os.getcwd()}", flush=True)
 print(f"Logging motelist to {motelist_log_path}", flush=True)
 print(f"Logging flash to {flash_log_path}", flush=True)
 print(f"Logging edge_bridge to {edge_bridge_log_path}", flush=True)
@@ -101,10 +107,12 @@ with open(motelist_log_path, 'w') as motelist_log:
 
 time.sleep(0.1)
 
+firmware_path = pathlib.Path.cwd() / args.firmware_path / 'edge.bin'
+
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     p = Popen(
-        f"python3 flash.py '{args.mote}' edge.bin {args.mote_type} {args.firmware_type}",
+        f"python3 flash.py '{args.mote}' '{firmware_path}' {args.mote_type} {args.firmware_type}",
         cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,

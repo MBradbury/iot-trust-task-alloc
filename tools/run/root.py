@@ -42,6 +42,7 @@ tunslip_log_path = os.path.join(args.log_dir, f"root.{hostname}.tunslip.log")
 service_log_path = os.path.join(args.log_dir, f"root.{hostname}.service.log")
 root_server_log_path = os.path.join(args.log_dir, f"root.{hostname}.root_server.log")
 
+print(f"CWD: {os.getcwd()}", flush=True)
 print(f"Logging motelist to {motelist_log_path}", flush=True)
 print(f"Logging tunslip to {tunslip_log_path}", flush=True)
 print(f"Logging root_server to {root_server_log_path}", flush=True)

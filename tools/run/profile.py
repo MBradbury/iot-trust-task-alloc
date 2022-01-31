@@ -10,6 +10,10 @@ from tools.run import supported_mote_types, supported_firmware_types, DEFAULT_LO
 from tools.run.util import Teed, Popen, StreamNoTimestamp
 
 parser = argparse.ArgumentParser(description='Profile runner')
+parser.add_argument("firmware_path", metavar="firmware-path",
+                    type=pathlib.Path,
+                    help="The path to the firmware to deploy")
+
 parser.add_argument('--log-dir', type=str, default=DEFAULT_LOG_DIR, help='The directory to store log output')
 
 # Flash.py
@@ -38,6 +42,7 @@ motelist_log_path = os.path.join(args.log_dir, f"profile.{hostname}.motelist.log
 flash_log_path = os.path.join(args.log_dir, f"profile.{hostname}.flash.log")
 pyterm_log_path = os.path.join(args.log_dir, f"profile.{hostname}.pyterm.log")
 
+print(f"CWD: {os.getcwd()}", flush=True)
 print(f"Logging motelist to {motelist_log_path}", flush=True)
 print(f"Logging flash to {flash_log_path}", flush=True)
 print(f"Logging pyterm to {pyterm_log_path}", flush=True)
@@ -61,10 +66,12 @@ with open(motelist_log_path, 'w') as motelist_log:
 
 time.sleep(0.1)
 
+firmware_path = pathlib.Path.cwd() / args.firmware_path / 'profile.bin'
+
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     flash = Popen(
-        f"python3 flash.py '{args.mote}' profile.bin {args.mote_type} {args.firmware_type}",
+        f"python3 flash.py '{args.mote}' '{firmware_path}' {args.mote_type} {args.firmware_type}",
         cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,
