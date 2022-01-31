@@ -10,8 +10,8 @@ def main(mote_type: str):
                        check=True)
 
     elif mote_type == "nRF52840":
-        subprocess.run("python3 motelist.py",
-                       cwd=os.path.expanduser("~/bin/motelist"),
+        subprocess.run("python3 motelist_nrf.py",
+                       cwd="tools/deploy/motelist_backend",
                        shell=True,
                        check=True)
 

@@ -40,6 +40,11 @@
       name: twisted
       state: present
 
+  - name: pip install tabulate
+    ansible.builtin.pip:
+      name: tabulate
+      state: present
+
   - name: pip install pyserial
     ansible.builtin.pip:
       name: pyserial
