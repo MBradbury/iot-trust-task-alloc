@@ -1,0 +1,19 @@
+---
+- name: Deploy
+  hosts: all
+  gather_facts: no
+
+  tasks:
+  - name: Perform syncrhonisation of all files
+    ansible.builtin.synchronize:
+      src: "{{ playbook_dir | dirname }}"
+      dest: ~/deploy/
+      delete: yes
+      dirs: yes
+
+  - name: Configure keystore
+    ansible.builtin.synchronize:
+      src: "{{ playbook_dir | dirname }}/setup/keystore"
+      dest: ~/deploy/iot-trust-task-alloc/resource_rich/root/
+      delete: yes
+      dirs: yes
