@@ -47,7 +47,8 @@ class Setup:
     oscore_algorithm = "AES-CCM-16-64-128"
 
     def __init__(self, trust_model: str, trust_choose: str, applications: list[str],
-                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str], target: str, verbose_make: bool, no_deploy: bool):
+                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str],
+                 target: str, verbose_make: bool, deploy: str):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
         self.applications = applications
@@ -56,7 +57,7 @@ class Setup:
         self.defines = defines
         self.target = target
         self.verbose_make = verbose_make
-        self.no_deploy = no_deploy
+        self.deploy = deploy
 
         assert target in available_targets
 
@@ -99,14 +100,7 @@ class Setup:
 
         self._generate_static_keys_and_build()
 
-        if not self.no_deploy:
-            password = getpass.getpass("Password: ")
-
-            print("Deploying build binaries to targets")
-            self._deploy(password)
-
-            print("Deploying keystore to root")
-            self._deploy_keystore(password)
+        self._perform_deploy()
 
         print(f"Finished setup deployment (build={self.build_number})!")
 
@@ -365,7 +359,27 @@ class Setup:
         if os.path.exists("wsn/common/crypto/static-keys.c.orig"):
             shutil.move("wsn/common/crypto/static-keys.c.orig", "wsn/common/crypto/static-keys.c")
 
-    def _deploy(self, password: str):
+    def _perform_deploy(self):
+        if self.no_deploy == 'fabric':
+            password = getpass.getpass("Password: ")
+
+            print("Deploying build binaries to targets")
+            self._fabric_deploy(password)
+
+            print("Deploying keystore to root")
+            self._fabric_deploy_keystore(password)
+
+        elif self.deploy == 'ansible':
+            print("Deploying to targets")
+            self._ansible_deploy()
+
+        elif self.deploy == 'none':
+            print("Not performing a deployment")
+
+        else:
+            raise RuntimeError(f"Unknown deploy mode {self.deploy}")
+
+    def _fabric_deploy(self, password: str):
         for (target, ip) in ips.items():
             with fabric.Connection(f'pi@{target}', connect_kwargs={"password": password}) as conn:
                 # Now upload the configuration
@@ -385,12 +399,17 @@ class Setup:
                     result = conn.put(src, dest)
                     print("Uploaded {0.local} to {0.remote} for {1}".format(result, conn))
 
-    def _deploy_keystore(self, password: str):
+    def _fabric_deploy_keystore(self, password: str):
         with fabric.Connection(f'pi@{root_node}', connect_kwargs={"password": password}) as conn:
             src = "./setup/keystore"
             dest = "/home/pi/iot-trust-task-alloc/resource_rich/root"
 
             patchwork.transfers.rsync(conn, src, dest, rsync_opts="-r")
+
+    def _ansible_deploy(self):
+        subprocess.run("ansible-playbook playbooks/deploy.yaml",
+                       shell=True,
+                       check=True)
 
 if __name__ == "__main__":
     import argparse
@@ -425,8 +444,16 @@ if __name__ == "__main__":
                         help='Defines to pass to compilation')
     parser.add_argument('--target', choices=available_targets, default=available_targets[0], help="Which target to compile for")
     parser.add_argument('--verbose-make', action='store_true', help='Outputs greater detail while compiling')
-    parser.add_argument('--no-deploy', action='store_true', default=False, help='Disable deployment')
+    parser.add_argument('--deploy', choices=['none', 'ansible', 'fabric'], default='none', help='Choose how deployment is performed to observers')
     args = parser.parse_args()
 
-    setup = Setup(args.trust_model, args.trust_choose, args.applications, args.with_pcap, args.with_adversary, args.defines, args.target, args.verbose_make, args.no_deploy)
+    setup = Setup(args.trust_model,
+                  args.trust_choose,
+                  args.applications,
+                  args.with_pcap,
+                  args.with_adversary,
+                  args.defines,
+                  args.target,
+                  args.verbose_make,
+                  args.deploy)
     setup.run()
