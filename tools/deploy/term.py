@@ -28,6 +28,9 @@ def main_nrf52840(mote: str):
     JLINK_DIR = pathlib.Path("/opt/SEGGER/JLink")
     JLINK_EXE = JLINK_DIR / "JLinkExe"
 
+    # https://wiki.segger.com/RTT#TELNET_channel_of_J-Link_software
+    RTT_telnet_port = 19021
+
     opts = {
         "-nogui": "1",
         "-exitonerror": "1",
@@ -36,6 +39,7 @@ def main_nrf52840(mote: str):
         "-if": "swd",
         "-jtagconf": "-1,-1",
         "-SelectEmuBySN": get_serial_number_for_mote(mote),
+        "-RTTTelnetPort": f"{RTT_telnet_port}"
     }
 
     opts_str = " ".join(f"{k} {v}" for (k, v) in opts.items())
@@ -46,7 +50,7 @@ def main_nrf52840(mote: str):
     time.sleep(2)
 
     try:
-        subprocess.run(f"python3 pyterm.py -ts 19021",
+        subprocess.run(f"python3 pyterm.py -ts {RTT_telnet_port}",
                        cwd="tools/deploy/term_backend",
                        shell=True,
                        check=True)
