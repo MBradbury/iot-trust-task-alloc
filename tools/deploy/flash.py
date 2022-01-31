@@ -21,10 +21,10 @@ def cc2538_flash(mote, filename, target_addr=None, **kwargs):
 
     cmd = f'cc2538-bsl.py -e -w -v -b 460800 {" ".join(args)} {filename}'
 
-    subprocess.run(cmd, cwd="tools/flash_backend", shell=True, check=True)
+    subprocess.run(cmd, cwd="tools/deploy/flash_backend", shell=True, check=True)
 
 def nRF52840_flash(mote, filename, **kwargs):
-    from tools.deploy.flash_backend.nRF52840_flash import flash_nrf52840
+    from flash_backend.nRF52840_flash import flash_nrf52840
 
     flash_nrf52840(filename, mote=mote)
 

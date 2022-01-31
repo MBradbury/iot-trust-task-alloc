@@ -8,7 +8,7 @@ rm -rf logs
 
 rm -f nohup.out
 
-nohup python3 -m tools.run.wsn.py &
+nohup python3 -m tools.run.wsn &
 
 # Wait for nohup.out to be created
 sleep 1

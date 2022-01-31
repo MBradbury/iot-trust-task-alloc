@@ -6,9 +6,8 @@ import time
 import os
 import sys
 
+from tools.run import supported_mote_types, supported_firmware_types, DEFAULT_LOG_DIR
 from tools.run.util import Teed, Popen, StreamNoTimestamp
-
-DEFAULT_LOG_DIR="~/iot-trust-task-alloc/logs"
 
 parser = argparse.ArgumentParser(description='Profile runner')
 parser.add_argument('--log-dir', type=str, default=DEFAULT_LOG_DIR, help='The directory to store log output')
@@ -46,7 +45,7 @@ print(f"Logging pyterm to {pyterm_log_path}", flush=True)
 with open(motelist_log_path, 'w') as motelist_log:
     teed = Teed()
     motelist = Popen(
-        f"motelist --mote-type {parser.mote_type}",
+        f"python3 motelist.py --mote-type {args.mote_type}",
         cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,
@@ -88,7 +87,7 @@ with open(pyterm_log_path, 'w') as pyterm_log:
     # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
     # This is because this script may be called under nohup in which case stdin won't exist.
     pyterm = Popen(
-        f"python3 pyterm -b 115200 -p {args.mote}",
+        f"python3 pyterm.py -b 115200 -p {args.mote}",
         cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,

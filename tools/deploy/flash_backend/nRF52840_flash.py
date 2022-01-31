@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 import csv
 import io
+import os
 
 JLINK_DIR = Path("/opt/SEGGER/JLink")
 JLINK_EXE = JLINK_DIR / "JLinkExe"
@@ -13,7 +14,7 @@ def write_flash_jlink(target):
         print(f"""loadfile {target}
 r
 g
-q""")
+q""", file=f)
 
 def flash_nrf52840(filename, mote=None, serial_number=None):
     if (mote is None) == (serial_number is None):
@@ -25,11 +26,11 @@ def flash_nrf52840(filename, mote=None, serial_number=None):
 
         motelist = subprocess.run(os.path.expanduser("~/bin/motelist/motelist.py --csv"),
                                   shell=True, check=True, capture_output=True)
-        motelistreader = csv.DictReader(io.StringIO(motelist), delimiter=";")
+        motelistreader = csv.DictReader(io.StringIO(motelist.stdout.decode("utf-8")), delimiter=";")
 
         for row in motelistreader:
             if row["Port"] == mote:
-                serial_number = row["serial_number"]
+                serial_number = row["Serial"]
                 break
         else:
             raise RuntimeError(f"Unable to find serial number for mote {mote}")
