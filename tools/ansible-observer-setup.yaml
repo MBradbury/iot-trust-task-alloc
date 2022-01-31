@@ -1,0 +1,98 @@
+---
+- name: Perform setup (that requires sudo) for iot-trust-task-alloc
+  hosts: all
+  become: true
+
+  tasks:
+
+  - name: Install Git
+    ansible.builtin.apt:
+      name: git
+      state: present
+
+  - name: Install Python3 pip
+    ansible.builtin.apt:
+      name: python3-pip
+      state: present
+
+  - name: Install libcoap2-bin
+    ansible.builtin.apt:
+      name: libcoap2-bin
+      state: present
+
+  - name: Install python3-dev
+    ansible.builtin.apt:
+      name: python3-dev
+      state: present
+
+  - name: Install pipenv
+    ansible.builtin.apt:
+      name: pipenv
+      state: present
+
+  - name: Install python3-serial
+    ansible.builtin.apt:
+      name: python3-serial
+      state: present
+
+  - name: pip install cryptography
+    ansible.builtin.pip:
+      name: pyserial
+      state: present
+
+  - name: pip install cryptography
+    ansible.builtin.pip:
+      name: cryptography
+      state: present
+
+  - name: pip install more_itertools
+    ansible.builtin.pip:
+      name: more_itertools
+      state: present
+
+  - name: pip install aiocoap
+    ansible.builtin.pip:
+      name: git+https://github.com/chrysn/aiocoap#egg=aiocoap[all]
+      state: present
+
+  - name: pip install paho.mqtt
+    ansible.builtin.pip:
+      name: git+https://github.com/eclipse/paho.mqtt.python.git
+      state: present
+
+  - name: pip install asyncio-mqtt
+    ansible.builtin.pip:
+      name: git+https://github.com/sbtinstruments/asyncio-mqtt.git
+      state: present
+
+  - name: pip install pyroutelib3
+    ansible.builtin.pip:
+      name: pyroutelib3
+      state: present
+
+  - name: Install Mosquitto
+    block:
+      - name: Add mosquitto key
+        ansible.builtin.apt_key:
+          url: http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key
+          state: present
+
+      - name: Add mosquitto apt list
+        ansible.builtin.get_url:
+          url: http://repo.mosquitto.org/debian/mosquitto-bullseye.list
+          dest: /etc/apt/sources.list.d/
+          state: present
+
+      - name: Refresh apt cache
+        ansible.builtin.apt:
+          update_cache: yes
+
+      - name: Install mosquitto
+        ansible.builtin.apt:
+          name: mosquitto
+          state: present
+
+      - name: Install mosquitto-clients
+        ansible.builtin.apt:
+          name: mosquitto-clients
+          state: present
