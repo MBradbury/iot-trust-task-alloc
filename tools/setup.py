@@ -360,7 +360,7 @@ class Setup:
             shutil.move("wsn/common/crypto/static-keys.c.orig", "wsn/common/crypto/static-keys.c")
 
     def _perform_deploy(self):
-        if self.no_deploy == 'fabric':
+        if self.deploy == 'fabric':
             password = getpass.getpass("Password: ")
 
             print("Deploying build binaries to targets")
