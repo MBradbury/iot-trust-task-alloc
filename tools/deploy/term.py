@@ -57,7 +57,7 @@ def main_nrf52840(mote: str, log_dir: Optional[pathlib.Path]):
     time.sleep(2)
 
     try:
-        subprocess.run(f"python3 pyterm.py -ts {RTT_telnet_port}",
+        subprocess.run(f"python3 pyterm.py --tcp-serial localhost:{RTT_telnet_port}",
                        cwd="tools/deploy/term_backend",
                        shell=True,
                        check=True)
