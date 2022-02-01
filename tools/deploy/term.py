@@ -37,7 +37,7 @@ def main_nrf52840(mote: str, log_dir: Optional[pathlib.Path]):
     opts = {
         "-nogui": 1,
         "-exitonerror": 1,
-        "-device": "NRF52",
+        "-device": "nRF52840_xxAA", # From ExpDevList from JLinkExe
         "-speed": 2000,
         "-if": "swd",
         "-jtagconf": "-1,-1",

@@ -40,7 +40,7 @@ def write_flash_jlink(target):
     """
 
     with open("flash.jlink", "w") as f:
-        print(f"""LoadFile {target}
+        print(f"""LoadFile {target} 0x0
 RSetType 0
 ResetX 1000
 Go
@@ -74,9 +74,9 @@ def flash_nrf52840(filename, mote=None, serial_number=None):
         serial_number = get_serial_number_for_mote(mote)
 
     opts = {
-        "-Device": "NRF52",
+        "-Device": "nRF52840_xxAA",
         "-if": "swd",
-        "-speed": "2000",
+        "-speed": 2000,
         "-SelectEmuBySN": serial_number,
     }
 
