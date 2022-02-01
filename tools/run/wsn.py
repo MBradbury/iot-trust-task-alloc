@@ -97,7 +97,7 @@ with open(pyterm_log_path, 'w') as pyterm_log, \
     # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
     # This is because this script may be called under nohup in which case stdin won't exist.
     pyterm = Popen(
-        f"python3 tools/deploy/term.py {args.mote} --mote-type {args.mote_type}",
+        f"python3 tools/deploy/term.py {args.mote} --mote-type {args.mote_type} --log-dir {args.log_dir}",
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
