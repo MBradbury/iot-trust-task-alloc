@@ -8,6 +8,8 @@ import pynrfjprog.APIError
 from pynrfjprog.Parameters import ReadbackProtection
 
 class NRFCommon:
+    BYTEORDER = 'little'
+
     SRAM_LOOKUP = {
         0x10: '16 KB',
         0x20: '32 KB',
@@ -37,9 +39,30 @@ class NRFCommon:
 
     def __init__(self, probe):
         self.probe = probe
+        self.ficr_cache = None
+
+    def _cached_read(self, address: int, length: int):
+        if self.ficr_cache is None:
+            self.ficr_cache = self.probe.read(self.FICR, self.FICR_LENGTH)
+            assert len(self.ficr_cache) == self.FICR_LENGTH
+
+        if address >= self.FICR and address + length <= self.FICR + self.FICR_LENGTH:
+            offset = address - self.FICR 
+            result = self.ficr_cache[offset:offset+length]
+
+            # To match read, length of 4 needs to be converted into an int
+            if length == 4:
+                result = int.from_bytes(result, self.BYTEORDER)
+
+            return result
+
+        return None
 
     def _read(self, address: int, length: int):
-        return self.probe.read(address, length)
+        result = self._cached_read(address, length)
+        if result is None:
+            result = self.probe.read(address, length)
+        return result
 
     def _readmem(self, offset: int, num: int, fn) -> str:
         try:
@@ -63,15 +86,15 @@ class NRFCommon:
 
     def sram(self):
         return self._readmem(self.RAM_OFFSET, 2,
-            lambda mem: self.SRAM_LOOKUP.get(int.from_bytes(mem, 'little'), mem.hex()))
+            lambda mem: self.SRAM_LOOKUP.get(int.from_bytes(mem, self.BYTEORDER), mem.hex()))
 
     def flash(self):
         return self._readmem(self.FLASH_OFFSET, 2,
-            lambda mem: self.FLASH_LOOKUP.get(int.from_bytes(mem, 'little'), mem.hex()))
+            lambda mem: self.FLASH_LOOKUP.get(int.from_bytes(mem, self.BYTEORDER), mem.hex()))
 
     def package(self):
         return self._readmem(self.PACKAGE_OFFSET, 2,
-            lambda mem: self.PACKAGE_LOOKUP.get(int.from_bytes(mem, 'little'), mem.hex()))
+            lambda mem: self.PACKAGE_LOOKUP.get(int.from_bytes(mem, self.BYTEORDER), mem.hex()))
 
     def did(self):
         try:
@@ -113,15 +136,15 @@ class NRFCommon:
 class NRF52(NRFCommon):
     # https://infocenter.nordicsemi.com/topic/ps_nrf52833/ficr.html?cp=4_1_0_3_3
     FICR = 0x10000000
+    FICR_LENGTH = 0x11D
+
     PART_OFFSET = 0x100
     VARIANT_OFFSET = 0x104
     PACKAGE_OFFSET = 0x108
     RAM_OFFSET = 0x10C
     FLASH_OFFSET = 0x110
     DEVICE_ID_OFFSET_LOW = 0x60
-    DEVICE_ID_OFFSET_HIGH = 0x64
     ADDR_OFFSET_LOW = 0xa4
-    ADDR_OFFSET_HIGH = 0xa8
 
 class NRF52833(NRF52):
     # Package ID value to name mapping.
@@ -154,15 +177,15 @@ class NRF52840(NRF52):
 class NRF5340(NRFCommon):
     # https://infocenter.nordicsemi.com/topic/ps_nrf5340/chapters/ficr.network/doc/ficr.network.html?cp=3_0_0_5_3_0
     FICR = 0x00FF0000
+    FICR_LENGTH = 0x304 + 0x8
+
     PART_OFFSET = 0x20C
     VARIANT_OFFSET = 0x210
     PACKAGE_OFFSET = 0x214
     RAM_OFFSET = 0x218
     FLASH_OFFSET = 0x21C
     DEVICE_ID_OFFSET_LOW = 0x204
-    DEVICE_ID_OFFSET_HIGH = 0x208
     ADDR_OFFSET_LOW = 0x2A4
-    ADDR_OFFSET_HIGH = 0x2A8
 
     # Package ID value to name mapping.
     PACKAGE_LOOKUP = {
@@ -171,17 +194,21 @@ class NRF5340(NRFCommon):
         0xFFFFFFFF: 'Unspecified'
     }
 
+    # Note:
+    # https://devzone.nordicsemi.com/f/nordic-q-a/66561/how-read-nrf_ficr-in-non-secure-core-nrf5340
+    # https://infocenter.nordicsemi.com/topic/errata_nRF5340_EngA/ERR/nRF5340/EngineeringA/latest/anomaly_340_51.html
+
 class NRF9160(NRFCommon):
     # https://infocenter.nordicsemi.com/topic/ps_nrf9160/ficr.html
     FICR = 0x00FF0000
+    FICR_LENGTH = 0x304 + 0x8
+
     PART_OFFSET = 0x140
     VARIANT_OFFSET = 0x148
     RAM_OFFSET = 0x218
     FLASH_OFFSET = 0x21C
     DEVICE_ID_OFFSET_LOW = 0x204
-    DEVICE_ID_OFFSET_HIGH = 0x208
     ADDR_OFFSET_LOW = 0x300
-    ADDR_OFFSET_HIGH = 0x304
 
     # No package
 
