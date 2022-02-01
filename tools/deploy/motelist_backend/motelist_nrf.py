@@ -108,9 +108,18 @@ class NRFCommon:
     def addr(self):
         try:
             addr = self._read(self.FICR + self.ADDR_OFFSET_LOW, 8)
-            addr = addr[0:6]
-            addr.reverse()
             return addr.hex(":")
+        except pynrfjprog.APIError.APIError as ex:
+            print(ex, file=sys.stderr)
+            return "Err"
+
+    def contikimac(self):
+        # See: https://github.com/contiki-ng/contiki-ng/blob/develop/arch/cpu/nrf/sys/linkaddr-arch.c#L62
+        NORDIC_SEMI_VENDOR_OUI = 0xF4CE36.to_bytes(3, 'big')
+
+        try:
+            addr = self._read(self.FICR + self.ADDR_OFFSET_LOW, 8)
+            return (NORDIC_SEMI_VENDOR_OUI + addr[4:5] + addr[0:4]).hex(":")
         except pynrfjprog.APIError.APIError as ex:
             print(ex, file=sys.stderr)
             return "Err"
@@ -129,6 +138,7 @@ class NRFCommon:
             #"SRAM": self.sram(),
             #"Flash": self.flash(),
             "MAC": self.addr(),
+            "CONTIKI LADDR": self.contikimac(),
         })
 
         return result
