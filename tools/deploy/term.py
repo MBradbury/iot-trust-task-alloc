@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 import subprocess
-import os
 import pathlib
-import csv
-import io
-import os
 import time
 
-def get_serial_number_for_mote(mote: str) -> str:
-    motelist = subprocess.run(os.path.expanduser("~/bin/motelist/motelist.py --csv"),
-                              shell=True,
-                              check=True,
-                              capture_output=True)
+import pynrfjprog.HighLevel
+import pynrfjprog.APIError
 
-    motelistreader = csv.DictReader(io.StringIO(motelist.stdout.decode("utf-8")),
-                                    delimiter=";")
+def main_zolertia(mote: str):
+    subprocess.run(f"python3 pyterm.py -b 115200 -p {args.mote}",
+                   cwd="tools/deploy/term_backend",
+                   shell=True,
+                   check=True)
 
-    for row in motelistreader:
-        if row["Port"] == mote:
-            return row["Serial"]
+def get_serial_number_for_mote(mote: str) -> int:
+    with pynrfjprog.HighLevel.API() as api:
+        for node_id in api.get_connected_probes():
+            with pynrfjprog.HighLevel.DebugProbe(api, node_id) as probe:
+                probe_info = probe.get_probe_info()
+                
+                if mote in [com_port.path for com_port in probe_info.com_ports]:
+                    return node_id
 
     raise RuntimeError(f"Unable to find serial number for mote {mote}")
 
@@ -32,14 +33,15 @@ def main_nrf52840(mote: str):
     RTT_telnet_port = 19021
 
     opts = {
-        "-nogui": "1",
-        "-exitonerror": "1",
+        "-nogui": 1,
+        "-exitonerror": 1,
         "-device": "NRF52",
-        "-speed": "1000",
+        "-speed": 2000,
         "-if": "swd",
         "-jtagconf": "-1,-1",
         "-SelectEmuBySN": get_serial_number_for_mote(mote),
-        "-RTTTelnetPort": f"{RTT_telnet_port}"
+        "-RTTTelnetPort": RTT_telnet_port,
+        #"-AutoConnect": 1
     }
 
     opts_str = " ".join(f"{k} {v}" for (k, v) in opts.items())
@@ -59,10 +61,7 @@ def main_nrf52840(mote: str):
 
 def main(mote: str, mote_type: str):
     if mote_type == "zolertia":
-        subprocess.run(f"python3 pyterm.py -b 115200 -p {args.mote}",
-                       cwd="tools/deploy/term_backend",
-                       shell=True,
-                       check=True)
+        main_zolertia(mote)
 
     elif mote_type == "nRF52840":
         main_nrf52840(mote)

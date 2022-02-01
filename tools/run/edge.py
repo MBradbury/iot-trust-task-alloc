@@ -91,8 +91,7 @@ print(f"Logging edge_bridge to {edge_bridge_log_path}", flush=True)
 with open(motelist_log_path, 'w') as motelist_log:
     teed = Teed()
     motelist = Popen(
-        f"python3 motelist.py --mote-type {args.mote_type}",
-        cwd="tools/deploy",
+        f"python3 tools/deploy/motelist.py --mote-type {args.mote_type}",
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

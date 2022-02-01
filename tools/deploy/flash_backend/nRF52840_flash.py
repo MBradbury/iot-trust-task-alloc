@@ -2,9 +2,9 @@
 
 import subprocess
 from pathlib import Path
-import csv
-import io
-import os
+
+import pynrfjprog.HighLevel
+import pynrfjprog.APIError
 
 JLINK_DIR = Path("/opt/SEGGER/JLink")
 JLINK_EXE = JLINK_DIR / "JLinkExe"
@@ -48,18 +48,19 @@ ShowFWInfo
 ShowHWStatus
 Exit""", file=f)
 
-def get_serial_number_for_mote(mote: str) -> str:
-    motelist = subprocess.run(os.path.expanduser("~/bin/motelist/motelist.py --csv"),
-                              shell=True,
-                              check=True,
-                              capture_output=True)
+def get_serial_number_for_mote(mote: str) -> int:
+    with pynrfjprog.HighLevel.API() as api:
+        for node_id in api.get_connected_probes():
+            with pynrfjprog.HighLevel.DebugProbe(api, node_id) as probe:
+                probe_info = probe.get_probe_info()
+                device_info = probe.get_device_info()
 
-    motelistreader = csv.DictReader(io.StringIO(motelist.stdout.decode("utf-8")),
-                                    delimiter=";")
+                # Make sure to only allow flashing to appropriate devices
+                if not device_info.device_type.name.startswith("NRF52840"):
+                    continue
 
-    for row in motelistreader:
-        if row["Port"] == mote:
-            return row["Serial"]
+                if mote in [com_port.path for com_port in probe_info.com_ports]:
+                    return node_id
 
     raise RuntimeError(f"Unable to find serial number for mote {mote}")
 
@@ -75,7 +76,7 @@ def flash_nrf52840(filename, mote=None, serial_number=None):
     opts = {
         "-Device": "NRF52",
         "-if": "swd",
-        "-speed": "1000",
+        "-speed": "2000",
         "-SelectEmuBySN": serial_number,
     }
 
