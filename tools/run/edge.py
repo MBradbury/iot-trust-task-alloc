@@ -134,7 +134,7 @@ with open(edge_bridge_log_path, 'w') as edge_bridge, \
 
     edge_bridge_proc = Popen(
         f"python3 edge_bridge.py",
-        cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/applications"),
+        cwd=os.path.expanduser("~/deploy/iot-trust-task-alloc/resource_rich/applications"),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -158,7 +158,7 @@ with open(edge_bridge_log_path, 'w') as edge_bridge, \
 
         p = Popen(
             f"nice -n {niceness} python3 {application}.py {params}",
-            cwd=os.path.expanduser("~/iot-trust-task-alloc/resource_rich/applications"),
+            cwd=os.path.expanduser("~/deploy/iot-trust-task-alloc/resource_rich/applications"),
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

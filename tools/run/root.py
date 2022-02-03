@@ -107,7 +107,7 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
 
     tunslip = Popen(
         "sudo ./tunslip6 -s /dev/ttyUSB0 fd00::1/64",
-        cwd=os.path.expanduser("~/contiki-ng/tools/serial-io"),
+        cwd=os.path.expanduser("~/deploy/contiki-ng/tools/serial-io"),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -137,7 +137,7 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
 
     root_server = Popen(
         "python3 -m resource_rich.root.root_server -k resource_rich/root/keystore",
-        cwd=os.path.expanduser("~/iot-trust-task-alloc"),
+        cwd=os.path.expanduser("~/deploy/iot-trust-task-alloc"),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
