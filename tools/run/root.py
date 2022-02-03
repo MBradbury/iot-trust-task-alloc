@@ -70,7 +70,7 @@ firmware_path = pathlib.Path.cwd() / "setup" / "border-router.bin"
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     flash = Popen(
-        f"python3 flash.py '{args.mote}' {firmware_path} {args.mote_type} {args.firmware_type}",
+        f"python3 flash.py '{args.mote}' '{firmware_path}' {args.mote_type} {args.firmware_type}",
         cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,
