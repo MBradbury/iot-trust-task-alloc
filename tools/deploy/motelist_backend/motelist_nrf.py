@@ -278,20 +278,37 @@ def motelist():
 
     return result
 
-def main():
-    from tabulate import tabulate
-
+def main(output: str):
     details = motelist()
 
-    headers = []
-    for detail in details:
-        for k in detail.keys():
-            if k not in headers:
-                headers.append(k)
+    if output == "table":
+        from tabulate import tabulate
 
-    table = [[detail.get(header, "N/A") for header in headers] for detail in details]
+        headers = []
+        for detail in details:
+            for k in detail.keys():
+                if k not in headers:
+                    headers.append(k)
 
-    print(tabulate(table, headers, tablefmt="github"))
+        table = [[detail.get(header, "N/A") for header in headers] for detail in details]
+
+        print(tabulate(table, headers, tablefmt="github"))
+
+    elif output == "json":
+        import json
+        print(json.dumps(details))
+
+    else:
+        raise RuntimeError(f"Unknown format type {output}")
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description='NRF Motelist')
+    parser.add_argument("--output",
+                        choices=["table", "json"],
+                        default="table",
+                        help="The output style")
+    args = parser.parse_args()
+
+    main(args.output)
