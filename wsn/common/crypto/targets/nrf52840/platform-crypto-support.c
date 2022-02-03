@@ -30,6 +30,7 @@ bool platform_crypto_success(uint8_t ret)
 void platform_crypto_support_init(void)
 {
     ret_code_t ret = nrf_crypto_init();
+    LOG_DBG("nrf_crypto_init = '%lu'\n", ret);
     assert(ret == NRF_SUCCESS);
 
     PT_SEM_INIT(&crypto_processor_mutex, 1);
