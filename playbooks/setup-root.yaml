@@ -1,0 +1,17 @@
+---
+- name: Setup root
+  hosts: iris1
+  gather_facts: no
+
+  tasks:
+  - name: Clone contiki
+    ansible.builtin.git:
+      repo: https://github.com/MBradbury/contiki-ng.git
+      dest: ~/deploy/contiki-ng
+      version: petras
+      recursive: yes
+
+  - name: Build tunslip
+    ansible.builtin.command:
+      cmd: make
+      chdir: ~/deploy/contiki-ng/tools/serial-io
