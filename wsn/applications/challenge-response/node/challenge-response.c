@@ -146,7 +146,7 @@ move_to_next_challenge(void)
 static void
 generate_challenge(challenge_t* ch, uint8_t difficulty, uint32_t max_duration_secs)
 {
-    crypto_fill_random(ch->data, sizeof(ch->data));
+    assert(crypto_fill_random(ch->data, sizeof(ch->data)));
     ch->difficulty = difficulty;
     ch->max_duration_secs = max_duration_secs;
 }

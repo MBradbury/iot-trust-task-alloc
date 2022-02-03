@@ -210,7 +210,7 @@ PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size
     // Set secret key from our private key
     ec_uint8v_to_uint32v(our_privkey.k, DTLS_EC_KEY_SIZE, state->ecc_sign_state.secret);
 
-    crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE);
+    assert(crypto_fill_random((uint8_t*)state->ecc_sign_state.k_e, DTLS_EC_KEY_SIZE));
 
 #ifdef CRYPTO_SUPPORT_TIME_METRICS
     LOG_DBG("Starting ecc_dsa_sign()...\n");
