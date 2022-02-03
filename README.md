@@ -55,15 +55,18 @@ In order for builds to succeed you will need to modify `os/net/security/tinydtls
 
 3. Setting up building for nRF52840
 
-The nRF52840 SDK included with Contiki-NG does not contain all the appropriate headers, source files and libraries to be able to compile code that depends on CryptoCell. So you will need to download and overwrite the nRF52 SDK submodule.
+The [nRF52840 SDK](https://www.nordicsemi.com/Products/Development-software/nRF5-SDK/Download) included with Contiki-NG does not contain all the appropriate headers, source files and libraries to be able to compile code that depends on CryptoCell. So you will need to download and overwrite the nRF52 SDK submodule.
 
 The SDK is located in: `~/wsn/contiki-ng/arch/cpu/nrf52840/lib/nrf52-sdk`
 
 ```bash
 cd ~/wsn/contiki-ng/arch/cpu/nrf52840/lib/
 mv nrf52-sdk nrf52-sdk-original
-wget https://www.nordicsemi.com/-/media/Software-and-other-downloads/SDKs/nRF5/Binaries/nRF5SDK160098a08e2.zip
-unzip nRF5SDK160098a08e2.zip -d nrf52-sdk
+wget https://www.nordicsemi.com/-/media/Software-and-other-downloads/SDKs/nRF5/Binaries/nRF5_SDK_17.1.0_ddde560.zip
+unzip nRF5_SDK_17.1.0_ddde560.zip -d nrf52-sdk
+cd nrf52-sdk
+mv nRF5_SDK_17.1.0_ddde560/* .
+rmdir nRF5_SDK_17.1.0_ddde560/
 ```
 
 4. Clone this repository
@@ -192,11 +195,13 @@ cd iot-trust-task-alloc && git submodule update --init
 
 ## Building the border router
 
-The root node needs the Contiki-NG border router to be built and deployed in order to function.
+The root node needs the Contiki-NG border router to be built and deployed in order to function. The setup script will build the border router for you. You only need to take manual steps for Zolertia nodes.
+
+### For Zolertia REMOTE Rev.b
 
 On your development machine:
 ```bash
-cd $CONTIKING_DIR/examples/rpl-border-router
+cd $CONTIKING_OSCORE_DIR/examples/rpl-border-router
 make TARGET=zoul PLATFORM=remote-revb
 ```
 

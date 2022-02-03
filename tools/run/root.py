@@ -65,10 +65,12 @@ with open(motelist_log_path, 'w') as motelist_log:
 
 time.sleep(0.1)
 
+firmware_path = pathlib.Path.cwd() / "setup" / "border-router.bin"
+
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     flash = Popen(
-        f"python3 flash.py '{args.mote}' border-router.bin {args.mote_type} {args.firmware_type}",
+        f"python3 flash.py '{args.mote}' {firmware_path} {args.mote_type} {args.firmware_type}",
         cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,
