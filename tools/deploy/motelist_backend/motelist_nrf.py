@@ -113,7 +113,7 @@ class NRFCommon:
             print(ex, file=sys.stderr)
             return "Err"
 
-    def contikimac(self):
+    def contikieui64(self):
         # See: https://github.com/contiki-ng/contiki-ng/blob/develop/arch/cpu/nrf/sys/linkaddr-arch.c#L62
         NORDIC_SEMI_VENDOR_OUI = 0xF4CE36.to_bytes(3, 'big')
 
@@ -138,7 +138,7 @@ class NRFCommon:
             #"SRAM": self.sram(),
             #"Flash": self.flash(),
             "MAC": self.addr(),
-            "CONTIKI LADDR": self.contikimac(),
+            "CONTIKI EUI64": self.contikieui64(),
         })
 
         return result

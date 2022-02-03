@@ -2,7 +2,7 @@ from common.stereotype_tags import StereotypeTags, DeviceClass
 
 from ipaddress import IPv6Address
 
-hostname_to_macs = {
+hostname_to_eui64s = {
     "iris1":  ("/dev/ttyACM0", "683867147", "f4:ce:36:d7:43:96:31:62"),
     "iris3":  ("/dev/ttyACM0", "683405900", "f4:ce:36:46:7f:b7:ca:c7"),
     "iris5":  ("/dev/ttyACM0", "683883730", "f4:ce:36:fe:6c:65:c7:73"),
@@ -14,7 +14,7 @@ hostname_to_macs = {
 
 root_node = "iris1"
 
-def mac_to_ipv6(hostname, mac) -> IPv6Address:
+def eui64_to_ipv6(hostname, mac) -> IPv6Address:
     if hostname == root_node:
         return IPv6Address("fd00::1")
 
@@ -29,7 +29,7 @@ def mac_to_ipv6(hostname, mac) -> IPv6Address:
 hostname_to_ips = {
     hostname: mac_to_ipv6(hostname, details[2])
     for (hostname, details)
-    in hostname_to_macs.items()
+    in hostname_to_eui64s.items()
 }
 
 device_stereotypes = {
