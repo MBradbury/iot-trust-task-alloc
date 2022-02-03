@@ -1,0 +1,53 @@
+from common.stereotype_tags import StereotypeTags, DeviceClass
+
+from ipaddress import IPv6Address
+
+hostname_to_macs = {
+    "iris1":  ("/dev/ttyACM0", "683867147", "f4:ce:36:d7:43:96:31:62"),
+    "iris3":  ("/dev/ttyACM0", "683405900", "f4:ce:36:46:7f:b7:ca:c7"),
+    "iris5":  ("/dev/ttyACM0", "683883730", "f4:ce:36:fe:6c:65:c7:73"),
+    "iris6":  ("/dev/ttyACM0", "683113778", "f4:ce:36:92:2e:36:98:20"),
+    "iris7":  ("/dev/ttyACM0", "683849822", "f4:ce:36:d2:fc:ba:75:a2"),
+    "iris9":  ("/dev/ttyACM3", "683835663", "f4:ce:36:f9:79:87:a4:4a"),
+    "iris10": ("/dev/ttyACM3", "683836538", "f4:ce:36:b2:9c:b5:9a:de"),
+}
+
+root_node = "iris1"
+
+def mac_to_ipv6(hostname, mac) -> IPv6Address:
+    if hostname == root_node:
+        return IPv6Address("fd00::1")
+
+    mac_bytes = bytearray.fromhex(mac.replace(":", ""))
+
+    # See: uip_ds6_set_lladdr_from_iid
+    mac_bytes[0] ^= 0x02
+
+    return IPv6Address(b"\xfd\x00" + b"\x00"*6 + mac_bytes)
+
+
+hostname_to_ips = {
+    hostname: mac_to_ipv6(hostname, details[2])
+    for (hostname, details)
+    in hostname_to_macs.items()
+}
+
+device_stereotypes = {
+    "iris1":  StereotypeTags(device_class=DeviceClass.SERVER),         # Root
+    "iris3":  StereotypeTags(device_class=DeviceClass.RASPBERRY_PI),   # Edge
+    "iris5":  StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
+    "iris6":  StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
+    "iris7":  StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
+    "iris9":  StereotypeTags(device_class=DeviceClass.IOT_MEDIUM),     # IoT
+    "iris10": StereotypeTags(device_class=DeviceClass.RASPBERRY_PI),   # Edge
+}
+
+hostname_to_names = {
+    "iris1": "root",
+    "iris3": "rr3",
+    "iris5": "wsn5",
+    "iris6": "wsn6",
+    "iris7": "wsn7",
+    "iris9": "wsn9",
+    "iris10": "rr10",
+}
