@@ -5,10 +5,15 @@
 #include "os/sys/rtimer.h"
 #include "os/sys/log.h"
 
+#include <stdint.h>
+#include <inttypes.h>
+
 #include "nrf_crypto_init.h"
 #include "nrf_crypto_hash.h"
+#include "nrf_crypto_rng.h"
 
 #include "assert.h"
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "crypto-plat"
 #ifdef CRYPTO_SUPPORT_LOG_LEVEL
@@ -22,16 +27,15 @@
 static struct pt_sem crypto_processor_mutex;
 static process_event_t pe_crypto_lock_released;
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool platform_crypto_success(uint8_t ret)
+bool platform_crypto_success(ret_code_t ret)
 {
     return ret == NRF_SUCCESS;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void platform_crypto_support_init(void)
 {
-    ret_code_t ret = nrf_crypto_init();
-    LOG_DBG("nrf_crypto_init = '%lu'\n", ret);
-    assert(ret == NRF_SUCCESS);
+    // Make sure that nrf_crypto has been started
+    assert(nrf_crypto_is_initialized());
 
     PT_SEM_INIT(&crypto_processor_mutex, 1);
 
@@ -57,22 +61,9 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
         return false;
     }
 
-    // random_rand returns a uint16_t
+    ret_code_t ret = nrf_crypto_rng_vector_generate(buffer, size_in_bytes);
 
-    uint16_t* buffer_u16 = (uint16_t*)buffer;
-
-    for (size_t i = 0; i < size_in_bytes / sizeof(uint16_t); ++i)
-    {
-        buffer_u16[i] = random_rand();
-    }
-
-    // Handle leftover byte
-    if ((size_in_bytes % sizeof(uint16_t)) != 0)
-    {
-        buffer[size_in_bytes-1] = (uint8_t)random_rand();
-    }
-
-    return true;
+    return platform_crypto_success(ret);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 uint8_t
