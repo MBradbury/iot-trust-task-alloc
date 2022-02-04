@@ -27,7 +27,7 @@ def eui64_to_ipv6(hostname, mac) -> IPv6Address:
 
 
 hostname_to_ips = {
-    hostname: mac_to_ipv6(hostname, details[2])
+    hostname: eui64_to_ipv6(hostname, details[2])
     for (hostname, details)
     in hostname_to_eui64s.items()
 }
