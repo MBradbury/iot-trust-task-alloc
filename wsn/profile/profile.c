@@ -79,9 +79,12 @@ PROCESS_THREAD(profile_ecc_sign_verify, ev, data)
 
 
         static ecdh2_state_t state;
-        state.ecc_multiply_state.process = &profile_ecc_sign_verify;
+        ECDH_GET_PROCESS(state) = &profile_ecc_sign_verify;
         PROCESS_PT_SPAWN(&state.pt, ecdh2(&state, &our_cert.public_key));
-        assert(state.ecc_multiply_state.result == PKA_STATUS_SUCCESS);
+        assert(platform_crypto_success(ECDH_GET_RESULT(state)));
+
+        // Need to yield often enough to prevent the watchdog killing us
+        PROCESS_PAUSE();
     }
 
     process_poll(&profile);
