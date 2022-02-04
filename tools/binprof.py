@@ -18,7 +18,7 @@ import argparse
 parser = argparse.ArgumentParser(description='RAM and Flash profiling')
 parser.add_argument('binary', type=str, help='The path to the binary to profile')
 parser.add_argument('--other', type=str, default="other", help='What to classify unknown memory as')
-parser.add_argument('--no-error-if-unknown', action='store_false', default=False, help='Raise an error if there is memory classified as other')
+parser.add_argument('--no-error-if-unknown', action='store_true', default=False, help='Raise an error if there is memory classified as other')
 args = parser.parse_args()
 
 result = subprocess.run(
@@ -62,8 +62,11 @@ for line in result.stdout.split("\n"):
         flash_symb.append(r)
     elif r.symbol_type in "abdrwABDRW":
         ram_symb.append(r)
+    elif r.symbol_type in "Nn":
+        # Debug symbol
+        pass
     else:
-        raise RuntimeError(f"Unknown symbol type {r.symbol_type}")
+        raise RuntimeError(f"Unknown symbol type {r}")
 
 def summarise(symbs):
     return sum(x.size for x in symbs)
@@ -83,9 +86,12 @@ def classify(symb, other="other"):
 
         if symb.name in ("serial_line_process", "sensors_process", "serial_line_event_message",
                          "curr_log_level_main", "curr_log_level_coap", "button_hal_periodic_event",
-                         "button_hal_press_event", "button_hal_release_event", "node_id", "sensors_event"):
+                         "button_hal_press_event", "button_hal_release_event", "node_id", "sensors_event",
+                         "aes_128_driver", "ccm_star_driver"):
             return "contiki-ng"
         if symb.name.startswith(("heap_end.",)):
+            return "contiki-ng"
+        if symb.name.startswith("p05."): # I think this refers to MP3_WTV020SD_P05_PORT
             return "contiki-ng"
 
         if symb.name in ("bignum_add_get_result", "ecc_add_get_result", "vdd3_sensor", "vectors"):
@@ -94,8 +100,32 @@ def classify(symb, other="other"):
             return "contiki-ng/cc2538"
         if symb.name.startswith("reset_cause."):
             return "contiki-ng/cc2538"
-        if symb.name.startswith("p05."): # I think this refers to MP3_WTV020SD_P05_PORT
-            return "contiki-ng/cc2538"
+
+        if any(symb.name.startswith(x) for x in ("nrf52840", "CSWTCH")):
+            return "contiki-ng/nrf52840"
+        if symb.name in ("_SEGGER_RTT", "SystemCoreClock", "__malloc_free_list", "__malloc_sbrk_start",
+                         "_global_atexit", "m_irr_sem", "__sf_fake_stderr", "__sf_fake_stdin",
+                         "__sf_fake_stdout", "temperature_sensor", "regTemps", "_global_impure_ptr"):
+            return "contiki-ng/nrf52840"
+        if symb.name in ("completed.8100", "use_count", "object.8105"):
+            return "contiki-ng/nrf52840"
+
+        if any(symb.name.startswith(x) for x in ("ssi_ecpki", "CRYS", "SaSi", "sasi", "Pka",
+                                                 "pSaSi", "CRYPTOCELL", "LLF", "HASH_LARVAL_",
+                                                 "_DX_ECPKI", "Pki", "ecpki", "g_nrf_crypto")):
+            return "contiki-ng/nrf52840/crypto"
+        if symb.name in ("g_cc310_mutex",):
+            return "contiki-ng/nrf52840/crypto"
+        if symb.name in ('_aInitStr.5719', 'pow10.5210', 'ProcessBypass'):
+            return "contiki-ng/nrf52840/crypto"
+        if symb.name in ('ecDomainsFuncP', 'InitSwHash512', 'EcWrstDsaTruncateMsg',
+                         'InitHash', 'EcWrstFullCheckPublKey', 'RNG_PLAT_SetUserRngParameters',
+                         'EcWrstDhDeriveSharedSecret', 'FinishHash', 'HASH_COMMON_IncMsbUnsignedCounter',
+                         'ProcessSwHash512', 'InitAes.part.0', 'EcWrstDsaVerify', 'FinishSwHash512',
+                         'startTrngHW', 'EcWrstInitPubKey', '_DX_ECDSA_SignFinish', 'ProcessAes',
+                         'ProcessHash', 'FinalizeAes', 'getTrngSource', 'K512', 'DoubleMdf2Mdf',
+                         'EcWrstDsaSign'):
+            return "contiki-ng/nrf52840/crypto"
 
         if symb.name in ("coap_status_code", "coap_error_message", "coap_timer_default_driver"):
             return "contiki-ng/coap"
@@ -129,6 +159,9 @@ def classify(symb, other="other"):
 
         return other
 
+    if "common/mqtt-over-coap" in symb.location:
+        return "system/mqtt-over-coap"
+
     if "newlib" in symb.location or "libgcc" in symb.location:
         return "newlib"
 
@@ -144,6 +177,9 @@ def classify(symb, other="other"):
     if "arch/cpu/cc2538" in symb.location or "arch/platform/zoul" in symb.location:
         return "contiki-ng/cc2538"
 
+    if "arch/cpu/nrf52840" in symb.location or "arch/platform/nrf52840" in symb.location:
+        return "contiki-ng/nrf52840"
+
     if "applications/monitoring" in symb.location:
         return "applications/monitoring"
     if "applications/routing" in symb.location:
@@ -154,14 +190,11 @@ def classify(symb, other="other"):
     if any(osdir in symb.location for osdir in ("os/lib", "os/sys", "os/dev", "os/contiki")):
         return "contiki-ng"
 
-    if "crypto" in symb.location:
+    if "common/crypto" in symb.location:
         return "system/crypto"
 
-    if "trust" in symb.location:
+    if "common/trust" in symb.location:
         return "system/trust"
-
-    if "mqtt-over-coap" in symb.location:
-        return "system/mqtt-over-coap"
 
     if "wsn/node" in symb.location or "wsn/edge" in symb.location:
         return "system/common"
@@ -182,7 +215,6 @@ summarised_ram_symb = {k: summarise(v) for k, v in classified_ram_symb.items()}
 
 classified_flash_symb = classify_all(flash_symb, other=args.other)
 summarised_flash_symb = {k: summarise(v) for k, v in classified_flash_symb.items()}
-
 
 if "other" in classified_ram_symb or "other" in classified_flash_symb:
     try:
@@ -205,7 +237,13 @@ total_ram_symb = sum(summarised_ram_symb.values())
 
 keys = set(summarised_ram_symb.keys()) | set(classified_flash_symb.keys())
 for k in sorted(keys):
-    print(f"{k} & {summarised_flash_symb[k]} & {round(100*summarised_flash_symb[k]/total_flash_symb, 1)} & {summarised_ram_symb[k]} & {round(100*summarised_ram_symb[k]/total_ram_symb, 1)} \\\\")
+    k_sum_flash = summarised_flash_symb.get(k, 0)
+    k_sum_flash_pc = round(100*k_sum_flash/total_flash_symb, 1)
+
+    k_sum_ram = summarised_ram_symb.get(k, 0)
+    k_sum_ram_pc = round(100*k_sum_ram/total_ram_symb, 1)
+
+    print(f"{k} & {k_sum_flash} & {k_sum_flash_pc} & {k_sum_ram} & {k_sum_ram_pc} \\\\")
 print("\\midrule")
 print(f"Total Used & {total_flash_symb} & 100 & {total_ram_symb} & 100 \\\\")
 print()
