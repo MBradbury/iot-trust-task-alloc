@@ -5,6 +5,7 @@ import subprocess
 import time
 import os
 import sys
+import pathlib
 
 from tools.run import supported_mote_types, supported_firmware_types, DEFAULT_LOG_DIR
 from tools.run.util import Teed, Popen, StreamNoTimestamp
@@ -17,12 +18,14 @@ parser.add_argument("firmware_path", metavar="firmware-path",
 parser.add_argument('--log-dir', type=str, default=DEFAULT_LOG_DIR, help='The directory to store log output')
 
 # Flash.py
-parser.add_argument("--mote", default="/dev/ttyUSB0", help="The mote to flash.")
-parser.add_argument("--mote_type",
+parser.add_argument("--mote",
+                    required=True,
+                    help="The mote to flash.")
+parser.add_argument("--mote-type",
                     choices=supported_mote_types,
-                    default=supported_mote_types[0],
+                    required=True,
                     help="The type of mote.")
-parser.add_argument("--firmware_type",
+parser.add_argument("--firmware-type",
                     choices=supported_firmware_types,
                     default=supported_firmware_types[0],
                     help="The OS that was used to create the firmware.")
