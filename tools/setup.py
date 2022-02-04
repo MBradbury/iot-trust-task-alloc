@@ -15,9 +15,6 @@ import itertools
 from more_itertools import chunked
 import json
 
-import fabric
-import patchwork.transfers
-
 from common.stereotype_tags import StereotypeTags, DeviceClass
 from tools.keygen.keygen import generate_and_save_key
 from tools.keygen.contiking_format import *
@@ -390,6 +387,7 @@ class Setup:
 
     def _perform_deploy(self):
         if self.deploy == 'fabric':
+            import fabric
             password = getpass.getpass("Password: ")
 
             print("Deploying build binaries to targets")
@@ -429,6 +427,8 @@ class Setup:
                     print("Uploaded {0.local} to {0.remote} for {1}".format(result, conn))
 
     def _fabric_deploy_keystore(self, password: str):
+        import patchwork.transfers
+        
         with fabric.Connection(f'pi@{root_node}', connect_kwargs={"password": password}) as conn:
             src = "./setup/keystore"
             dest = "/home/pi/iot-trust-task-alloc/resource_rich/root"
