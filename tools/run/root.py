@@ -5,6 +5,7 @@ import subprocess
 import time
 import os
 import sys
+import pathlib
 
 from tools.run import supported_mote_types, supported_firmware_types, DEFAULT_LOG_DIR
 from tools.run.util import Teed, Popen, StreamNoTimestamp
@@ -108,7 +109,7 @@ with open(tunslip_log_path, 'w') as tunslip_log, \
     teed = Teed()
 
     tunslip = Popen(
-        "sudo ./tunslip6 -s /dev/ttyUSB0 fd00::1/64",
+        f"sudo ./tunslip6 -s '{args.mote}' fd00::1/64",
         cwd=os.path.expanduser("~/deploy/contiki-ng/tools/serial-io"),
         shell=True,
         stdout=subprocess.PIPE,
