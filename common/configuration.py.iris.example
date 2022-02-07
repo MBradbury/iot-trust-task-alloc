@@ -1,5 +1,6 @@
 from common.stereotype_tags import StereotypeTags, DeviceClass
-from common.configuration_common import Device, DeviceKind, eui64_to_ipv6
+from common.configuration_common import Device, DeviceKind
+from tools.keygen.util import eui64_to_ipv6
 
 from ipaddress import IPv6Address
 
