@@ -9,7 +9,7 @@ rm -rf logs
 
 rm -f nohup.out
 
-nohup nohup python3 -m tools.run.root &
+nohup python3 -m tools.run.root &
 
 # Wait for nohup.out to be created
 sleep 1
