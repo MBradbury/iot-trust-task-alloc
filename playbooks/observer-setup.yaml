@@ -65,6 +65,16 @@
       name: more_itertools
       state: present
 
+  - name: Install blas
+    ansible.builtin.apt:
+      name: libblas3
+      state: present
+
+  - name: Install lapack
+    ansible.builtin.apt:
+      name: liblapack3
+      state: present
+
   - name: pip install numpy
     ansible.builtin.pip:
       name: numpy
