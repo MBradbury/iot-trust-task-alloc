@@ -143,8 +143,8 @@ with open(edge_bridge_log_path, 'w') as edge_bridge, \
     teed = Teed()
 
     edge_bridge_proc = Popen(
-        f"python3 edge_bridge.py",
-        cwd=os.path.expanduser("~/deploy/iot-trust-task-alloc/resource_rich/applications"),
+        f"python3 resource_rich/applications/edge_bridge.py {device.identifier} {device.kind.value}",
+        cwd=os.path.expanduser("~/deploy/iot-trust-task-alloc"),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

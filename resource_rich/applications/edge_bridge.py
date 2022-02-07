@@ -13,7 +13,10 @@ logger = logging.getLogger("edge-bridge")
 logger.setLevel(logging.DEBUG)
 
 class NodeSerialBridge:
-    def __init__(self):
+    def __init__(self, mote: str, mote_type: str):
+        self.mote = mote
+        self.mote_type = mote_type
+
         self.proc = None
         self.server = None
 
@@ -22,7 +25,7 @@ class NodeSerialBridge:
     async def start(self):
         # Start processing serial output from edge sensor node
         self.proc = await asyncio.create_subprocess_shell(
-            os.path.expanduser("~/pi-client/tools/pyterm") + " -b 115200 -p /dev/ttyUSB0",
+            f"python3 tools/deploy/term.py {self.mote} {self.mote_type}",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
@@ -178,6 +181,13 @@ def main(service):
 
 
 if __name__ == "__main__":
-    bridge = NodeSerialBridge()
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Edge bridge')
+    parser.add_argument("mote", help="The mote to open a terminal for.")
+    parser.add_argument("mote-type", choices=["zolertia", "nRF52840"], help="The type of mote.")
+    args = parser.parse_args()
+
+    bridge = NodeSerialBridge(args.mote, args.mote_type)
 
     main(bridge)
