@@ -65,9 +65,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Terminal')
     parser.add_argument("mote", help="The mote to open a terminal for.")
-    parser.add_argument("mote-type", choices=["zolertia", "nRF52840"], help="The type of mote.")
+    parser.add_argument("mote_type", choices=["zolertia", "nRF52840"], help="The type of mote.")
     parser.add_argument("--log-dir", default=None, type=pathlib.Path, help="The directory to output logs to.")
-
     args = parser.parse_args()
 
     main(args.mote, args.mote_type, args.log_dir)

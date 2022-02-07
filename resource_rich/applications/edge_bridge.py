@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Edge bridge')
     parser.add_argument("mote", help="The mote to open a terminal for.")
-    parser.add_argument("mote-type", choices=["zolertia", "nRF52840"], help="The type of mote.")
+    parser.add_argument("mote_type", choices=["zolertia", "nRF52840"], help="The type of mote.")
     args = parser.parse_args()
 
     bridge = NodeSerialBridge(args.mote, args.mote_type)
