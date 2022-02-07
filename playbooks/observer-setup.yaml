@@ -65,6 +65,11 @@
       name: more_itertools
       state: present
 
+  - name: pip install numpy
+    ansible.builtin.pip:
+      name: numpy
+      state: present
+
   - name: pip install aiocoap
     ansible.builtin.pip:
       name: git+https://github.com/chrysn/aiocoap#egg=aiocoap[all]
