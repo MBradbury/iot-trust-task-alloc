@@ -29,11 +29,12 @@ except ImportError:
 
 root_ip = ips[root_node]
 
-available_targets = ["remote-revb", "nRF52840DK"]
+available_targets = ["remote-revb", "nRF52840DK", "nRF52833DK"]
 
 target_output_dir = {
     "remote-revb": "zoul/remote-revb",
-    "nRF52840DK": "nrf52840/dk"
+    "nRF52840DK": "nrf52840/dk",
+    "nRF52833DK": "nrf52833/dk"
 }
 
 class Setup:
@@ -290,6 +291,11 @@ class Setup:
         elif self.target == "nRF52840DK":
             return {
                 "TARGET": "nrf52840",
+                "BOARD": "dk",
+            }
+        elif self.target == "nRF52833DK":
+            return {
+                "TARGET": "nrf52833",
                 "BOARD": "dk",
             }
         else:

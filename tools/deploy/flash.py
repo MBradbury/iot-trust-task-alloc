@@ -24,9 +24,9 @@ def cc2538_flash(mote, filename, target_addr=None, **kwargs):
     subprocess.run(cmd, cwd="tools/deploy/flash_backend", shell=True, check=True)
 
 def nRF52840_flash(mote, filename, **kwargs):
-    from flash_backend.nRF52840_flash import flash_nrf52840
+    from flash_backend.nrf import flash_nrf
 
-    flash_nrf52840(filename, mote=mote)
+    flash_nrf(filename, mote)
 
 def flash(mote, filename, mote_type, firmware_type):
     """
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Flash firmware to sensor nodes.')
-    parser.add_argument("mote", help="The mote to flash.")
+    parser.add_argument("mote", help="The device identifier to flash.")
     parser.add_argument("filename", help="The path to the binary to flash.")
     parser.add_argument("mote_type", choices=["zolertia", "nRF52840"], help="The type of mote.")
     parser.add_argument("firmware_type", choices=["contiki", "riot"], help="The OS that was used to create the firmware.")

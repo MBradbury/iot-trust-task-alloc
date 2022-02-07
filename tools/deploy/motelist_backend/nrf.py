@@ -236,7 +236,7 @@ def get_information_getter(device_version):
             return information_getter
     return None
 
-def motelist():
+def motelist_nrf() -> list:
     result = []
 
     with pynrfjprog.HighLevel.API() as api:
@@ -278,8 +278,8 @@ def motelist():
 
     return result
 
-def main(output: str):
-    details = motelist()
+def print_motelist_nrf(output: str="table"):
+    details = motelist_nrf()
 
     if output == "table":
         from tabulate import tabulate
@@ -311,4 +311,4 @@ if __name__ == "__main__":
                         help="The output style")
     args = parser.parse_args()
 
-    main(args.output)
+    print_motelist_nrf(args.output)

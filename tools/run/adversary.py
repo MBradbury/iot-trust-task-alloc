@@ -7,24 +7,18 @@ import os
 import sys
 import pathlib
 
+from common.configuration import devices
+
 from resource_rich.monitor.monitor_impl import MonitorBase
 
 from tools.run import supported_mote_types, supported_firmware_types, DEFAULT_LOG_DIR
 from tools.run.util import Teed, Popen, StreamNoTimestamp
+from tools.keygen.util import eui64_to_ipv6
 
 parser = argparse.ArgumentParser(description='Adversary runner')
-parser.add_argument("firmware_path", metavar="firmware-path",
-                    type=pathlib.Path,
-                    help="The path to the firmware to deploy")
-
 parser.add_argument('--log-dir', type=str, default=DEFAULT_LOG_DIR, help='The directory to store log output')
 
 # Flash.py
-parser.add_argument("--mote", default="/dev/ttyUSB0", help="The mote to flash.")
-parser.add_argument("--mote_type",
-                    choices=supported_mote_types,
-                    default=supported_mote_types[0],
-                    help="The type of mote.")
 parser.add_argument("--firmware_type",
                     choices=supported_firmware_types,
                     default=supported_firmware_types[0],
@@ -50,10 +44,18 @@ print(f"Logging motelist to {motelist_log_path}", flush=True)
 print(f"Logging flash to {flash_log_path}", flush=True)
 print(f"Logging pyterm to {pyterm_log_path}", flush=True)
 
+# Get the device connected to this host
+devices = [dev for dev in devices if dev.hostname == hostname]
+if not devices:
+    raise RuntimeError(f"No devices configured for this host {hostname} in the configuration")
+if len(devices) > 1:
+    raise RuntimeError(f"More than one device configured for this host {hostname} in the configuration")
+(device,) = devices
+
 with open(motelist_log_path, 'w') as motelist_log:
     teed = Teed()
     motelist = Popen(
-        f"python3 tools/deploy/motelist.py --mote-type {args.mote_type}",
+        f"python3 -m tools.deploy.motelist --mote-type {device.kind.value}",
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -66,14 +68,18 @@ with open(motelist_log_path, 'w') as motelist_log:
     teed.wait()
     motelist.wait()
 
+    if motelist.returncode != 0:
+        raise RuntimeError("Motelist failed")
+
 time.sleep(0.1)
 
-firmware_path = pathlib.Path.cwd() / args.firmware_path / 'adversary.bin'
+device_firmware_dir = str(eui64_to_ipv6(device.eui64)).replace(":", "_")
+firmware_path = pathlib.Path.cwd() / 'setup' / device_firmware_dir / 'adversary.bin'
 
 with open(flash_log_path, 'w') as flash_log:
     teed = Teed()
     flash = Popen(
-        f"python3 flash.py '{args.mote}' '{firmware_path}' {args.mote_type} {args.firmware_type}",
+        f"python3 flash.py '{device.identifier}' '{firmware_path}' {device.kind.value} {args.firmware_type}",
         cwd="tools/deploy",
         shell=True,
         stdout=subprocess.PIPE,
@@ -86,7 +92,11 @@ with open(flash_log_path, 'w') as flash_log:
              stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
     teed.wait()
     flash.wait()
-    print("Flashing finished!", flush=True)
+
+    if flash.returncode != 0:
+        raise RuntimeError("Flashing failed")
+    else:
+        print("Flashing finished!", flush=True)
 
 time.sleep(0.1)
 
@@ -97,7 +107,7 @@ with open(pyterm_log_path, 'w') as pyterm_log, \
     # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
     # This is because this script may be called under nohup in which case stdin won't exist.
     pyterm = Popen(
-        f"python3 tools/deploy/term.py {args.mote} --mote-type {args.mote_type}",
+        f"python3 tools/deploy/term.py {device.identifier} {device.kind.value} --log-dir {args.log_dir}",
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -110,4 +120,8 @@ with open(pyterm_log_path, 'w') as pyterm_log, \
              stderr=[pcap_monitor, pyterm_log, StreamNoTimestamp(sys.stderr)])
     teed.wait()
     pyterm.wait()
-    print("pyterm finished!", flush=True)
+    
+    if pyterm.returncode != 0:
+        raise RuntimeError("pyterm failed")
+    else:
+        print("pyterm finished!", flush=True)

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import subprocess
-import os
 
 def main(mote_type: str):
     if mote_type == "zolertia":
@@ -10,10 +9,8 @@ def main(mote_type: str):
                        check=True)
 
     elif mote_type == "nRF52840":
-        subprocess.run("python3 motelist_nrf.py",
-                       cwd="tools/deploy/motelist_backend",
-                       shell=True,
-                       check=True)
+        from tools.deploy.motelist_backend.nrf import print_motelist_nrf
+        print_motelist_nrf()
 
     else:
         raise RuntimeError(f"Unknown mote type {mote_type}")
