@@ -1,8 +1,6 @@
 from common.stereotype_tags import StereotypeTags, DeviceClass
-from common.configuration_common import Device, DeviceKind
+from common.configuration_common import Device, DeviceKind, root_ipv6_addr
 from tools.keygen.util import eui64_to_ipv6
-
-from ipaddress import IPv6Address
 
 devices = [
     Device("iris1",  "683867147", "f4:ce:36:d7:43:96:31:62", DeviceKind.NRF52840),
@@ -17,7 +15,7 @@ devices = [
 root_node = "iris1"
 
 hostname_to_ips = {
-    device.hostname: eui64_to_ipv6(device.hostname, details.eui64)
+    device.hostname: root_ipv6_addr if device.hostname == root_node else eui64_to_ipv6(device.eui64)
     for device
     in devices
 }
