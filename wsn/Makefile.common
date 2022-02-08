@@ -41,7 +41,7 @@ MODULES_REL += ../common ${addprefix ../common/,mqtt-over-coap trust trust/stere
 include ../common/nanocbor/Makefile.include
 
 ifeq ($(MAKE_WITH_PCAP),1)
-    CFLAGS += -DMAKE_WITH_PCAP=1
+    MAKE_NET_WITH_PCAP=1
     MODULES_REL += ../common/pcap
 endif
 
