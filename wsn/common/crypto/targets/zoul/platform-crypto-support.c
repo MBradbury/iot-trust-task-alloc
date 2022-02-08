@@ -4,8 +4,8 @@
 #include "os/sys/pt-sem.h"
 #include "os/sys/rtimer.h"
 #include "os/sys/log.h"
+#include "assert.h"
 
-#include "dev/sha256.h"
 #include "dev/ecc-curve.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "crypto-plat"
@@ -20,7 +20,7 @@
 static struct pt_sem crypto_processor_mutex;
 static process_event_t pe_crypto_lock_released;
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool platform_crypto_success(uint8_t ret)
+bool platform_crypto_success(platform_crypto_result_t ret)
 {
     return ret == CRYPTO_SUCCESS || ret == PKA_STATUS_SUCCESS;
 }
@@ -120,7 +120,7 @@ ec_uint32v_to_uint8v(const uint32_t* data, size_t size_in_bytes, uint8_t* result
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-uint8_t
+platform_crypto_result_t
 sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
 {
     sha256_state_t sha256_state;
@@ -138,7 +138,7 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
         crypto_enable();
     }
 
-    uint8_t ret;
+    platform_crypto_result_t ret;
 
     ret = sha256_init(&sha256_state);
     if (ret != CRYPTO_SUCCESS)
@@ -173,6 +173,32 @@ end:
 #endif
 
     return ret;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+platform_crypto_result_t platform_sha256_init(platform_sha256_context_t* ctx)
+{
+    ctx->enabled = CRYPTO_IS_ENABLED();
+    if (!ctx->enabled)
+    {
+        crypto_enable();
+    }
+
+    return sha256_init(&ctx->state);
+}
+platform_crypto_result_t platform_sha256_update(platform_sha256_context_t* ctx, const uint8_t* buffer, size_t len)
+{
+    return sha256_process(&ctx->state, buffer, len);
+}
+platform_crypto_result_t platform_sha256_finalise(platform_sha256_context_t* ctx, uint8_t* hash)
+{
+    return sha256_done(&ctx->state, hash);
+}
+void platform_sha256_done(platform_sha256_context_t* ctx)
+{
+    if (!ctx->enabled)
+    {
+        crypto_disable();
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))

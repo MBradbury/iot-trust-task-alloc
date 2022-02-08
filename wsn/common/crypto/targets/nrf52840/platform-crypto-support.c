@@ -9,7 +9,6 @@
 #include <inttypes.h>
 
 #include "nrf_crypto_init.h"
-#include "nrf_crypto_hash.h"
 #include "nrf_crypto_rng.h"
 
 #include "assert.h"
@@ -27,7 +26,7 @@
 static struct pt_sem crypto_processor_mutex;
 static process_event_t pe_crypto_lock_released;
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool platform_crypto_success(ret_code_t ret)
+bool platform_crypto_success(platform_crypto_result_t ret)
 {
     return ret == NRF_SUCCESS;
 }
@@ -66,7 +65,7 @@ crypto_fill_random(uint8_t* buffer, size_t size_in_bytes)
     return platform_crypto_success(ret);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-uint8_t
+platform_crypto_result_t
 sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
 {
     nrf_crypto_hash_context_t ctx;
@@ -77,7 +76,7 @@ sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash)
     LOG_DBG("Starting sha256(%zu)...\n", len);
     time = RTIMER_NOW();
 #endif
-    ret_code_t ret;
+    platform_crypto_result_t ret;
 
     ret = nrf_crypto_hash_init(&ctx, &g_nrf_crypto_hash_sha256_info);
     if (ret != NRF_SUCCESS)
@@ -115,6 +114,23 @@ end:
 #endif
 
     return ret;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+platform_crypto_result_t platform_sha256_init(platform_sha256_context_t* ctx)
+{
+    return nrf_crypto_hash_init(ctx, &g_nrf_crypto_hash_sha256_info);
+}
+platform_crypto_result_t platform_sha256_update(platform_sha256_context_t* ctx, const uint8_t* buffer, size_t len)
+{
+    return nrf_crypto_hash_update(ctx, buffer, len);
+}
+platform_crypto_result_t platform_sha256_finalise(platform_sha256_context_t* ctx, uint8_t* hash)
+{
+    size_t digest_length = SHA256_DIGEST_LEN_BYTES;
+    return nrf_crypto_hash_finalize(ctx, hash, &digest_length);
+}
+void platform_sha256_done(platform_sha256_context_t* ctx)
+{
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 PT_THREAD(ecc_sign(sign_state_t* state, uint8_t* buffer, size_t buffer_len, size_t msg_len))

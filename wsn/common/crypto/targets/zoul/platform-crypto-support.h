@@ -6,16 +6,28 @@
 #include "pt.h"
 
 #include "dev/ecc-algorithm.h"
+#include "dev/sha256.h"
 
 #include "keys.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
+typedef uint8_t platform_crypto_result_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
 void platform_crypto_support_init(void);
 /*-------------------------------------------------------------------------------------------------------------------*/
-bool platform_crypto_success(uint8_t ret);
+bool platform_crypto_success(platform_crypto_result_t ret);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool crypto_fill_random(uint8_t* buffer, size_t size_in_bytes);
 /*-------------------------------------------------------------------------------------------------------------------*/
-uint8_t sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash);
+platform_crypto_result_t sha256_hash(const uint8_t* buffer, size_t len, uint8_t* hash);
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct {
+	sha256_state_t state;
+	bool enabled;
+} platform_sha256_context_t;
+platform_crypto_result_t platform_sha256_init(platform_sha256_context_t* ctx);
+platform_crypto_result_t platform_sha256_update(platform_sha256_context_t* ctx, const uint8_t* buffer, size_t len);
+platform_crypto_result_t platform_sha256_finalise(platform_sha256_context_t* ctx, uint8_t* hash);
+void platform_sha256_done(platform_sha256_context_t* ctx);
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct {
     struct pt pt;

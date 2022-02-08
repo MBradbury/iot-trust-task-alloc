@@ -8,7 +8,7 @@
 #include "list.h"
 #include "memb.h"
 
-#include "dev/sha256.h"
+#include "platform-crypto-support.h"
 
 #include "coap.h"
 #include "coap-callback-api.h"
@@ -311,7 +311,7 @@ periodic_action(void)
     keystore_protect_coap_with_oscore(&msg, &ep);
 #endif
 
-    // Regord when we sent this challenge
+    // Record when we sent this challenge
     next_challenge->generated = clock_time();
 
     ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
@@ -328,7 +328,7 @@ periodic_action(void)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static uint8_t
+static platform_crypto_result_t
 sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t* cr, uint8_t* hash)
 {
     //LOG_DBG("Challenge prefix: ");
@@ -339,41 +339,34 @@ sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t*
     //LOG_DBG_BYTES(c->data, sizeof(c->data));
     //LOG_DBG_("\n");
 
-    sha256_state_t sha256_state;
+    platform_sha256_context_t ctx;
+    platform_crypto_result_t ret;
 
-    bool enabled = CRYPTO_IS_ENABLED();
-    if (!enabled)
+    ret = platform_sha256_init(&ctx);
+    if (!platform_crypto_success(ret))
     {
-        crypto_enable();
-    }
-
-    uint8_t ret;
-
-    ret = sha256_init(&sha256_state);
-    if (ret != CRYPTO_SUCCESS)
-    {
-        LOG_ERR("sha256_init failed with %u\n", ret);
+        LOG_ERR("sha256_init failed with %" CRYPTO_RESULT_SPEC "\n", ret);
         goto end;
     }
 
-    ret = sha256_process(&sha256_state, cr->data_prefix, cr->data_length);
-    if (ret != CRYPTO_SUCCESS)
+    ret = platform_sha256_update(&ctx, cr->data_prefix, cr->data_length);
+    if (!platform_crypto_success(ret))
     {
-        LOG_ERR("sha256_process1 failed with %u\n", ret);
+        LOG_ERR("sha256_process1 failed with %" CRYPTO_RESULT_SPEC "\n", ret);
         goto end;
     }
 
-    ret = sha256_process(&sha256_state, c->data, sizeof(c->data));
-    if (ret != CRYPTO_SUCCESS)
+    ret = platform_sha256_update(&ctx, c->data, sizeof(c->data));
+    if (!platform_crypto_success(ret))
     {
-        LOG_ERR("sha256_process2 failed with %u\n", ret);
+        LOG_ERR("sha256_process2 failed with %" CRYPTO_RESULT_SPEC "\n", ret);
         goto end;
     }
 
-    ret = sha256_done(&sha256_state, hash);
-    if (ret != CRYPTO_SUCCESS)
+    ret = platform_sha256_finalise(&ctx, hash);
+    if (!platform_crypto_success(ret))
     {
-        LOG_ERR("sha256_done failed with %u\n", ret);
+        LOG_ERR("sha256_finalise failed with %" CRYPTO_RESULT_SPEC "\n", ret);
         goto end;
     }
 
@@ -382,10 +375,7 @@ sha256_hash_challenge_response(const challenge_t* c, const challenge_response_t*
     //LOG_DBG_("\n");
 
 end:
-    if (!enabled)
-    {
-        crypto_disable();
-    }
+    platform_sha256_done(&ctx);
 
     return ret;
 }
@@ -469,7 +459,7 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
     ret = nanocbor_get_challenge_response(payload, payload_len, &cr);
     if (ret != NANOCBOR_OK)
     {
-        LOG_ERR("Failed to parse challenge respose from ");
+        LOG_ERR("Failed to parse challenge response from ");
         LOG_ERR_COAP_EP(request->src_ep);
         LOG_ERR_("\n");
         goto end;
@@ -477,9 +467,10 @@ res_coap_cr_post_handler(coap_message_t *request, coap_message_t *response, uint
 
     // Validate the challenge response
     uint8_t digest[SHA256_DIGEST_LEN_BYTES];
-    if (sha256_hash_challenge_response(&challenger->ch, &cr, digest) != CRYPTO_SUCCESS)
+    platform_crypto_result_t crret = sha256_hash_challenge_response(&challenger->ch, &cr, digest);
+    if (!platform_crypto_success(crret))
     {
-        LOG_ERR("Challenge response hash failed\n");
+        LOG_ERR("Challenge response hash failed with %" CRYPTO_RESULT_SPEC "\n", crret);
         goto end;
     }
 
