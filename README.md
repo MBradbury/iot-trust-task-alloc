@@ -8,6 +8,8 @@ The project was funded by [PETRAS](https://petras-iot.org/project/evaluating-tru
 
 This system architecture is described in: **Matthew Bradbury**, Arshad Jhumka, and Tim Watson. Trust Assessment in 32 KiB of RAM: Multi-application Trust-based Task Offloading for Resource-constrained IoT Nodes. In *The 36th ACM/SIGAPP Symposium on Applied Computing*, SAC'21, 1–10. Virtual Event, Republic of Korea, 22–26 March 2021. ACM. [doi:10.1145/3412841.3441898](https://doi.org/10.1145/3412841.3441898). [[bibtex](https://github.com/MBradbury/publications/raw/master/bibtex/Bradbury_2021_TrustAssessment32.bib)] [[file](https://github.com/MBradbury/publications/raw/master/papers/SAC-DADS2021.pdf)] [[dataset](https://doi.org/10.5281/zenodo.4312801)].
 
+A more detailed look at the architecture and threats to it is described in: **Matthew Bradbury**, Arshad Jhumka, Tim Watson, Denys Flores, Jonathan Burton, and Matthew Butler. Threat-Modeling-Guided Trust-Based Task Offloading for Resource-Constrained Internet of Things. *ACM Transactions on Sensor Networks*, 18(2):41, 2022. [doi:10.1145/3510424](https://doi.org/10.1145/3510424). [[bibtex](https://github.com/MBradbury/publications/raw/master/bibtex/Bradbury_2022_ThreatModellingGuided.bib)] [[file](https://github.com/MBradbury/publications/raw/master/papers/TOSN2022.pdf)] [[dataset](https://doi.org/10.5281/zenodo.4568700)].
+
 ## Repository Structure
 
 This repository is structured as follows, with the most important implementation being in:
@@ -22,7 +24,7 @@ Other directories contain supporting code:
 
 # Setup
 
-This system assumes the use of [Zolertia RE-Mote rev.b](https://zolertia.io/product/re-mote/) hardware for IoT deployments. Parts of the implementation depend on the hardware accelerated cryptograpic operations they provide.
+This system assumes the use of [Zolertia RE-Mote rev.b](https://zolertia.io/product/re-mote/) or [nRF52840](https://www.nordicsemi.com/Products/nRF52840) hardware for IoT deployments. Parts of the implementation depend on the hardware accelerated cryptographic operations they provide.
 
 ## Development
 
