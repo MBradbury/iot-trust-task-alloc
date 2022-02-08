@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import subprocess
-import os
 
 def get_mote_device(device: str, mote_type: str) -> str:
     if mote_type == "zolertia":

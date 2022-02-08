@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Stop anything currently running
-pkill -9 python3
+sudo pkill -9 python3
 
 nohup python3 -m tools.run.profile &
 
