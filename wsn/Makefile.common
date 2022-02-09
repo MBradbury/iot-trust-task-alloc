@@ -66,6 +66,8 @@ ifeq ($(TARGET),nrf52840)
 
     # Need to build using RTT so we can get serial output
     NRF52840_USE_RTT=1
+
+    CFLAGS += -DSEGGER_RTT_MODE_DEFAULT=SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL
 endif
 
 # Set MAC protocol
