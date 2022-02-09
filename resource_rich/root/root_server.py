@@ -16,7 +16,7 @@ from common.configuration import root_node, hostname_to_ips
 import aiocoap
 import aiocoap.resource as resource
 from aiocoap.oscore_sitewrapper import OscoreSiteWrapper
-from aiocoap.credentials import CredentialsMap
+from aiocoap.credentials import CredentialsMap, CredentialReference
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("root-server")
@@ -73,14 +73,17 @@ def keystore_aiocoap_oscore_credentials(keystore: Keystore) -> CredentialsMap:
     server_credentials = CredentialsMap()
     server_credentials.load_from_dict({**server_credentials_dict, **client_credentials_dict})
 
-    #logger.debug("Credentials:")
-    #for k, item in server_credentials.items():
-    #    logger.debug(f"{k}:")
-    #    logger.debug(f"\tSender ID    : {item.sender_id.hex()}")
-    #    logger.debug(f"\tSender Key   : {item.sender_key.hex()}")
-    #    logger.debug(f"\tRecipient ID : {item.recipient_id.hex()}")
-    #    logger.debug(f"\tRecipient Key: {item.recipient_key.hex()}")
-    #    logger.debug(f"\tCommon IV    : {item.common_iv.hex()}")
+    logger.debug("Credentials:")
+    for k, item in server_credentials.items():
+        logger.debug(f"{k}:")
+        if isinstance(item, CredentialReference):
+            logger.debug(f"\tRef          : {item.target}")
+        else:
+            logger.debug(f"\tSender ID    : {item.sender_id.hex()}")
+            logger.debug(f"\tSender Key   : {item.sender_key.hex()}")
+            logger.debug(f"\tRecipient ID : {item.recipient_id.hex()}")
+            logger.debug(f"\tRecipient Key: {item.recipient_key.hex()}")
+            logger.debug(f"\tCommon IV    : {item.common_iv.hex()}")
 
     return server_credentials
 
