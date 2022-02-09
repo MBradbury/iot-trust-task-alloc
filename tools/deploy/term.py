@@ -6,12 +6,12 @@ import time
 from typing import Optional
 
 def main_zolertia(mote: str, log_dir: Optional[pathlib.Path]):
-    subprocess.run(f"python3 pyterm.py -b 115200 -p {args.mote}",
+    subprocess.run(f"python3 pyterm.py -b 115200 -p {args.mote} --format '' --prompt '' --no-intro",
                    cwd="tools/deploy/term_backend",
                    shell=True,
                    check=True)
 
-def main_nrf52840(mote: str, log_dir: Optional[pathlib.Path]):
+def main_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathlib.Path]=None):
     # See: https://github.com/RIOT-OS/RIOT/blob/73ccd1e2e721bee38f958f8906ac32e5e1fceb0c/dist/tools/jlink/jlink.sh#L268
 
     JLINK_DIR = pathlib.Path("/opt/SEGGER/JLink")
@@ -23,8 +23,8 @@ def main_nrf52840(mote: str, log_dir: Optional[pathlib.Path]):
     opts = {
         "-nogui": 1,
         "-exitonerror": 1,
-        "-device": "nRF52840_xxAA", # From ExpDevList from JLinkExe
-        "-speed": 2000,
+        "-device": device_type,
+        "-speed": speed,
         "-if": "swd",
         "-jtagconf": "-1,-1",
         "-SelectEmuBySN": mote,
@@ -55,7 +55,9 @@ def main(mote: str, mote_type: str, log_dir: Optional[pathlib.Path]):
         main_zolertia(mote, log_dir)
 
     elif mote_type == "nRF52840":
-        main_nrf52840(mote, log_dir)
+        # See: Section 4.8.2.2.1 of https://infocenter.nordicsemi.com/pdf/nRF52840_PS_v1.0.pdf
+        # Maximum speed of SWD is 8 MHz
+        main_nrf(mote, "nRF52840_xxAA", speed=8000, log_dir=log_dir)
 
     else:
         raise RuntimeError(f"Unknown mote type {mote_type}")

@@ -155,7 +155,7 @@ class TermApplicationRunner(ApplicationRunner):
             # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
             # This is because this script may be called under nohup in which case stdin won't exist.
             pyterm = Popen(
-                f"python3 tools/deploy/term.py {self.device.identifier} {self.device.kind.value} --log-dir {self.log_dir}",
+                f"python3 -m tools.deploy.term {self.device.identifier} {self.device.kind.value} --log-dir {self.log_dir}",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
