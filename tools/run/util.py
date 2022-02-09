@@ -32,7 +32,7 @@ class Teed:
                 now = datetime.now(timezone.utc).isoformat()
 
                 for f in files:
-                    f.write(now + " # " + line)
+                    f.write(f"{now} # {line}")
                     f.flush()
 
                     if getattr(f, "stop_further_processing", False):

@@ -2,18 +2,6 @@ import logging
 from datetime import datetime, timezone
 from enum import IntEnum
 
-#from scapy.all import UDP, IPv6, ICMP
-#from scapy.layers.inet6 import *
-#from scapy.layers.dot15d4 import Dot15d4
-#from scapy.layers.sixlowpan import *
-#from scapy.contrib.coap import CoAP
-#from scapy.contrib.rpl import *
-#from scapy.contrib.rpl_metrics import *
-#from scapy.utils import PcapWriter
-#from scapy.config import conf
-#
-#conf.dot15d4_protocol = 'sixlowpan'
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("monitor")
 logger.setLevel(logging.DEBUG)
@@ -35,7 +23,8 @@ class MonitorBase:
         self.previous_out = None
         self._stop = False
 
-        self.packet_log_file = open(f"{log_dir}/{name}.packet.log", "w")
+        self.log_dir = log_dir
+        self.packet_log_file = open(f"{self.log_dir}/{name}.packet.log", "w")
 
     def __enter__(self):
         return self

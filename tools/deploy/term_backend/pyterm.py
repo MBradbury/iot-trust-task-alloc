@@ -892,6 +892,11 @@ if __name__ == "__main__":
                         action="store_false",
                         help="Do not try to reconnect when failing on "
                              "connection setup (Default)")
+    parser.add_argument("--no-intro",
+                        dest='no_intro',
+                        action="store_true",
+                        default=False,
+                        help="Do not how an intro message")
     parser.set_defaults(
         repeat_command_on_empty_line=defaultrepeat_cmd_empty_line,
         reconnect=defaultreconnect)
@@ -907,15 +912,19 @@ if __name__ == "__main__":
                      args.repeat_command_on_empty_line)
     myshell.prompt = ''
 
+    if args.no_intro:
+        intro = None
+    else:
+        intro = "Welcome to pyterm!\nType '/exit' to exit."
+
     try:
         if args.server and args.tcp_port:
             myfactory = PytermClientFactory(myshell)
             reactor.connectTCP(args.server, args.tcp_port, myfactory)
             myshell.factory = myfactory
-            reactor.callInThread(myshell.cmdloop, "Welcome to pyterm!\n"
-                                                  "Type '/exit' to exit.")
+            reactor.callInThread(myshell.cmdloop, intro)
             reactor.run()
         else:
-            myshell.cmdloop("Welcome to pyterm!\nType '/exit' to exit.")
+            myshell.cmdloop(intro)
     except KeyboardInterrupt:
         myshell.do_PYTERM_exit(None)
