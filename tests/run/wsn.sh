@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Stop anything currently running
-sudo pkill -9 python3
+sudo pkill python3
 
 # Remove logs
 rm -rf logs
