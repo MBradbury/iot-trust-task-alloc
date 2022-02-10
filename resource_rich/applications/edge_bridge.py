@@ -5,6 +5,8 @@ import asyncio
 import signal
 from datetime import datetime, timezone
 import os
+import pathlib
+from typing import Optional
 
 from config import edge_marker, application_edge_marker, serial_sep, edge_server_port
 
@@ -13,9 +15,10 @@ logger = logging.getLogger("edge-bridge")
 logger.setLevel(logging.DEBUG)
 
 class NodeSerialBridge:
-    def __init__(self, mote: str, mote_type: str):
+    def __init__(self, mote: str, mote_type: str, log_dir: Optional[pathlib.Path]=None):
         self.mote = mote
         self.mote_type = mote_type
+        self.log_dir = log_dir
 
         self.proc = None
         self.server = None
@@ -23,9 +26,11 @@ class NodeSerialBridge:
         self.applications = {}
 
     async def start(self):
+        term_args = f"--log-dir {self.log_dir}" if self.log_dir else ""
+
         # Start processing serial output from edge sensor node
         self.proc = await asyncio.create_subprocess_shell(
-            f"python3 tools/deploy/term.py {self.mote} {self.mote_type}",
+            f"python3 -m tools.deploy.term {self.mote} {self.mote_type} {term_args}",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
@@ -186,8 +191,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Edge bridge')
     parser.add_argument("mote", help="The mote to open a terminal for.")
     parser.add_argument("mote_type", choices=["zolertia", "nRF52840"], help="The type of mote.")
+    parser.add_argument("--log-dir", default=None, type=pathlib.Path, help="The directory to output logs to.")
     args = parser.parse_args()
 
-    bridge = NodeSerialBridge(args.mote, args.mote_type)
+    bridge = NodeSerialBridge(args.mote, args.mote_type, args.log_dir)
 
     main(bridge)
