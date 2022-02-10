@@ -185,7 +185,7 @@ process_serial_message(const char* data)
     }
     else
     {
-        LOG_ERR("Unknown serial message\n");
+        LOG_ERR("Unknown serial message: '%s'\n", data);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
