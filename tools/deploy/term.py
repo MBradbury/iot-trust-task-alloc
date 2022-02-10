@@ -2,14 +2,20 @@
 import subprocess
 import pathlib
 import time
+import sys
 
 from typing import Optional
 
-def main_zolertia(mote: str, log_dir: Optional[pathlib.Path]):
-    subprocess.run(f"python3 pyterm.py -b 115200 -p {args.mote} --format '' --prompt '' --no-intro",
-                   cwd="tools/deploy/term_backend",
+def main_pyterm_serial(mote: str, baud: int=115200, log_dir: Optional[pathlib.Path]=None):
+    pyterm_log_dir = f"--log-dir-name {log_dir}" if log_dir is not None else ""
+    pyterm_args = f"--format '' --prompt '' --no-intro {pyterm_log_dir}"
+
+    command = f"python3 tools/deploy/term_backend/pyterm.py -b {baud} -p {mote} {pyterm_args}"
+    print(command, flush=True)
+    subprocess.run(command,
                    shell=True,
-                   check=True)
+                   check=True,
+                   stdin=sys.stdin)
 
 def main_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathlib.Path]=None):
     # See: https://github.com/RIOT-OS/RIOT/blob/73ccd1e2e721bee38f958f8906ac32e5e1fceb0c/dist/tools/jlink/jlink.sh#L268
@@ -37,27 +43,41 @@ def main_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathli
 
     opts_str = " ".join(f"{k} {v}" for (k, v) in opts.items())
 
-    jlink = subprocess.Popen(f"{JLINK_EXE} {opts_str} -CommanderScript jlink_term.seg",
-                             cwd="tools/deploy/term_backend",
+    jlink = subprocess.Popen(f"{JLINK_EXE} {opts_str} -CommanderScript tools/deploy/term_backend/jlink_term.seg",
                              shell=True)
-    time.sleep(2)
+    time.sleep(0.1)
 
     try:
-        subprocess.run(f"python3 pyterm.py --tcp-serial localhost:{RTT_telnet_port} --format '' --prompt '' --no-intro",
-                       cwd="tools/deploy/term_backend",
+        pyterm_log_dir = f"--log-dir-name {log_dir}" if log_dir else ""
+        pyterm_args = f"--format '' --prompt '' --no-intro {pyterm_log_dir}"
+
+        subprocess.run(f"python3 tools/deploy/term_backend/pyterm.py --tcp-serial localhost:{RTT_telnet_port} {pyterm_args}",
                        shell=True,
-                       check=True)
+                       check=True,
+                       stdin=sys.stdin)
     finally:
         jlink.kill()
 
 def main(mote: str, mote_type: str, log_dir: Optional[pathlib.Path]):
     if mote_type == "zolertia":
-        main_zolertia(mote, log_dir)
+        main_pyterm_serial(mote, log_dir=log_dir)
 
     elif mote_type == "nRF52840":
+        # Some different options for how to send/receive log output from nrf52840
+
+        # 1. Use the serial terminal
+        from tools.deploy.motedev_backend.nrf import get_com_ports_for_mote
+        com_ports = get_com_ports_for_mote(mote)
+        main_pyterm_serial(com_ports[0], log_dir=log_dir)
+
+        # 2. Use RTT via JLinkExe
         # See: Section 4.8.2.2.1 of https://infocenter.nordicsemi.com/pdf/nRF52840_PS_v1.0.pdf
         # Maximum speed of SWD is 8 MHz
-        main_nrf(mote, "nRF52840_xxAA", speed=8000, log_dir=log_dir)
+        #main_nrf(mote, "nRF52840_xxAA", speed=8000, log_dir=log_dir)
+
+        # 3. Use RTT via custom RTT reader/writer
+        #from tools.deploy.term_backend.nrf import term_nrf
+        #term_nrf(int(mote))
 
     else:
         raise RuntimeError(f"Unknown mote type {mote_type}")
