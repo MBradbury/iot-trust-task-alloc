@@ -138,7 +138,7 @@ class Setup:
 
         for binary in self.binaries:
             subprocess.run(
-                f"make distclean -C wsn/{binary} {build_args_str}",
+                f"make clean -C wsn/{binary} {build_args_str}",
                 shell=True,
                 check=True,
             )
@@ -309,6 +309,11 @@ class Setup:
 
         build_args = self._target_build_args()
         build_args_str = " ".join(f"{k}={v}" for (k,v) in build_args.items())
+
+        subprocess.run(f"make clean {build_args_str}",
+            cwd=border_router_dir,
+            shell=True,
+            check=True)
 
         subprocess.run(f"make {build_args_str}",
             cwd=border_router_dir,
