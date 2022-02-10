@@ -11,6 +11,11 @@
       version: petras
       recursive: yes
 
+  - name: Clean tunslip
+    ansible.builtin.command:
+      cmd: make clean
+      chdir: ~/deploy/contiki-ng/tools/serial-io
+
   - name: Build tunslip
     ansible.builtin.command:
       cmd: make
