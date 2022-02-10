@@ -48,7 +48,7 @@ def main_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathli
     time.sleep(0.1)
 
     try:
-        pyterm_log_dir = f"--log-dir-name {log_dir}" if log_dir else ""
+        pyterm_log_dir = f"--log-dir-name {log_dir}" if log_dir is not None else ""
         pyterm_args = f"--format '' --prompt '' --no-intro {pyterm_log_dir}"
 
         subprocess.run(f"python3 tools/deploy/term_backend/pyterm.py --tcp-serial localhost:{RTT_telnet_port} {pyterm_args}",
@@ -68,7 +68,9 @@ def main(mote: str, mote_type: str, log_dir: Optional[pathlib.Path]):
         # 1. Use the serial terminal
         from tools.deploy.motedev_backend.nrf import get_com_ports_for_mote
         com_ports = get_com_ports_for_mote(mote)
-        main_pyterm_serial(com_ports[0], log_dir=log_dir)
+
+        # For baud, see: arch/cpu/nrf52840/nrf52840-conf.h
+        main_pyterm_serial(com_ports[0], baud=115200, log_dir=log_dir)
 
         # 2. Use RTT via JLinkExe
         # See: Section 4.8.2.2.1 of https://infocenter.nordicsemi.com/pdf/nRF52840_PS_v1.0.pdf
