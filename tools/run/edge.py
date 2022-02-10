@@ -44,9 +44,12 @@ class EdgeRunner(ApplicationRunner):
                      stdout=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stdout)],
                      stderr=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stderr)])
 
-            time.sleep(2)
+            print("Waiting for edge bridge to start before running applications...")
+            time.sleep(15)
 
             apps = []
+
+            print("Running applications")
 
             for (application, niceness, params) in self.application:
                 app_specific_log_path = self.get_application_log_path(application)
@@ -71,7 +74,7 @@ class EdgeRunner(ApplicationRunner):
                 apps.append((p, app_log))
 
                 # Wait a bit between applications being started
-                time.sleep(2)
+                time.sleep(5)
 
 
             teed.wait()
