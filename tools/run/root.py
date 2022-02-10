@@ -46,7 +46,7 @@ class RootRunner(ApplicationRunner):
             teed = Teed()
 
             tunslip = Popen(
-                f"sudo ./tunslip6 -s '{com_port}' fd00::1/64",
+                f"sudo ./tunslip6 -v3 -s '{com_port}' fd00::1/64",
                 cwd=Path("~/deploy/contiki-ng/tools/serial-io").expanduser(),
                 shell=True,
                 stdout=subprocess.PIPE,
