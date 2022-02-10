@@ -53,6 +53,7 @@ class RootRunner(ApplicationRunner):
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
                 encoding="utf-8",
+                errors="backslashreplace",
             )
             teed.add(tunslip,
                      stdout=[tunslip_log, StreamNoTimestamp(sys.stdout)],
