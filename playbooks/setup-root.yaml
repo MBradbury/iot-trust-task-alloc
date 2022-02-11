@@ -20,3 +20,13 @@
     ansible.builtin.command:
       cmd: make
       chdir: ~/deploy/contiki-ng/tools/serial-io
+
+  - name: Clean border router native
+    ansible.builtin.command:
+      cmd: make clean
+      chdir: ~/deploy/contiki-ng/examples/rpl-border-router
+
+  - name: Build border router native
+    ansible.builtin.command:
+      cmd: make TARGET=native
+      chdir: ~/deploy/contiki-ng/examples/rpl-border-router

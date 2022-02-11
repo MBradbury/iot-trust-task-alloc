@@ -86,9 +86,6 @@ class Setup:
         print(f"Using trust model {self.trust_model}")
         self._create_setup_dir()
 
-        print("Cleaning directories")
-        self._clean_build_dirs()
-
         print("Building keystore")
         self._build_keystore()
         self._create_certificates()
@@ -97,6 +94,10 @@ class Setup:
         self._create_oscore_contexts()
 
         self._build_border_router()
+        self._build_slip_radio_router()
+
+        print("Cleaning directories")
+        self._clean_build_dirs()
 
         self._generate_static_keys_and_build()
 
@@ -301,13 +302,20 @@ class Setup:
         else:
             raise RuntimeError(f"Unknown target {self.target}")
 
+    def _target_border_router_build_args(self):
+        build_args = self._target_build_args()
+
+        #if self.target == "nRF52840DK":
+        #    build_args["NRF52840_NATIVE_USB"] = "1"
+
+        return build_args
 
     def _build_border_router(self):
         print(f"Building border router")
 
         border_router_dir = pathlib.Path(os.environ["CONTIKING_OSCORE_DIR"]) / "examples/rpl-border-router"
 
-        build_args = self._target_build_args()
+        build_args = self._target_border_router_build_args()
         build_args_str = " ".join(f"{k}={v}" for (k,v) in build_args.items())
 
         subprocess.run(f"make clean {build_args_str}",
@@ -330,6 +338,38 @@ class Setup:
             raise RuntimeError("Unknown border router output directory")
 
         output_file /= "border-router.bin"
+
+        # Now copy the built object to setup
+        shutil.copy(output_file, "setup")
+
+    def _build_slip_radio_router(self):
+        print(f"Building slip-radio router")
+
+        border_router_dir = pathlib.Path(os.environ["CONTIKING_OSCORE_DIR"]) / "examples/slip-radio"
+
+        build_args = self._target_border_router_build_args()
+        build_args_str = " ".join(f"{k}={v}" for (k,v) in build_args.items())
+
+        subprocess.run(f"make clean {build_args_str}",
+            cwd=border_router_dir,
+            shell=True,
+            check=True)
+
+        subprocess.run(f"make {build_args_str}",
+            cwd=border_router_dir,
+            shell=True,
+            check=True)
+
+        output_file = border_router_dir / "build" / build_args['TARGET']
+
+        if "PLATFORM" in build_args:
+            output_file /= build_args['PLATFORM']
+        elif "BOARD" in build_args:
+            output_file /= build_args['BOARD']
+        else:
+            raise RuntimeError("Unknown slip-radio output directory")
+
+        output_file /= "slip-radio.bin"
 
         # Now copy the built object to setup
         shutil.copy(output_file, "setup")

@@ -13,9 +13,10 @@ from tools.run.util import Teed, Popen, StreamNoTimestamp, ApplicationRunner
 class RootRunner(ApplicationRunner):
     log_name = "root"
 
-    def __init__(self, log_dir: Path, firmware_type: str, no_flush_oscore: bool):
+    def __init__(self, log_dir: Path, firmware_type: str, no_flush_oscore: bool, mode: str):
         super().__init__(log_dir, firmware_type)
         self.no_flush_oscore = no_flush_oscore
+        self.mode = mode
 
     def set_log_paths(self):
         super().set_log_paths()
@@ -35,26 +36,39 @@ class RootRunner(ApplicationRunner):
                 print(f"Removing {sequence}", flush=True)
                 sequence.unlink(missing_ok=True)
 
-    def run_root_server(self):
+    def _start_local_border_router_service(self):
         com_port = get_mote_device(self.device.identifier, self.device.kind.value)
+        #com_port = "/dev/ttyACM4"
         print(f"Found com port {com_port} for device {self.device}", flush=True)
 
+        if self.mode == "slip":
+            command = f"sudo ./tunslip6 -v3 -s '{com_port}' fd00::1/64"
+            cwd = Path("~/deploy/contiki-ng/tools/serial-io").expanduser()
+        elif self.mode == "native":
+            command = f"sudo ./border-router.native -v3 -s '{com_port}' fd00::1/64"
+            cwd = Path("~/deploy/contiki-ng/examples/rpl-border-router").expanduser()
+        else:
+            raise RuntimeError(f"Unknown border router mode {self.mode}")
+
+        return Popen(
+            command,
+            cwd=cwd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="backslashreplace",
+        )
+
+    def run_root_server(self):
         with open(self.tunslip_log_path, 'w') as tunslip_log, \
              open(self.service_log_path, 'w') as service_log, \
              open(self.root_server_log_path, 'w') as root_server_log:
 
             teed = Teed()
 
-            tunslip = Popen(
-                f"sudo ./tunslip6 -v3 -s '{com_port}' fd00::1/64",
-                cwd=Path("~/deploy/contiki-ng/tools/serial-io").expanduser(),
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                encoding="utf-8",
-                errors="backslashreplace",
-            )
+            tunslip = self._start_local_border_router_service()
             teed.add(tunslip,
                      stdout=[tunslip_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[tunslip_log, StreamNoTimestamp(sys.stderr)])
@@ -109,7 +123,12 @@ class RootRunner(ApplicationRunner):
 
         time.sleep(0.1)
 
-        self.run_flash("border-router.bin")
+        if self.mode == "slip":
+            self.run_flash("border-router.bin")
+        elif self.mode == "native":
+            self.run_flash("slip-radio.bin")
+        else:
+            raise RuntimeError(f"Unknown border router mode {self.mode}")
 
         time.sleep(0.1)
 
@@ -126,7 +145,8 @@ parser.add_argument("--firmware-type",
                     default=supported_firmware_types[0],
                     help="The OS that was used to create the firmware.")
 parser.add_argument("--no-flush-oscore", action="store_true", default=False, help="Disable flushing OSCORE cache")
+parser.add_argument("--mode", choices=["native", "slip"], default="native", help="The mode in which to run the border router")
 args = parser.parse_args()
 
-runner = RootRunner(args.log_dir, args.firmware_type, args.no_flush_oscore)
+runner = RootRunner(args.log_dir, args.firmware_type, args.no_flush_oscore, mode=args.mode)
 runner.run()
