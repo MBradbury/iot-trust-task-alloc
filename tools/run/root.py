@@ -145,7 +145,7 @@ parser.add_argument("--firmware-type",
                     default=supported_firmware_types[0],
                     help="The OS that was used to create the firmware.")
 parser.add_argument("--no-flush-oscore", action="store_true", default=False, help="Disable flushing OSCORE cache")
-parser.add_argument("--mode", choices=["native", "slip"], default="native", help="The mode in which to run the border router")
+parser.add_argument("--mode", choices=["native", "slip"], default="slip", help="The mode in which to run the border router")
 args = parser.parse_args()
 
 runner = RootRunner(args.log_dir, args.firmware_type, args.no_flush_oscore, mode=args.mode)
