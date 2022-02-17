@@ -35,6 +35,8 @@ def config_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[path
     subprocess.run(f"{JLINK_EXE} {opts_str}",
                    shell=True)
 
+    # TODO: Need to toggle power to the usb port that this device is connected to
+
 if __name__ == "__main__":
     import argparse
 
