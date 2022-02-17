@@ -107,10 +107,21 @@ class SerCmd(cmd.Cmd):
     port.
     """
 
-    def __init__(self, port=None, baudrate=None, toggle=None, tcp_serial=None,
-                 confdir=None, conffile=None, host=None, run_name=None,
-                 log_dir_name=None, newline=None, formatter=None,
-                 set_rts=None, set_dtr=None, serprompt=None,
+    def __init__(self,
+                 port=defaultport,
+                 baudrate=defaultbaud,
+                 toggle=None,
+                 tcp_serial=None,
+                 confdir=defaultdir,
+                 conffile=defaultfile,
+                 host=defaulthostname,
+                 run_name=defaultrunname,
+                 log_dir_name=None,
+                 newline=defaultnewline,
+                 formatter=default_fmt_str,
+                 set_rts=None,
+                 set_dtr=None,
+                 serprompt=defaultprompt,
                  repeat_command_on_empty_line=defaultrepeat_cmd_empty_line,
                  reconnect=defaultreconnect):
         """Constructor.
@@ -154,6 +165,8 @@ class SerCmd(cmd.Cmd):
 
         if not self.log_dir_name:
             self.log_dir_name = self.host
+        else:
+            self.log_dir_name = str(self.log_dir_name)
 
         if not os.path.exists(self.configdir):
             os.makedirs(self.configdir)

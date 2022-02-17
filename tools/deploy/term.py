@@ -6,16 +6,20 @@ import sys
 
 from typing import Optional
 
-def main_pyterm_serial(mote: str, baud: int=115200, log_dir: Optional[pathlib.Path]=None):
-    pyterm_log_dir = f"--log-dir-name {log_dir}" if log_dir is not None else ""
-    pyterm_args = f"--format '' --prompt '' --no-intro {pyterm_log_dir}"
+import tools.deploy.term_backend.pyterm as pyterm
 
-    command = f"python3 tools/deploy/term_backend/pyterm.py -b {baud} -p {mote} {pyterm_args}"
-    print(command, flush=True)
-    subprocess.run(command,
-                   shell=True,
-                   check=True,
-                   stdin=sys.stdin)
+def main_pyterm_serial(mote: str, baud: int=115200, log_dir: Optional[pathlib.Path]=None):
+    myshell = pyterm.SerCmd(baudrate=baud,
+                            port=mote,
+                            formatter="",
+                            serprompt="",
+                            log_dir_name=log_dir)
+    myshell.prompt = ''
+
+    try:
+        myshell.cmdloop(None)
+    except KeyboardInterrupt:
+        myshell.do_PYTERM_exit(None)
 
 def main_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathlib.Path]=None):
     # See: https://github.com/RIOT-OS/RIOT/blob/73ccd1e2e721bee38f958f8906ac32e5e1fceb0c/dist/tools/jlink/jlink.sh#L268
@@ -48,13 +52,16 @@ def main_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathli
     time.sleep(0.1)
 
     try:
-        pyterm_log_dir = f"--log-dir-name {log_dir}" if log_dir is not None else ""
-        pyterm_args = f"--format '' --prompt '' --no-intro {pyterm_log_dir}"
+        myshell = pyterm.SerCmd(tcp_serial=f"localhost:{RTT_telnet_port}",
+                                formatter="",
+                                serprompt="",
+                                log_dir_name=log_dir)
+        myshell.prompt = ''
 
-        subprocess.run(f"python3 tools/deploy/term_backend/pyterm.py --tcp-serial localhost:{RTT_telnet_port} {pyterm_args}",
-                       shell=True,
-                       check=True,
-                       stdin=sys.stdin)
+        try:
+            myshell.cmdloop(None)
+        except KeyboardInterrupt:
+            myshell.do_PYTERM_exit(None)
     finally:
         jlink.kill()
 
