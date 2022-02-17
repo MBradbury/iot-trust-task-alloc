@@ -1,0 +1,7 @@
+connect
+msddisable
+power off
+sleep 2000
+power on
+reset
+exit

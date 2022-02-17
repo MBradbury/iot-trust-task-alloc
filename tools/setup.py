@@ -293,6 +293,7 @@ class Setup:
             return {
                 "TARGET": "nrf52840",
                 "BOARD": "dk",
+                #"NRF52840_NATIVE_USB": "1"
             }
         elif self.target == "nRF52833DK":
             return {
