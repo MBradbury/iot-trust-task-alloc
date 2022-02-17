@@ -2,10 +2,9 @@
 
 import subprocess
 import pathlib
-
 from typing import Optional
 
-from tools.deploy.motedev_backend.nrf import get_usb_dev_for_mote
+import pynrfjprog.HighLevel
 
 def config_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathlib.Path]=None):
     # nrf need to have mass storage disabled in order to support receiving more
@@ -34,21 +33,35 @@ def config_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[path
 
     opts_str = " ".join(f"{k} {v}" for (k, v) in opts.items())
 
+    print(f"{JLINK_EXE} {opts_str}")
     subprocess.run(f"{JLINK_EXE} {opts_str}",
-                   shell=True)
-
-    # TODO: Need to toggle power to the usb port that this device is connected to
-    # Raspberry Pi 4 does not support per-port power toggling
-    usb_port = get_usb_dev_for_mote(mote)
-    print(f"Found usb port: {usb_port}")
-
+                   shell=True,
+                   check=True)
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Configure nrf.')
-    parser.add_argument("mote", help="The mote to configure")
+    parser.add_argument("--mote", default="all", help="The mote to configure")
     parser.add_argument("--log-dir", default=None, type=pathlib.Path, help="The directory to output logs to.")
     args = parser.parse_args()
 
-    config_nrf(args.mote, "nRF52840_xxAA", speed=8000, log_dir=args.log_dir)
+    if args.mote == "all":
+        nodes = []
+
+        with pynrfjprog.HighLevel.API() as api:
+            for node_id in api.get_connected_probes():
+                with pynrfjprog.HighLevel.DebugProbe(api, node_id) as probe:
+                    device_info = probe.get_device_info()
+                    device_type = device_info.device_type.name
+
+                    # Need to remove rev from end
+                    device_type, _ = device_type.rsplit("_", 1)
+
+                    nodes.append((node_id, device_type))
+
+        for (node_id, node_type) in nodes:
+            print(f"Configuring {node_id} {node_type}")
+            config_nrf(node_id, node_type, log_dir=args.log_dir)
+    else:
+        config_nrf(args.mote, "nRF52840_xxAA", speed=8000, log_dir=args.log_dir)

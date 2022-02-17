@@ -1,0 +1,14 @@
+---
+- name: Configure NRF
+  hosts: all
+  gather_facts: no
+
+  tasks:
+  - name: Configure the nrf execution environment
+    ansible.builtin.command:
+      cmd: python3 -m tools.deploy.config_backend.nrf
+      chdir: ~/deploy/iot-trust-task-alloc
+
+  - name: Unconditionally reboot the machine
+    reboot:
+    become: yes

@@ -93,10 +93,6 @@ class EdgeRunner(ApplicationRunner):
 
         time.sleep(0.1)
 
-        self.run_config()
-
-        time.sleep(0.1)
-
         device_firmware_dir = str(eui64_to_ipv6(self.device.eui64)).replace(":", "_")
         firmware_path = f"{device_firmware_dir}/edge.bin"
 

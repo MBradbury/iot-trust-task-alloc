@@ -80,7 +80,6 @@ class ApplicationRunner:
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         self.motelist_log_path = self.log_dir / f"{self.log_name}.{self.hostname}.motelist.log"
-        self.device_config_log_path = self.log_dir / f"{self.log_name}.{self.hostname}.configure.log"
         self.flash_log_path = self.log_dir / f"{self.log_name}.{self.hostname}.flash.log"
 
     def get_device(self):
@@ -114,29 +113,6 @@ class ApplicationRunner:
 
             if motelist.returncode != 0:
                 raise RuntimeError("Motelist failed")
-
-    def run_config(self):
-        with open(self.device_config_log_path, 'w') as device_config_log:
-            teed = Teed()
-            config = Popen(
-                f"python3 -m tools.deploy.config '{self.device.identifier}' {self.device.kind.value}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                encoding="utf-8",
-            )
-            teed.add(config,
-                     stdout=[device_config_log, StreamNoTimestamp(sys.stdout)],
-                     stderr=[device_config_log, StreamNoTimestamp(sys.stderr)])
-            teed.wait()
-            config.wait()
-            
-            if config.returncode != 0:
-                raise RuntimeError("Device configure failed")
-            else:
-                print("Device configure finished!", flush=True)
-
 
     def run_flash(self, firmware_path: str):
         firmware_path = Path.cwd() / 'setup' / firmware_path

@@ -15,8 +15,8 @@ def config(mote, mote_type):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Flash firmware to sensor nodes.')
-    parser.add_argument("mote", help="The device identifier to flash.")
+    parser = argparse.ArgumentParser(description='Configure sensor nodes.')
+    parser.add_argument("mote", help="The device identifier to configure.")
     parser.add_argument("mote_type", choices=["zolertia", "nRF52840"], help="The type of mote.")
     args = parser.parse_args()
 

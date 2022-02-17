@@ -123,10 +123,6 @@ class RootRunner(ApplicationRunner):
 
         time.sleep(0.1)
 
-        self.run_config()
-
-        time.sleep(0.1)
-
         if self.mode == "slip":
             self.run_flash("border-router.bin")
         elif self.mode == "native":
