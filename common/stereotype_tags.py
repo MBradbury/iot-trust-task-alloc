@@ -18,6 +18,9 @@ class DeviceClass(IntEnum):
     def cname(self):
         return "DEVICE_CLASS_" + self.name
 
+    def is_iot(self):
+        return self in (self.IOT_LOW, self.IOT_MEDIUM, self.IOT_HIGH)
+
     def __str__(self):
         return self.name
 

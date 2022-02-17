@@ -91,24 +91,30 @@ class StereotypeServer(resource.Resource):
         return None
 
     def _basic_trust_model(self, payload: StereotypeRequest):
-        # All classes of nodes are expected to be good at acknowledging tasks
-        task_submission = [20, 1]
-
-        # More capable devices are expected to be better a delivering a result
-        if payload.tags.device_class == DeviceClass.RASPBERRY_PI:
-            task_result = [8, 1]
-
-        elif payload.tags.device_class == DeviceClass.PHONE:
-            task_result = [12, 1]
-
-        elif payload.tags.device_class == DeviceClass.LAPTOP:
-            task_result = [16, 1]
-
-        elif payload.tags.device_class == DeviceClass.SERVER:
-            task_result = [20, 1]
-
+        if payload.tags.device_class.is_iot():
+            # Don't expect IoT to be good at responding to or executing tasks
+            task_submission = [0, 1]
+            task_result = [0, 1]
+        
         else:
-            raise error.BadRequest(f"Unknown device class {payload.tags.device_class}")
+            # All classes of nodes are expected to be good at acknowledging tasks
+            task_submission = [20, 1]
+
+            # More capable devices are expected to be better a delivering a result
+            if payload.tags.device_class == DeviceClass.RASPBERRY_PI:
+                task_result = [8, 1]
+
+            elif payload.tags.device_class == DeviceClass.PHONE:
+                task_result = [12, 1]
+
+            elif payload.tags.device_class == DeviceClass.LAPTOP:
+                task_result = [16, 1]
+
+            elif payload.tags.device_class == DeviceClass.SERVER:
+                task_result = [20, 1]
+
+            else:
+                raise error.BadRequest(f"Unknown device class {payload.tags.device_class}")
         
         return [task_submission, task_result]
 
