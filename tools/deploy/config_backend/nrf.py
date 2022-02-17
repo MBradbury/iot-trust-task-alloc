@@ -5,6 +5,8 @@ import pathlib
 
 from typing import Optional
 
+from tools.deploy.motedev_backend.nrf import get_usb_dev_for_mote
+
 def config_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[pathlib.Path]=None):
     # nrf need to have mass storage disabled in order to support receiving more
     # than 64 bytes over uart
@@ -36,6 +38,10 @@ def config_nrf(mote: str, device_type: str, speed="auto", log_dir: Optional[path
                    shell=True)
 
     # TODO: Need to toggle power to the usb port that this device is connected to
+    # Raspberry Pi 4 does not support per-port power toggling
+    usb_port = get_usb_dev_for_mote(mote)
+    print(f"Found usb port: {usb_port}")
+
 
 if __name__ == "__main__":
     import argparse
