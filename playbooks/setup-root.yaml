@@ -10,6 +10,7 @@
       dest: ~/deploy/contiki-ng
       version: petras
       recursive: yes
+      force: yes
 
   - name: Clean tunslip
     ansible.builtin.command:
