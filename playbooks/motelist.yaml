@@ -8,7 +8,7 @@
 
   tasks:
   - name: Mostlist
-    ansible.builtin.command: "python3 ~/deploy/iot-trust-task-alloc/tools/deploy/motelist_backend/motelist_nrf.py --output {{ output }}"
+    ansible.builtin.command: "python3 ~/deploy/iot-trust-task-alloc/tools/deploy/motelist_backend/nrf.py --output {{ output }}"
     register: motelist_output
 
   - debug:
