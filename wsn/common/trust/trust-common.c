@@ -254,10 +254,40 @@ mqtt_publish_capability_add_handler(const uint8_t* eui64, const char* capability
     edge_resource_t* edge = edge_info_find_eui64(eui64);
     if (edge == NULL)
     {
-        LOG_ERR("Failed to find edge with identity ");
-        LOG_ERR_BYTES(eui64, EUI64_LENGTH);
-        LOG_ERR_("\n");
-        return -1;
+        LOG_WARN("Failed to find edge with identity ");
+        LOG_WARN_BYTES(eui64, EUI64_LENGTH);
+        LOG_WARN_("\n");
+
+        uip_ip6addr_t ipaddr;
+        eui64_to_ipaddr(eui64, &ipaddr);
+
+        edge = edge_info_add(&ipaddr);
+        if (edge == NULL)
+        {
+            LOG_ERR("Failed to allocate space for edge with identity ");
+            LOG_ERR_BYTES(eui64, EUI64_LENGTH);
+            LOG_ERR_("\n");
+            return -1;
+        }
+
+        // We should connect to the Edge resource that has announced themselves here
+        // This means that if we are using DTLS, the handshake has already been performed,
+        // so we will be ready to communicate tasks to them and receive responses.
+        if (!coap_endpoint_is_connected(&edge->ep))
+        {
+            LOG_DBG("Connecting to CoAP endpoint ");
+            LOG_DBG_COAP_EP(&edge->ep);
+            LOG_DBG_("\n");
+
+            // TODO: delay this by a random amount to space out connects
+            coap_endpoint_connect(&edge->ep);
+        }
+
+        // Must be active as they have added a capability
+        edge->flags |= EDGE_RESOURCE_ACTIVE;
+
+        // Need to ask for public key as no certificate included
+        request_public_key(&ipaddr);
     }
 
     edge_capability_t* capability = edge_info_capability_find(edge, capability_name);
