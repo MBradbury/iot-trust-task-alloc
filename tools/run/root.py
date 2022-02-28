@@ -30,11 +30,14 @@ class RootRunner(ApplicationRunner):
         if not self.no_flush_oscore:
             print("Removing cached OSCORE state", flush=True)
 
+            remove_files = ["sequence.json", "lock"]
+
             oscore_contexts_dir = Path("resource_rich/root/keystore/oscore-contexts")
             for content in oscore_contexts_dir.iterdir():
-                sequence = oscore_contexts_dir / content / "sequence.json"
-                print(f"Removing {sequence}", flush=True)
-                sequence.unlink(missing_ok=True)
+                for remove_file in remove_files:
+                    sequence = content / remove_file
+                    print(f"Removing {sequence}", flush=True)
+                    sequence.unlink(missing_ok=True)
 
     def _start_local_border_router_service(self):
         com_port = get_mote_device(self.device.identifier, self.device.kind.value)
