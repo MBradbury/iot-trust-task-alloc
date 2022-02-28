@@ -3,7 +3,7 @@
 import pynrfjprog.HighLevel
 from pynrfjprog.Parameters import ProgramOptions, VerifyAction, EraseAction, ResetAction
 
-def flash_nrf(filename, serial_number):
+def flash_nrf(filename: str, serial_number: str):
     serial_number = int(serial_number)
 
     program_options = ProgramOptions(
