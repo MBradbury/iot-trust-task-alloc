@@ -375,7 +375,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
             {
                 if (keystore_add(&cert))
                 {
-                    LOG_INFO("Sucessfully added public key for ");
+                    LOG_INFO("Successfully added public key for ");
                     LOG_DBG_BYTES(cert.subject, EUI64_LENGTH);
                     LOG_INFO_("\n");
                 }
@@ -395,7 +395,7 @@ request_public_key_callback(coap_callback_request_state_t* callback_state)
 
     case COAP_REQUEST_STATUS_FINISHED:
     {
-        // Not truely finished yet here, need to wait for signature verification
+        // Not truly finished yet here, need to wait for signature verification
         // But we are finished with sending and receiving a message
         timed_unlock_unlock(&in_use);
     } break;
@@ -475,7 +475,7 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
 
     if (platform_crypto_success(entry->result))
     {
-        LOG_INFO("Sucessfully verfied public key for ");
+        LOG_INFO("Successfully verified public key for ");
         LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
         LOG_INFO_("\n");
 
@@ -483,7 +483,7 @@ keystore_add_continued(messages_to_verify_entry_t* entry)
     }
     else
     {
-        LOG_ERR("Failed to verfiy public key for ");
+        LOG_ERR("Failed to verify public key for ");
         LOG_INFO_BYTES(item->cert.subject, EUI64_LENGTH);
         LOG_ERR_(" (sig verification failed)\n");
 
