@@ -98,21 +98,39 @@ void gaussian_dist_init(gaussian_dist_t* dist, float mean, float variance)
     dist->count = 1;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void gaussian_dist_init_empty(gaussian_dist_t* dist)
+{
+    dist->mean = 0;
+    dist->variance = 0;
+
+    dist->count = 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_update(gaussian_dist_t* dist, float value)
 {
-    const uint32_t new_count = dist->count + 1;
+    // First item
+    if (dist->count == 0)
+    {
+        dist->mean = value;
+        dist->variance = 0;
+        dist->count = 1;
+    }
+    else
+    {
+        const uint32_t new_count = dist->count + 1;
 
-    const float new_mean = dist->mean + (value - dist->mean) / new_count;
+        const float new_mean = dist->mean + (value - dist->mean) / new_count;
 
-    // https://math.stackexchange.com/questions/102978/incremental-computation-of-standard-deviation
-    const float new_variance = (dist->variance * ((new_count - 2.0f) / (new_count - 1.0f))) +
-                               ((value - dist->mean) * (value - dist->mean)) / new_count;
+        // https://math.stackexchange.com/questions/102978/incremental-computation-of-standard-deviation
+        const float new_variance = (dist->variance * ((new_count - 2.0f) / (new_count - 1.0f))) +
+                                   ((value - dist->mean) * (value - dist->mean)) / new_count;
 
 
-    dist->mean = new_mean;
-    dist->variance = new_variance;
+        dist->mean = new_mean;
+        dist->variance = new_variance;
 
-    dist->count = new_count;
+        dist->count = new_count;
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_print(const gaussian_dist_t* dist)

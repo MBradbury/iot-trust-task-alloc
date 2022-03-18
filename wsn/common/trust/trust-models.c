@@ -132,6 +132,10 @@ __attribute__((__weak__)) void tm_update_result_latency(edge_resource_t* edge, e
 {
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+__attribute__((__weak__)) void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, const tm_throughput_info_t* info)
+{
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 __attribute__((__weak__)) void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info)
 {
 }

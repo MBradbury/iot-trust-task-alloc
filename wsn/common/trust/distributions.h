@@ -37,6 +37,7 @@ typedef struct gaussian_dist {
 } gaussian_dist_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_init(gaussian_dist_t* dist, float mean, float variance);
+void gaussian_dist_init_empty(gaussian_dist_t* dist);
 void gaussian_dist_print(const gaussian_dist_t* dist);
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_update(gaussian_dist_t* dist, float value);

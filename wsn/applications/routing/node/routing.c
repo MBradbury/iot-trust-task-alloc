@@ -194,6 +194,15 @@ send_callback(coap_callback_request_state_t* callback_state)
     }
 
     tm_update_task_submission(edge, cap, &info);
+
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+    const tm_throughput_info_t throughput_info = {
+        .direction = TM_THROUGHPUT_OUT,
+        .throughput = app_state_throughput_end_out(&app_state)
+    };
+
+    tm_update_task_throughput(edge, cap, &throughput_info);
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static bool parse_input(const char* data, coordinate_t* source, coordinate_t* destination)
@@ -351,6 +360,8 @@ event_triggered_action(const char* data)
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&ep);
         LOG_DBG_("\n");
+
+        app_state_throughput_start_out(&app_state, len);
     }
     else
     {

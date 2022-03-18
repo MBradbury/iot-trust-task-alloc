@@ -2,9 +2,16 @@
 #include "trust-models.h"
 
 static const trust_weight_t weights[] = {
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+    { TRUST_METRIC_TASK_SUBMISSION, 1.0f/4.0f },
+    { TRUST_METRIC_TASK_RESULT,     1.0f/4.0f },
+    { TRUST_METRIC_RESULT_QUALITY,  1.0f/4.0f },
+    { TRUST_METRIC_THROUGHPUT,      1.0f/4.0f },
+#else
     { TRUST_METRIC_TASK_SUBMISSION, 1.0f/3.0f },
     { TRUST_METRIC_TASK_RESULT,     1.0f/3.0f },
     { TRUST_METRIC_RESULT_QUALITY,  1.0f/3.0f },
+#endif
 
     // If the trust model uses reputation, only assign up to
     // this much of the total trust value from reputation

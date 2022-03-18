@@ -44,6 +44,7 @@ float find_trust_weight(const char* application_name, uint16_t id);
 // Edge capability metrics
 #define TRUST_METRIC_RESULT_QUALITY   2001
 #define TRUST_METRIC_RESULT_LATENCY   2002
+#define TRUST_METRIC_THROUGHPUT       2003
 /*-------------------------------------------------------------------------------------------------------------------*/
 // Peer metrics
 #define TRUST_METRIC_TASK_OBSERVATION 3001
@@ -74,6 +75,16 @@ typedef struct {
 typedef struct {
 
 } tm_result_latency_info_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef enum {
+    TM_THROUGHPUT_IN = 0,
+    TM_THROUGHPUT_OUT = 1
+} tm_throughput_direction_t;
+
+typedef struct {
+    tm_throughput_direction_t direction;
+    uint32_t throughput;
+} tm_throughput_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef enum {
     TM_CHALLENGE_RESPONSE_ACK = 0,
@@ -114,6 +125,7 @@ void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const 
 void tm_update_announce(edge_resource_t* edge, edge_capability_t* cap, const tm_announce_info_t* info);
 void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, const tm_result_quality_info_t* info);
 void tm_update_result_latency(edge_resource_t* edge, edge_capability_t* cap, const tm_result_latency_info_t* info);
+void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, const tm_throughput_info_t* info);
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info);
 void tm_update_task_observation(peer_t* peer, const tm_task_observation_info_t* info);
 /*-------------------------------------------------------------------------------------------------------------------*/
