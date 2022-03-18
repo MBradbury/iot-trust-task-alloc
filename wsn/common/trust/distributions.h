@@ -26,7 +26,7 @@ int beta_dist_deserialise(nanocbor_value_t* dec, beta_dist_t* dist);
 /*-------------------------------------------------------------------------------------------------------------------*/
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-// Used to record information about continious events
+// Used to record information about continuous events
 typedef struct gaussian_dist {
     float mean;
     float variance;
@@ -48,7 +48,7 @@ int gaussian_dist_deserialise(nanocbor_value_t* dec, gaussian_dist_t* dist);
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct poisson_dist {
-    uint32_t lambda; // The expected rate of occurances over some time period
+    uint32_t lambda; // The expected rate of occurrences over some time period
 } poisson_dist_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void poisson_dist_init(poisson_dist_t* dist, uint32_t lambda);
@@ -61,7 +61,7 @@ int poisson_dist_serialise(nanocbor_encoder_t* enc, const poisson_dist_t* dist);
 int poisson_dist_deserialise(nanocbor_value_t* dec, poisson_dist_t* dist);
 /*-------------------------------------------------------------------------------------------------------------------*/
 typedef struct poisson_observation {
-    uint32_t observations; // The number of occurances over some time period
+    uint32_t observations; // The number of occurrences over some time period
 } poisson_observation_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void poisson_observation_init(poisson_observation_t* obs);
