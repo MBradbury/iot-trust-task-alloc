@@ -120,6 +120,15 @@ typedef struct {
 
 } tm_task_observation_info_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
+typedef enum {
+    TM_PING_SENT = 1,
+    TM_PING_RECEIVED = 2
+} tm_edge_ping_action_t;
+
+typedef struct {
+    tm_edge_ping_action_t action;
+} tm_edge_ping_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_submission(edge_resource_t* edge, edge_capability_t* cap, const tm_task_submission_info_t* info);
 void tm_update_task_result(edge_resource_t* edge, edge_capability_t* cap, const tm_task_result_info_t* info);
 void tm_update_announce(edge_resource_t* edge, edge_capability_t* cap, const tm_announce_info_t* info);
@@ -128,6 +137,7 @@ void tm_update_result_latency(edge_resource_t* edge, edge_capability_t* cap, con
 void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, const tm_throughput_info_t* info);
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info);
 void tm_update_task_observation(peer_t* peer, const tm_task_observation_info_t* info);
+void tm_update_ping(edge_resource_t* edge, const tm_edge_ping_t* info);
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool tm_task_submission_good(const tm_task_submission_info_t* info, bool* should_update);
 bool tm_challenge_response_good(const tm_challenge_response_info_t* info, bool* should_update);

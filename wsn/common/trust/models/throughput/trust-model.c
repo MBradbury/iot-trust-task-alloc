@@ -18,6 +18,8 @@ void edge_resource_tm_init(edge_resource_tm_t* tm)
 {
     beta_dist_init(&tm->task_submission, 1, 1);
     beta_dist_init(&tm->task_result, 1, 1);
+
+    tm->last_ping_response = 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_resource_tm_print(const edge_resource_tm_t* tm)
@@ -236,6 +238,28 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     else
     {
         LOG_ERR("Unknown throughput direction\n");
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void tm_update_ping(edge_resource_t* edge, const tm_edge_ping_t* info)
+{
+    if (info->action == TM_PING_SENT)
+    {
+        // Do nothing
+    }
+    else if (info->action == TM_PING_RECEIVED)
+    {
+        LOG_INFO("Updating Edge %s TM last ping: %" PRIu32,
+        edge_info_name(edge), edge->tm.last_ping_response);
+        LOG_INFO_(" -> ");
+
+        edge->tm.last_ping_response = clock_time();
+
+        LOG_INFO_("%" PRIu32 "\n", edge->tm.last_ping_response);
+    }
+    else
+    {
+        LOG_ERR("Unknown ping action\n");
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

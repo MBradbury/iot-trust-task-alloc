@@ -3,6 +3,7 @@
 #include "peer-info.h"
 #include "trust-models.h"
 #include "stereotypes.h"
+#include "edge-ping.h"
 
 #include "contiki.h"
 #include "os/sys/log.h"
@@ -751,5 +752,9 @@ trust_common_init(void)
     trust_weights_init();
 
     stereotypes_init();
+
+#ifdef TRUST_MODEL_PERIODIC_EDGE_PING
+    edge_ping_start();
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
