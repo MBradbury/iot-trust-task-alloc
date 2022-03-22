@@ -16,6 +16,10 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define ECHO_REQ_PAYLOAD_LEN 20
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef TRUST_MODEL_PERIODIC_EDGE_PING_INTERVAL
+#define TRUST_MODEL_PERIODIC_EDGE_PING_INTERVAL 5
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(edge_ping_process, "edge-ping");
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer ping_timer;
@@ -127,6 +131,8 @@ PROCESS_THREAD(edge_ping_process, ev, data)
 
     // We want to get notified of ping responses
     uip_icmp6_echo_reply_callback_add(&echo_notification, &echo_callback);
+
+    etimer_set(&ping_timer, TRUST_MODEL_PERIODIC_EDGE_PING_INTERVAL * CLOCK_SECOND);
 
     while (1)
     {
