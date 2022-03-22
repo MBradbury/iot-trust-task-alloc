@@ -16,7 +16,6 @@ endif
 #endif
 
 # Include application modules
-MODULES_REL += ./trust
 MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 #MODULES_REL += ../common/trust/choose/$(TRUST_CHOOSE) ../common/trust/choose/
 
@@ -54,9 +53,7 @@ ATTACK_PROCESSES_DECL := ${addsuffix $(suffix),$(ATTACK_PROCESSES_DECL)}
 CFLAGS += -DATTACK_PROCESSES_DECL='$(ATTACK_PROCESSES_DECL)'
 
 # Certain attacks require code to be pulled in from different areas
-ifneq (,$(findstring dos_certificate_verification,$(MAKE_ATTACKS)))
-    CFLAGS += -I../node/trust
-endif
+CFLAGS += -I../node/trust
 
 # Main Contiki-NG compile
 include $(CONTIKI)/Makefile.include
