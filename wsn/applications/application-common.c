@@ -76,6 +76,13 @@ void app_state_throughput_start_in(app_state_t* state, size_t len)
 #endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void app_state_throughput_update_in(app_state_t* state, size_t len)
+{
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+    state->in_len += len;
+#endif
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 uint32_t app_state_throughput_end_in(app_state_t* state)
 {
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT

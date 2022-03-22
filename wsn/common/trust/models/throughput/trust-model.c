@@ -33,7 +33,8 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm)
 void edge_capability_tm_init(edge_capability_tm_t* tm)
 {
     beta_dist_init(&tm->result_quality, 1, 1);
-    gaussian_dist_init_empty(&tm->throughput);
+    gaussian_dist_init_empty(&tm->throughput_in);
+    gaussian_dist_init_empty(&tm->throughput_out);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
@@ -41,8 +42,10 @@ void edge_capability_tm_print(const edge_capability_tm_t* tm)
     printf("EdgeCapTM(");
     printf("ResQual=");
     dist_print(&tm->result_quality);
-    printf(",Throughput=");
-    dist_print(&tm->throughput);
+    printf(",ThroughputIn=");
+    dist_print(&tm->throughput_in);
+    printf(",ThroughputOut=");
+    dist_print(&tm->throughput_out);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -56,14 +59,23 @@ void peer_tm_print(const peer_tm_t* tm)
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static float goodness_of_throughput(const gaussian_dist_t* dist)
+static float goodness_of_throughput(const gaussian_dist_t* in, const gaussian_dist_t* out)
 {
-    if (dist->count == 0)
+    if (in->count == 0 && out->count == 0)
     {
+        // No values, so just return the best
+        return 1;
+    }
+    else if (in->count == 0 && out->count > 0)
+    {
+        // Not all applications have an incoming throughput
+        // So only assess goodness of outgoing throughput
+        // TODO: Implement me
         return 1;
     }
     else
     {
+        // How good is both incoming and outgoing throughput
         // TODO: Implement me
         return 1;
     }
@@ -103,7 +115,7 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
     w_total += w;
 
     w = find_trust_weight(capability->name, TRUST_METRIC_THROUGHPUT);
-    e = goodness_of_throughput(&capability->tm.throughput);
+    e = goodness_of_throughput(&capability->tm.throughput_in, &capability->tm.throughput_out);
     trust += w * e;
     w_total += w;
 
@@ -197,15 +209,34 @@ void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, con
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, const tm_throughput_info_t* info)
 {
-    LOG_INFO("Updating Edge %s capability %s TM throughput (%" PRIu32 " bytes/tick): ",
+    if (info->direction == TM_THROUGHPUT_IN)
+    {
+        LOG_INFO("Updating Edge %s capability %s TM throughput in (%" PRIu32 " bytes/tick): ",
         edge_info_name(edge), cap->name, info->throughput);
-    gaussian_dist_print(&cap->tm.throughput);
-    LOG_INFO_(" -> ");
+        gaussian_dist_print(&cap->tm.throughput_in);
+        LOG_INFO_(" -> ");
 
-    gaussian_dist_update(&cap->tm.throughput, info->throughput);
+        gaussian_dist_update(&cap->tm.throughput_in, info->throughput);
 
-    gaussian_dist_print(&cap->tm.throughput);
-    LOG_INFO_("\n");
+        gaussian_dist_print(&cap->tm.throughput_in);
+        LOG_INFO_("\n");
+    }
+    else if (info->direction == TM_THROUGHPUT_OUT)
+    {
+        LOG_INFO("Updating Edge %s capability %s TM throughput out (%" PRIu32 " bytes/tick): ",
+        edge_info_name(edge), cap->name, info->throughput);
+        gaussian_dist_print(&cap->tm.throughput_out);
+        LOG_INFO_(" -> ");
+
+        gaussian_dist_update(&cap->tm.throughput_out, info->throughput);
+
+        gaussian_dist_print(&cap->tm.throughput_out);
+        LOG_INFO_("\n");
+    }
+    else
+    {
+        LOG_ERR("Unknown throughput direction\n");
+    }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifdef APPLICATION_CHALLENGE_RESPONSE
@@ -242,9 +273,10 @@ int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_t
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_capability(nanocbor_encoder_t* enc, const edge_capability_tm_t* cap)
 {
-    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 3));
     NANOCBOR_CHECK(dist_serialise(enc, &cap->result_quality));
-    NANOCBOR_CHECK(dist_serialise(enc, &cap->throughput));
+    NANOCBOR_CHECK(dist_serialise(enc, &cap->throughput_in));
+    NANOCBOR_CHECK(dist_serialise(enc, &cap->throughput_out));
 
     return NANOCBOR_OK;
 }
@@ -271,7 +303,8 @@ int deserialise_trust_edge_capability(nanocbor_value_t* dec, edge_capability_tm_
     nanocbor_value_t arr;
     NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
     NANOCBOR_CHECK(dist_deserialise(&arr, &cap->result_quality));
-    NANOCBOR_CHECK(dist_deserialise(&arr, &cap->throughput));
+    NANOCBOR_CHECK(dist_deserialise(&arr, &cap->throughput_in));
+    NANOCBOR_CHECK(dist_deserialise(&arr, &cap->throughput_out));
 
     if (!nanocbor_at_end(&arr))
     {

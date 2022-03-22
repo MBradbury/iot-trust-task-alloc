@@ -36,7 +36,8 @@ typedef struct edge_capability_tm {
     // Was the result correct or not (nodes do not have the capability to evaluate response 'goodness')
     beta_dist_t result_quality;
 
-    gaussian_dist_t throughput;
+    gaussian_dist_t throughput_in;
+    gaussian_dist_t throughput_out;
 
 } edge_capability_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/

@@ -421,6 +421,10 @@ routing_response_process_status(coap_message_t *request)
         .result = (status == ROUTING_SUCCESS) ? TM_TASK_RESULT_INFO_SUCCESS : TM_TASK_RESULT_INFO_FAIL
     };
     tm_update_task_result(edge, cap, &info);
+
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+    app_state_throughput_start_in(&app_state, payload_len);
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -475,6 +479,15 @@ routing_process_task_result(coap_message_t *request, const tm_result_quality_inf
     }
 
     tm_update_result_quality(edge, cap, info);
+
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+    const tm_throughput_info_t throughput_info = {
+        .direction = TM_THROUGHPUT_IN,
+        .throughput = app_state_throughput_end_in(&app_state)
+    };
+
+    tm_update_task_throughput(edge, cap, &throughput_info);
+#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -555,6 +568,10 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
             LOG_ERR("coap_block1_handler failed with %d\n", ret);
             return;
         }
+
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+        app_state_throughput_update_in(&app_state, payload_len);
+#endif
 
         // Update trust model with success if the start and end are as expected
 
