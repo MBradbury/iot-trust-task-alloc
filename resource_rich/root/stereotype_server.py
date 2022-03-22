@@ -27,6 +27,7 @@ class TrustModel(IntEnum):
     Basic = 1
     Continuous = 2
     ChallengeResponse = 3
+    Throughput = 8
 
     def encode(self) -> int:
         return int(self)
@@ -78,6 +79,9 @@ class StereotypeServer(resource.Resource):
         elif payload.model == TrustModel.ChallengeResponse:
             result = self._challenge_response_trust_model(payload)
 
+        elif payload.model == TrustModel.Throughput:
+            result = self._throughput_trust_model(payload)
+
         else:
             raise error.BadRequest(f"Unknown trust model {payload.model}")
 
@@ -125,6 +129,9 @@ class StereotypeServer(resource.Resource):
         # epoch number is 0 and bad is False
         return [0, False]
 
+    def _throughput_trust_model(self, payload: StereotypeRequest):
+        # Throughput uses the same edge_resource_tm as basic
+        return self._basic_trust_model(payload)
 
 
 def main(key_dir, coap_target_port):
