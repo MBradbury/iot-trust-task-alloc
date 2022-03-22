@@ -497,7 +497,7 @@ mqtt_publish_handler(const char *topic, const char* topic_end, const uint8_t *ch
     topic += 1;
 
     // Check that the identiy is hex
-    for (int i = 0; i != MQTT_IDENTITY_LEN; ++i)
+    for (unsigned int i = 0; i != MQTT_IDENTITY_LEN; ++i)
     {
         if (!isxdigit(topic[i]))
         {
