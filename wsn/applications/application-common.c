@@ -1,6 +1,8 @@
 #include "application-common.h"
 #include "applications.h"
 
+#include <math.h>
+
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "apps"
@@ -62,7 +64,11 @@ uint32_t app_state_throughput_end_out(app_state_t* state)
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
     const clock_time_t now = clock_time();
     const clock_time_t time_taken = now - state->out_time;
-    return state->out_len / time_taken;
+
+    const float time_taken_sec = time_taken / (float)CLOCK_SECOND;
+    const float throughput_bytes_per_sec = state->out_len / time_taken_sec;
+
+    return (uint32_t)ceil(throughput_bytes_per_sec);
 #else
     return 0;
 #endif
@@ -88,7 +94,11 @@ uint32_t app_state_throughput_end_in(app_state_t* state)
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
     const clock_time_t now = clock_time();
     const clock_time_t time_taken = now - state->in_time;
-    return state->in_len / time_taken;
+
+    const float time_taken_sec = time_taken / (float)CLOCK_SECOND;
+    const float throughput_bytes_per_sec = state->in_len / time_taken_sec;
+
+    return (uint32_t)ceil(throughput_bytes_per_sec);
 #else
     return 0;
 #endif
