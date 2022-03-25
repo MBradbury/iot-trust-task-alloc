@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(f"app-{NAME}-bad")
 logger.setLevel(logging.DEBUG)
 
-MISBEHAVE_CHOICES = ["bad-response", "no-response"]
+MISBEHAVE_CHOICES = ["bad-response", "no-response", "slow"]
 BAD_RESPONSE_CHOICES = ["success", "no_route", "gave_up"]
 
 # From: https://gist.github.com/botzill/fc2a1581873200739f6dc5c1daf85a7d
@@ -23,7 +23,8 @@ GBR_LAT_LONG_SOUTH_WEST = (49.674, -14.015517)
 class RoutingClientBad(RoutingClientGood, FakeRestartClient):
     def __init__(self, approach: str, duration: float,
                  fake_restart_type: Optional[str], fake_restart_duration: Optional[float],
-                 fake_restart_period: Optional[float], fake_restart_applications: list):
+                 fake_restart_period: Optional[float], fake_restart_applications: list,
+                 slow_wait: Optional[float]):
         super().__init__()
 
         self.approach = approach
@@ -41,6 +42,9 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
                                                               self)
         else:
             self._periodic_fake_restart = None
+
+        self.slow_wait = slow_wait
+        self.do_wait_between_send = False
 
     async def start(self):
         await super().start()
@@ -120,12 +124,22 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
                 # Nothing to do
                 pass
 
+            elif selected_approach == "slow":
+                self.do_wait_between_send = True
+                await super()._send_result(dest, message_response)
+                self.do_wait_between_send = False
+
             else:
                 logger.error(f"Unknown misbehaviour {selected_approach}")
 
         else:
             logger.debug(f"Currently good, so behaving correctly")
             await super()._send_result(dest, message_response)
+
+    async def _write_task_result_chunk(self, i: int, n: int, route_chunk) -> bool:
+        if self.do_wait_between_send:
+            await asyncio.sleep(self.slow_wait)
+        return await super()._write_task_result_chunk(i, n, route_chunk)
 
 
 if __name__ == "__main__":
@@ -142,6 +156,10 @@ if __name__ == "__main__":
                         help='Perform a restart every one of these durations')
     parser.add_argument('--fake-restart-applications', type=str, nargs='+', required=False, default=[],
                         help='The applications to restart when performing a server restart')
+
+    parser.add_argument('--slow-wait', type=float, required=False, default=None,
+                        help='How long to wait between messages when slow')
+
     args = parser.parse_args()
 
     client = RoutingClientBad(args.approach, 
@@ -149,6 +167,7 @@ if __name__ == "__main__":
                               args.fake_restart_type,
                               args.fake_restart_duration,
                               args.fake_restart_period,
-                              args.fake_restart_applications)
+                              args.fake_restart_applications,
+                              args.slow_wait)
 
     client_common.main(NAME, client)
