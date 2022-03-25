@@ -10,7 +10,7 @@ else
 endif
 
 # Include application modules
-MODULES_REL += ./capability
+MODULES_REL += ./capability ./bad
 MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
 
 # Applications to include

@@ -39,13 +39,13 @@ PROCESS_THREAD(radio_off, ev, data)
 
     while (true)
     {
-        LOG_INFO("Waiting for %u\n", (unsigned int)ATTACK_RADIO_OFF_INTERVAL);
+        LOG_INFO("Waiting for %u to turn radio off\n", (unsigned int)ATTACK_RADIO_OFF_INTERVAL);
         PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_TIMER && data == &radio_off_start_timer);
 
         LOG_INFO("Turning MAC off\n");
         NETSTACK_MAC.off();
 
-        LOG_INFO("Waiting for %u\n", (unsigned int)ATTACK_RADIO_OFF_DURATION);
+        LOG_INFO("Waiting for %u to turn radio on\n", (unsigned int)ATTACK_RADIO_OFF_DURATION);
         clock_wait(RADIO_OFF_DURATION);
 
         LOG_INFO("Turning MAC on\n");

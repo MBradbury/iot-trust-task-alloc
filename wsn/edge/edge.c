@@ -17,6 +17,12 @@
 PROCESS_NAME(mqtt_client_process);
 PROCESS_NAME(capability);
 PROCESS_NAME(keystore_add_verifier);
+
+// Attack emulation
+#if defined(EDGE_ATTACK_RADIO_OFF_INTERVAL) || defined(EDGE_ATTACK_RADIO_OFF_DURATION)
+PROCESS_NAME(radio_off);
+#endif
+
 APPLICATION_PROCESSES_DECL;
 PROCESS(edge, "edge");
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -26,6 +32,9 @@ bool resource_rich_edge_started;
 /*-------------------------------------------------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process,
                     &keystore_add_verifier,
+#if defined(EDGE_ATTACK_RADIO_OFF_INTERVAL) || defined(EDGE_ATTACK_RADIO_OFF_DURATION)
+                    &radio_off,
+#endif
                     APPLICATION_PROCESSES);
 /*-------------------------------------------------------------------------------------------------------------------*/
 static int8_t
