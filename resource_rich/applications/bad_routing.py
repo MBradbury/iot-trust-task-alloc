@@ -137,7 +137,8 @@ class RoutingClientBad(RoutingClientGood, FakeRestartClient):
             await super()._send_result(dest, message_response)
 
     async def _write_task_result_chunk(self, i: int, n: int, route_chunk) -> bool:
-        if self.do_wait_between_send:
+        if self.do_wait_between_send and self.slow_wait is not None:
+            logger.info(f"Inserting wait of {self.slow_wait} seconds")
             await asyncio.sleep(self.slow_wait)
         return await super()._write_task_result_chunk(i, n, route_chunk)
 
