@@ -45,17 +45,20 @@ class Setup:
     oscore_algorithm = "AES-CCM-16-64-128"
 
     def __init__(self, trust_model: str, trust_choose: str, applications: list[str],
-                 with_pcap: bool, with_adversary: list[str], defines: dict[str, str],
-                 target: str, verbose_make: bool, deploy: str):
+                 with_pcap: bool, with_adversary: list[str], with_bad_edge: list[str],
+                 defines: dict[str, str], target: str, verbose_make: bool, deploy: str,
+                 border_router: str):
         self.trust_model = trust_model
         self.trust_choose = trust_choose
         self.applications = applications
         self.with_pcap = with_pcap
         self.with_adversary = with_adversary
+        self.with_bad_edge = with_bad_edge
         self.defines = defines
         self.target = target
         self.verbose_make = verbose_make
         self.deploy = deploy
+        self.border_router = border_router
 
         assert target in available_targets
 
@@ -67,6 +70,8 @@ class Setup:
         self.binaries = ["node", "edge"]
         if self.with_adversary:
             self.binaries.append("adversary")
+        if self.with_bad_edge:
+            self.binaries.append("bad_edge")
 
         self.keys = None
         self.certs = None
@@ -93,8 +98,15 @@ class Setup:
         print("Creating OSCORE contexts")
         self._create_oscore_contexts()
 
-        self._build_border_router()
-        self._build_slip_radio_router()
+        if self.border_router == "rpl-border-router":
+            self._build_border_router()
+        elif self.border_router == "slip-radio":
+            self._build_slip_radio_router()
+        elif self.border_router == "all":
+            self._build_border_router()
+            self._build_slip_radio_router()
+        else:
+            raise RuntimeError(f"Unknown border router {self.border_router}")
 
         print("Cleaning directories")
         self._clean_build_dirs()
@@ -425,6 +437,8 @@ class Setup:
 
                 if binary == "adversary" and self.with_adversary:
                     final_build_args["MAKE_ATTACKS"] = ",".join(self.with_adversary)
+                if binary == "bad_edge" and self.with_bad_edge:
+                    final_build_args["MAKE_ATTACKS"] = ",".join(self.with_bad_edge)
 
                 build_args_str = " ".join(f"{k}={v}" for (k,v) in final_build_args.items())
 
@@ -513,7 +527,10 @@ if __name__ == "__main__":
     available_trust_models = [x for x in os.listdir("wsn/common/trust/models") if not x.endswith(".h")]
     available_trust_chooses = [x for x in os.listdir("wsn/common/trust/choose") if not x.endswith(".h")]
     available_adversary = [x[:-len(".c")] for x in os.listdir("wsn/adversary/attacks") if x.endswith(".c")]
+    available_bad_edge = [x[:-len(".c")] for x in os.listdir("wsn/bad_edge/bad") if x.endswith(".c")]
     available_applications = [x for x in os.listdir("wsn/applications") if os.path.isdir(os.path.join("wsn/applications", x))]
+
+    border_routers = ["rpl-border-router", "slip-radio"]
 
     parser = argparse.ArgumentParser(description='Setup')
     parser.add_argument('trust_model', type=str, choices=available_trust_models, help='The trust model to use')
@@ -521,6 +538,8 @@ if __name__ == "__main__":
     parser.add_argument('--applications', nargs="+", type=str, choices=available_applications, help='The applications to build for')
     parser.add_argument('--with-pcap', action='store_true', help='Enable capturing and outputting pcap dumps from the nodes')
     parser.add_argument('--with-adversary', nargs="*", type=str, choices=available_adversary, default=None, help='Enable building an adversary')
+    parser.add_argument('--with-bad-edge', nargs="*", type=str, choices=available_bad_edge, default=None, help='Enable building a bad edge')
+    parser.add_argument('--border-router', choices=border_routers + ["all"], default=border_routers[0], help='Which border router to build')
     parser.add_argument('--defines', nargs="*", action=DefinesAction, metavar="define-name define-value", default={},
                         help='Defines to pass to compilation')
     parser.add_argument('--target', choices=available_targets, default=available_targets[0], help="Which target to compile for")
@@ -533,8 +552,10 @@ if __name__ == "__main__":
                   args.applications,
                   args.with_pcap,
                   args.with_adversary,
+                  args.with_bad_edge,
                   args.defines,
                   args.target,
                   args.verbose_make,
-                  args.deploy)
+                  args.deploy,
+                  args.border_router)
     setup.run()

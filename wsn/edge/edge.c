@@ -19,11 +19,12 @@ PROCESS_NAME(capability);
 PROCESS_NAME(keystore_add_verifier);
 
 // Attack emulation
-#if defined(EDGE_ATTACK_RADIO_OFF_INTERVAL) || defined(EDGE_ATTACK_RADIO_OFF_DURATION)
-PROCESS_NAME(radio_off);
+#if defined(ATTACK_PROCESSES_DECL)
+ATTACK_PROCESSES_DECL;
 #endif
 
 APPLICATION_PROCESSES_DECL;
+
 PROCESS(edge, "edge");
 /*-------------------------------------------------------------------------------------------------------------------*/
 const char* const application_names[APPLICATION_NUM] = APPLICATION_NAMES;
@@ -32,8 +33,8 @@ bool resource_rich_edge_started;
 /*-------------------------------------------------------------------------------------------------------------------*/
 AUTOSTART_PROCESSES(&edge, &capability, &mqtt_client_process,
                     &keystore_add_verifier,
-#if defined(EDGE_ATTACK_RADIO_OFF_INTERVAL) || defined(EDGE_ATTACK_RADIO_OFF_DURATION)
-                    &radio_off,
+#if defined(ATTACK_PROCESSES)
+                    ATTACK_PROCESSES,
 #endif
                     APPLICATION_PROCESSES);
 /*-------------------------------------------------------------------------------------------------------------------*/
