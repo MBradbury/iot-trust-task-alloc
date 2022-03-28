@@ -425,7 +425,7 @@ class Setup:
                 build_args["OSCORE_ID_CONTEXT"] = self.bytes_to_c_array(self.oscore_id_context)
 
             if self.defines:
-                build_args["ADDITIONAL_CFLAGS"] = '"' + " ".join([f"-D{k}={v}" for (k,v) in self.defines.items()]) + '"'
+                build_args["ADDITIONAL_CFLAGS"] = '"' + " ".join([f"-D{k}='{v}'" for (k,v) in self.defines.items()]) + '"'
 
             if self.verbose_make:
                 build_args["V"] = "1"
