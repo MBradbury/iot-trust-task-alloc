@@ -14,6 +14,7 @@ from tools.keygen.util import eui64_to_ipv6
 
 class EdgeRunner(ApplicationRunner):
     log_name = "edge"
+    binary_name = "edge.bin"
 
     def __init__(self, log_dir: Path, firmware_type: str, application):
         super().__init__(log_dir, firmware_type)
@@ -94,20 +95,13 @@ class EdgeRunner(ApplicationRunner):
         time.sleep(0.1)
 
         device_firmware_dir = str(eui64_to_ipv6(self.device.eui64)).replace(":", "_")
-        firmware_path = f"{device_firmware_dir}/edge.bin"
+        firmware_path = f"{device_firmware_dir}/{self.binary_name}"
 
         self.run_flash(firmware_path)
 
         time.sleep(0.1)
 
         self.run_edge_bridge()
-
-parser = argparse.ArgumentParser(description='Edge runner')
-parser.add_argument('--log-dir', type=Path, default=DEFAULT_LOG_DIR, help='The directory to store log output')
-parser.add_argument("--firmware-type",
-                    choices=supported_firmware_types,
-                    default=supported_firmware_types[0],
-                    help="The OS that was used to create the firmware.")
 
 # From: https://stackoverflow.com/questions/8526675/python-argparse-optional-append-argument-with-choices
 class ApplicationAction(argparse.Action):
@@ -142,11 +136,19 @@ class ApplicationAction(argparse.Action):
             else:
                 setattr(namespace, self.dest, attr + [values])
 
-parser.add_argument("--application", nargs='*', metavar='application-name nice params',
-                    action=ApplicationAction,
-                    help="The applications to start")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Edge runner')
+    parser.add_argument('--log-dir', type=Path, default=DEFAULT_LOG_DIR, help='The directory to store log output')
+    parser.add_argument("--firmware-type",
+                        choices=supported_firmware_types,
+                        default=supported_firmware_types[0],
+                        help="The OS that was used to create the firmware.")
 
-args = parser.parse_args()
+    parser.add_argument("--application", nargs='*', metavar='application-name nice params',
+                        action=ApplicationAction,
+                        help="The applications to start")
 
-runner = EdgeRunner(args.log_dir, args.firmware_type, args.application)
-runner.run()
+    args = parser.parse_args()
+
+    runner = EdgeRunner(args.log_dir, args.firmware_type, args.application)
+    runner.run()
