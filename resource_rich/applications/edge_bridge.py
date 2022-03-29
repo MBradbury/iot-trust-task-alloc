@@ -38,14 +38,19 @@ class NodeSerialBridge:
         term_args = f"--log-dir {self.log_dir}" if self.log_dir else ""
 
         # Start processing serial output from edge sensor node
+        logger.info("Starting serial connection to edge node")
         self.proc = await asyncio.create_subprocess_shell(
             f"python3 -m tools.deploy.term {self.mote} {self.mote_type} {term_args}",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
+        logger.info("Waiting briefly before informing device we have started")
+        await asyncio.sleep(1)
+
         await self._inform_edge_bridge_started()
 
         # Start a server that applications can connect to
+        logger.info("Starting application server")
         self.server = await asyncio.start_server(
             self._handle_application_conn,
             'localhost',
