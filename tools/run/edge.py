@@ -45,12 +45,12 @@ class EdgeRunner(ApplicationRunner):
                      stdout=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stdout)],
                      stderr=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stderr)])
 
-            print("Waiting for edge bridge to start before running applications...")
+            print("Waiting for edge bridge to start before running applications...", flush=True)
             time.sleep(15)
 
             apps = []
 
-            print("Running applications")
+            print("Running applications", flush=True)
 
             for (application, niceness, params) in self.application:
                 app_specific_log_path = self.get_application_log_path(application)
