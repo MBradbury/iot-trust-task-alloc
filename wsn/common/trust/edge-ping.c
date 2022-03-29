@@ -14,8 +14,12 @@
 #define LOG_LEVEL LOG_LEVEL_NONE
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define ECHO_REQ_PAYLOAD_LEN 20
+// Number of bytes in the ping payload
+#ifndef EDGE_PING_ECHO_REQ_PAYLOAD_LEN
+#define EDGE_PING_ECHO_REQ_PAYLOAD_LEN 20
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+// Seconds between pings
 #ifndef TRUST_MODEL_PERIODIC_EDGE_PING_INTERVAL
 #define TRUST_MODEL_PERIODIC_EDGE_PING_INTERVAL 5
 #endif
@@ -84,7 +88,7 @@ static edge_resource_t* find_next_edge(void)
 static void periodic_action(void)
 {
     // Work out who to send to next
-    edge_resource_t* edge =find_next_edge();
+    edge_resource_t* edge = find_next_edge();
 
     if (has_started)
     {
@@ -92,7 +96,7 @@ static void periodic_action(void)
         LOG_INFO_6ADDR(&current_edge);
         LOG_INFO_("\n");
 
-        uip_icmp6_send(&current_edge, ICMP6_ECHO_REQUEST, 0, ECHO_REQ_PAYLOAD_LEN);
+        uip_icmp6_send(&current_edge, ICMP6_ECHO_REQUEST, 0, EDGE_PING_ECHO_REQ_PAYLOAD_LEN);
 
         const tm_edge_ping_t info = {
             .action = TM_PING_SENT
@@ -120,6 +124,12 @@ void echo_callback(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t da
         };
 
         tm_update_ping(edge, &info);
+    }
+    else
+    {
+        LOG_WARN("Edge ");
+        LOG_WARN_6ADDR(&current_edge);
+        LOG_WARN_(" no longer exists\n");
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
