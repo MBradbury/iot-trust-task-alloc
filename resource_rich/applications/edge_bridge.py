@@ -44,11 +44,6 @@ class NodeSerialBridge:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE)
 
-        logger.info("Waiting briefly before informing device we have started")
-        await asyncio.sleep(1)
-
-        await self._inform_edge_bridge_started()
-
         # Start a server that applications can connect to
         logger.info("Starting application server")
         self.server = await asyncio.start_server(
@@ -104,6 +99,7 @@ class NodeSerialBridge:
         else:
             logger.warning(f"Don't know what to do with {line}")
 
+
     async def _run_serial(self):
         loop = asyncio.get_event_loop()
 
@@ -132,10 +128,11 @@ class NodeSerialBridge:
             await self.server.serve_forever()
 
     async def run(self):
+        t0 = asyncio.create_task(self._inform_edge_bridge_started())
         t1 = asyncio.create_task(self._run_serial())
         t2 = asyncio.create_task(self._run_applications())
 
-        await asyncio.gather(t1, t2)
+        await asyncio.gather(t0, t1, t2)
 
     async def _handle_application_conn(self, reader, writer):
         try:
