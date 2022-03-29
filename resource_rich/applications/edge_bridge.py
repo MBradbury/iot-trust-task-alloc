@@ -128,8 +128,8 @@ class NodeSerialBridge:
             await self.server.serve_forever()
 
     async def run(self):
-        t0 = asyncio.create_task(self._inform_edge_bridge_started())
-        t1 = asyncio.create_task(self._run_serial())
+        t0 = asyncio.create_task(self._run_serial())
+        t1 = asyncio.create_task(self._inform_edge_bridge_started())
         t2 = asyncio.create_task(self._run_applications())
 
         await asyncio.gather(t0, t1, t2)
