@@ -18,6 +18,9 @@ class NodeSerialBridge:
     # How many times to retry waiting for an action and receiving an ack
     ACK_RETRY_THRESHOLD = 5
 
+    # How many seconds to wait for each ack
+    ACK_TIMEOUT = 1.0
+
     def __init__(self, mote: str, mote_type: str, log_dir: Optional[pathlib.Path]=None):
         self.mote = mote
         self.mote_type = mote_type
@@ -160,7 +163,7 @@ class NodeSerialBridge:
 
             # wait for start ack
             try:
-                await asyncio.wait_for(self._start_ack.wait(), timeout=1.0)
+                await asyncio.wait_for(self._start_ack.wait(), timeout=self.ACK_TIMEOUT)
                 break
             except asyncio.TimeoutError:
                 logger.warn("Timed out waiting for start ack, resending")
@@ -182,7 +185,7 @@ class NodeSerialBridge:
 
             # wait for stop ack
             try:
-                await asyncio.wait_for(self._stop_ack.wait(), timeout=1.0)
+                await asyncio.wait_for(self._stop_ack.wait(), timeout=self.ACK_TIMEOUT)
                 break
             except asyncio.TimeoutError:
                 logger.warn("Timed out waiting for stop ack, resending")
