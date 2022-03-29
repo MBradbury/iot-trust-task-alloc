@@ -153,6 +153,8 @@ process_edge_serial_message(const char* data, const char* data_end)
             // Trigger a faster notification of announce
             trigger_faster_publish();
         }
+
+        printf(EDGE_SERIAL_PREFIX EDGE_SERIAL_START SERIAL_SEP "ack\n");
     }
     else if (match_action(data, data_end, EDGE_SERIAL_STOP))
     {
@@ -167,6 +169,8 @@ process_edge_serial_message(const char* data, const char* data_end)
             // Trigger a faster notification of unannounce
             trigger_faster_publish();
         }
+
+        printf(EDGE_SERIAL_PREFIX EDGE_SERIAL_STOP SERIAL_SEP "ack\n");
     }
     else
     {

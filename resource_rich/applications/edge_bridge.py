@@ -15,6 +15,9 @@ logger = logging.getLogger("edge-bridge")
 logger.setLevel(logging.DEBUG)
 
 class NodeSerialBridge:
+    # How many times to retry waiting for an action and receiving an ack
+    ACK_RETRY_THRESHOLD = 5
+
     def __init__(self, mote: str, mote_type: str, log_dir: Optional[pathlib.Path]=None):
         self.mote = mote
         self.mote_type = mote_type
@@ -24,6 +27,9 @@ class NodeSerialBridge:
         self.server = None
 
         self.applications = {}
+
+        self._start_ack = asyncio.Event()
+        self._stop_ack = asyncio.Event()
 
     async def start(self):
         term_args = f"--log-dir {self.log_dir}" if self.log_dir else ""
@@ -75,6 +81,21 @@ class NodeSerialBridge:
         except KeyError:
             logger.warning(f"Unable to find local application {application_name} to forward message to")
 
+    async def _process_serial_output_edge_ack(self, now: datetime, line: str):
+        logger.debug(f"process_edge_output_ack: {line}")
+        action_name, payload = line.split(serial_sep, 1)
+
+        if action_name == "start":
+            if payload == "ack":
+                self._start_ack.set()
+
+        elif action_name == "stop":
+            if payload == "ack":
+                self._stop_ack.set()
+
+        else:
+            logger.warning(f"Don't know what to do with {line}")
+
     async def _run_serial(self):
         loop = asyncio.get_event_loop()
 
@@ -92,7 +113,7 @@ class NodeSerialBridge:
 
             # Edge message
             elif line.startswith(edge_marker):
-                logger.warning(f"Don't know what to do with {line}")
+                await self._process_serial_output_edge_ack(now, line[len(edge_marker):])
 
             # Regular log
             else:
@@ -127,16 +148,44 @@ class NodeSerialBridge:
             del self.applications[application_name]
 
     async def _inform_edge_bridge_started(self):
-        line = f"{edge_marker}start\n".encode("utf-8")
-        self.proc.stdin.write(line)
-        await self.proc.stdin.drain()
-        logger.debug("Sent start event")
+        count = 0
+
+        while count < self.ACK_RETRY_THRESHOLD:
+            line = f"{edge_marker}start\n".encode("utf-8")
+            self.proc.stdin.write(line)
+            await self.proc.stdin.drain()
+            logger.debug("Sent start event")
+
+            # wait for start ack
+            try:
+                await asyncio.wait_for(self._start_ack.wait(), timeout=1.0)
+                break
+            except asyncio.TimeoutError:
+                logger.warn("Timed out waiting for start ack, resending")
+
+            count += 1
+        else:
+            raise RuntimeError("Failed to receive ack to start message")
 
     async def _inform_edge_bridge_stopped(self):
-        line = f"{edge_marker}stop\n".encode("utf-8")
-        self.proc.stdin.write(line)
-        await self.proc.stdin.drain()
-        logger.debug("Sent stop event")
+        count = 0
+
+        while count < self.ACK_RETRY_THRESHOLD:
+            line = f"{edge_marker}stop\n".encode("utf-8")
+            self.proc.stdin.write(line)
+            await self.proc.stdin.drain()
+            logger.debug("Sent stop event")
+
+            # wait for stop ack
+            try:
+                await asyncio.wait_for(self._stop_ack.wait(), timeout=1.0)
+                break
+            except asyncio.TimeoutError:
+                logger.warn("Timed out waiting for stop ack, resending")
+
+            count += 1
+
+        # No need for exception here, we are stopping
 
 
 async def do_run(service):
