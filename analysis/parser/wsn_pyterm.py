@@ -121,8 +121,8 @@ class ChallengeResponseAnalyser:
     RE_KEYSTORE_ADD_OOM2 = re.compile(r'keystore_add: out of memory \(2nd\) for ([0-9A-Fa-f]+)')
     RE_KEYSTORE_ADD_ENCODE_FAIL = re.compile(r'keystore_add: encode failed [0-9]+ > [0-9]+ for ([0-9A-Fa-f]+)')
     RE_KEYSTORE_ADD_ENQUEUE_FAIL = re.compile(r'keystore_add: enqueue failed for ([0-9A-Fa-f]+)')
-    RE_KEYSTORE_ADD_VERIFY_FAIL = re.compile(r'Failed to verfiy public key for ([0-9A-Fa-f]+) \(sig verification failed\)')
-    RE_KEYSTORE_ADD_VERIFY_SUCCESS = re.compile(r'Sucessfully verfied public key for ([0-9A-Fa-f]+)')
+    RE_KEYSTORE_ADD_VERIFY_FAIL = re.compile(r'Failed to verify public key for ([0-9A-Fa-f]+) \(sig verification failed\)')
+    RE_KEYSTORE_ADD_VERIFY_SUCCESS = re.compile(r'Successfully verified public key for ([0-9A-Fa-f]+)')
 
     KEYSTORE_ADD_TO_RESULT = {
         RE_KEYSTORE_ADD_OOM1: KeystoreAddResult.OOM1,
