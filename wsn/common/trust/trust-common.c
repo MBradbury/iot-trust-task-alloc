@@ -753,7 +753,8 @@ trust_common_init(void)
 
     stereotypes_init();
 
-#ifdef TRUST_MODEL_PERIODIC_EDGE_PING
+    // Only enable pinging edges for IoT devices
+#if defined(TRUST_MODEL_PERIODIC_EDGE_PING) && defined(TRUST_NODE)
     edge_ping_start();
 #endif
 }

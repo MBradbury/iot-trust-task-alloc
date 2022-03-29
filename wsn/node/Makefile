@@ -3,6 +3,8 @@ all: $(CONTIKI_PROJECT)
 
 include ../Makefile.common
 
+CFLAGS += -DTRUST_NODE=1
+
 ifeq ($(TRUST_MODEL),)
     $(error "TRUST_MODEL not set")
 else
