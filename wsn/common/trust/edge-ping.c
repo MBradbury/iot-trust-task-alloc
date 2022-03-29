@@ -113,8 +113,10 @@ static void periodic_action(void)
 void echo_callback(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t datalen)
 {
     LOG_INFO("Received ping response from ");
+    LOG_INFO_6ADDR(source);
+    LOG_INFO_(" current edge (");
     LOG_INFO_6ADDR(&current_edge);
-    LOG_INFO_("\n");
+    LOG_INFO_(")\n");
 
     edge_resource_t* edge = edge_info_find_addr(source);
     if (edge)
@@ -138,6 +140,8 @@ PROCESS_THREAD(edge_ping_process, ev, data)
     PROCESS_BEGIN();
 
     has_started = false;
+
+    memset(&current_edge, 0, sizeof(current_edge));
 
     // We want to get notified of ping responses
     uip_icmp6_echo_reply_callback_add(&echo_notification, &echo_callback);
