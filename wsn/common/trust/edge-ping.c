@@ -121,11 +121,15 @@ void echo_callback(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t da
     edge_resource_t* edge = edge_info_find_addr(source);
     if (edge)
     {
-        const tm_edge_ping_t info = {
-            .action = TM_PING_RECEIVED
-        };
+        // Only update if we expected this edge to reply to a ping
+        if (uip_ipaddr_cmp(source, current_edge))
+        {
+            const tm_edge_ping_t info = {
+                .action = TM_PING_RECEIVED
+            };
 
-        tm_update_ping(edge, &info);
+            tm_update_ping(edge, &info);
+        }
     }
     else
     {
