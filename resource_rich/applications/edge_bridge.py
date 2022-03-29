@@ -81,7 +81,7 @@ class NodeSerialBridge:
         except KeyError:
             logger.warning(f"Unable to find local application {application_name} to forward message to")
 
-    async def _process_serial_output_edge_ack(self, now: datetime, line: str):
+    async def _process_serial_output_edge_ack(self, line: str):
         logger.debug(f"process_edge_output_ack: {line}")
         action_name, payload = line.split(serial_sep, 1)
 
@@ -113,7 +113,7 @@ class NodeSerialBridge:
 
             # Edge message
             elif line.startswith(edge_marker):
-                await self._process_serial_output_edge_ack(now, line[len(edge_marker):])
+                await self._process_serial_output_edge_ack(line[len(edge_marker):])
 
             # Regular log
             else:
