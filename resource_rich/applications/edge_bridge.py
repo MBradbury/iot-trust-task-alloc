@@ -148,6 +148,8 @@ class NodeSerialBridge:
             del self.applications[application_name]
 
     async def _inform_edge_bridge_started(self):
+        self._start_ack.clear()
+
         count = 0
 
         while count < self.ACK_RETRY_THRESHOLD:
@@ -168,6 +170,8 @@ class NodeSerialBridge:
             raise RuntimeError("Failed to receive ack to start message")
 
     async def _inform_edge_bridge_stopped(self):
+        self._stop_ack.clear()
+
         count = 0
 
         while count < self.ACK_RETRY_THRESHOLD:
