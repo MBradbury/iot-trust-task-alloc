@@ -171,7 +171,7 @@ class NodeSerialBridge:
                 await asyncio.wait_for(self._start_ack.wait(), timeout=self.ACK_TIMEOUT)
                 break
             except asyncio.TimeoutError:
-                logger.warn("Timed out waiting for start ack, resending")
+                logger.warning("Timed out waiting for start ack, resending")
 
             count += 1
         else:
@@ -193,7 +193,7 @@ class NodeSerialBridge:
                 await asyncio.wait_for(self._stop_ack.wait(), timeout=self.ACK_TIMEOUT)
                 break
             except asyncio.TimeoutError:
-                logger.warn("Timed out waiting for stop ack, resending")
+                logger.warning("Timed out waiting for stop ack, resending")
 
             count += 1
 
