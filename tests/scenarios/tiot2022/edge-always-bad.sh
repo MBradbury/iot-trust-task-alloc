@@ -11,7 +11,9 @@ rm -f nohup.out
 # Cannot set negative niceness without running at higher privilege, so just use higher positive numbers to indicate
 # a lower priority relative to each application.
 
-nohup python3 -m tools.run.edge --application monitoring 2 --application bad_routing 0 " --duration inf  --approach random" &
+nohup python3 -m tools.run.edge \
+    --application monitoring 2 \
+    --application bad_routing 0 " --duration inf  --approach random" &
 
 # Wait for nohup.out to be created
 sleep 1

@@ -8,7 +8,7 @@ rm -rf logs
 
 rm -f nohup.out
 
-nohup python3 -m tools.run.adversary.py &
+nohup python3 -m tools.run.adversary &
 
 # Wait for nohup.out to be created
 sleep 1
