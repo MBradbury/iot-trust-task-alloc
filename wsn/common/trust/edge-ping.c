@@ -122,7 +122,7 @@ void echo_callback(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data, uint16_t da
     if (edge)
     {
         // Only update if we expected this edge to reply to a ping
-        if (uip_ipaddr_cmp(source, current_edge))
+        if (uip_ipaddr_cmp(source, &current_edge))
         {
             const tm_edge_ping_t info = {
                 .action = TM_PING_RECEIVED
