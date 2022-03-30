@@ -31,7 +31,7 @@ class AdversaryRunner(TermApplicationRunner):
         self.run_pyterm()
 
 parser = argparse.ArgumentParser(description='Adversary runner')
-parser.add_argument('--log-dir', type=Path, default=DEFAULT_LOG_DIR, help='The directory to store log output'
+parser.add_argument('--log-dir', type=Path, default=DEFAULT_LOG_DIR, help='The directory to store log output')
 parser.add_argument("--firmware_type",
                     choices=supported_firmware_types,
                     default=supported_firmware_types[0],
