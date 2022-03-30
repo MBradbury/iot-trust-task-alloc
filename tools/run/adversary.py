@@ -38,5 +38,5 @@ parser.add_argument("--firmware_type",
                     help="The OS that was used to create the firmware.")
 args = parser.parse_args()
 
-runner = ProfileRunner(args.log_dir, args.firmware_type)
+runner = AdversaryRunner(args.log_dir, args.firmware_type)
 runner.run()
