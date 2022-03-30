@@ -17,13 +17,3 @@ nohup python3 -m tools.run.bad_edge --application monitoring 2 --application rou
 sleep 1
 
 tail -f nohup.out
-
-
-
-
-
-
-
-
-
-
