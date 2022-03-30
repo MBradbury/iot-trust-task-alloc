@@ -16,12 +16,12 @@ Then the test scripts in tests/run need to be edited to match the configuration 
 
 On rr2:
 ```bash
-./tests/scenarios/sac2021/edge-always-good.sh
+./tests/papers/sac2021/edge-always-good.sh
 ```
 
 On rr6:
 ```bash
-./tests/scenarios/sac2021/edge-always-bad.sh
+./tests/papers/sac2021/edge-always-bad.sh
 ```
 
 # Generating Graphs and Tables

@@ -15,22 +15,22 @@ Then the test scripts in tests/run need to be edited to match the configuration 
 
 On rr2:
 ```bash
-./tests/scenarios/infocom2021/edge-always-good.sh
+./tests/papers/infocom2021/edge-always-good.sh
 ```
 
 On rr6 (always good):
 ```bash
-./tests/scenarios/infocom2021/edge-always-good.sh
+./tests/papers/infocom2021/edge-always-good.sh
 ```
 
 On rr6 (always bad):
 ```bash
-./tests/scenarios/infocom2021/edge-always-bad.sh
+./tests/papers/infocom2021/edge-always-bad.sh
 ```
 
 On rr6 (unstable):
 ```bash
-./tests/scenarios/infocom2021/edge-unstable.sh
+./tests/papers/infocom2021/edge-unstable.sh
 ```
 
 # Generating Graphs and Tables

@@ -31,14 +31,14 @@ make TARGET=zoul PLATFORM=remote-revb PROFILE_AES=1
 
 Building and deploying:
 ```bash
-./tests/scenarios/tiot2022/setup.sh
+./tests/papers/tiot2022/setup.sh
 ```
 
 The start script for edge needs to be the same on both rr2 and rr6 to contain the correct configurations.
 
 On both rr2 and rr6:
 ```bash
-./tests/scenarios/tiot2022/edge-always-good.sh
+./tests/papers/tiot2022/edge-always-good.sh
 ```
 
 ## One Good Edge and One Bad Edge
@@ -47,57 +47,57 @@ The start script for edge needs to be edited differently on rr2 and rr6 to conta
 
 On rr2:
 ```bash
-./tests/scenarios/tiot2022/edge-always-good.sh
+./tests/papers/tiot2022/edge-always-good.sh
 ```
 
 On rr6:
 ```bash
-./tests/scenarios/tiot2022/edge-always-bad.sh
+./tests/papers/tiot2022/edge-always-bad.sh
 ```
 
 ## With DoS Adversary
 
 ```bash
-./tests/scenarios/tiot2022/setup.sh
+./tests/papers/tiot2022/setup.sh
 ```
 
 On wsn5 instead of running `tests/run/wsn.sh` run `tests/run/adversary.sh`.
 
 ```bash
-./tests/scenarios/tiot2022/adversary-dos.sh
+./tests/papers/tiot2022/adversary-dos.sh
 ```
 
 ## With DoS Adversary and Small Buffer
 
 ```bash
-./tests/scenarios/tiot2022/setup-small-buffer.sh
+./tests/papers/tiot2022/setup-small-buffer.sh
 ```
 
 ## With Aggressive Information Removal on unannounce/capability remove
 
 ```bash
-./tests/scenarios/tiot2022/setup-aggressive-removal.sh
+./tests/papers/tiot2022/setup-aggressive-removal.sh
 ```
 
 On rr6 with `capability remove`:
 ```bash
-./tests/scenarios/tiot2022/edge-aggressive-capability-remove.sh
+./tests/papers/tiot2022/edge-aggressive-capability-remove.sh
 ```
 
 On rr6 with `unannounce`:
 ```bash
-./tests/scenarios/tiot2022/edge-aggressive-unannounce.sh
+./tests/papers/tiot2022/edge-aggressive-unannounce.sh
 ```
 
 ## With Lazy Information Removal on unannounce
 
 ```bash
-./tests/scenarios/tiot2022/setup-lazy-removal.sh
+./tests/papers/tiot2022/setup-lazy-removal.sh
 ```
 
 On rr6:
 ```bash
-./tests/scenarios/tiot2022/edge-aggressive-unannounce.sh
+./tests/papers/tiot2022/edge-aggressive-unannounce.sh
 ```
 
 # Generating Graphs and Tables
