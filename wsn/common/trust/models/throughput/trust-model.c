@@ -61,8 +61,14 @@ void peer_tm_print(const peer_tm_t* tm)
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static float goodness_of_throughput(const gaussian_dist_t* in, const gaussian_dist_t* out)
+static float goodness_of_throughput(const edge_capability_t* capability)
 {
+    const gaussian_dist_t* in = &capability->tm.throughput_in;
+    const gaussian_dist_t* out = &capability->tm.throughput_out;
+
+    const trust_throughput_threshold_t* info = trust_throughput_thresholds_find(capability->name);
+    ASSERT(info != NULL);
+
     if (in->count == 0 && out->count == 0)
     {
         // No values, so just return the best
@@ -117,7 +123,7 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
     w_total += w;
 
     w = find_trust_weight(capability->name, TRUST_METRIC_THROUGHPUT);
-    e = goodness_of_throughput(&capability->tm.throughput_in, &capability->tm.throughput_out);
+    e = goodness_of_throughput(capability);
     trust += w * e;
     w_total += w;
 

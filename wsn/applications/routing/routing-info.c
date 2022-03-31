@@ -24,7 +24,19 @@ static trust_weights_t weights_info = {
     .num = sizeof(weights)/sizeof(*weights)
 };
 
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+static trust_throughput_threshold_t threshold_info = {
+    .application_name = ROUTING_APPLICATION_NAME,
+    .in_threshold = 1,
+    .out_threshold = 1
+};
+#endif
+
 void init_trust_weights_routing(void)
 {
     trust_weights_add(&weights_info);
+
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+    trust_throughput_thresholds_add(&threshold_info);
+#endif
 }

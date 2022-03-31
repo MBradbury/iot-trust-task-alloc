@@ -58,6 +58,35 @@ float find_trust_weight(const char* application_name, uint16_t id)
     return 0.0f;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+LIST(trust_throughput_thresholds);
+/*-------------------------------------------------------------------------------------------------------------------*/
+void trust_throughput_thresholds_init(void)
+{
+    list_init(trust_throughput_thresholds);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void trust_throughput_thresholds_add(trust_throughput_threshold_t* item)
+{
+    list_add(trust_throughput_thresholds, item);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+trust_throughput_threshold_t* trust_throughput_thresholds_find(const char* application_name)
+{
+    for (trust_throughput_threshold_t* iter = list_head(trust_throughput_thresholds);
+         iter != NULL;
+         iter = list_item_next(iter))
+    {
+        if (strcmp(iter->application_name, application_name) == 0)
+        {
+            return iter;
+        }
+    }
+
+    return NULL;
+}
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
 bool tm_task_submission_good(const tm_task_submission_info_t* info, bool* should_update)
 {
     *should_update = (info->coap_request_status != COAP_REQUEST_STATUS_FINISHED);

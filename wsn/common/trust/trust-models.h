@@ -30,6 +30,23 @@ trust_weights_t* trust_weights_find(const char* application_name);
 /*-------------------------------------------------------------------------------------------------------------------*/
 float find_trust_weight(const char* application_name, uint16_t id);
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+typedef struct trust_throughput_threshold {
+    struct trust_throughput_threshold* next;
+
+    const char* application_name;
+    uint32_t in_threshold;
+    uint32_t out_threshold;
+
+} trust_throughput_threshold_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
+void trust_throughput_thresholds_init(void);
+/*-------------------------------------------------------------------------------------------------------------------*/
+void trust_throughput_thresholds_add(trust_throughput_threshold_t* item);
+/*-------------------------------------------------------------------------------------------------------------------*/
+trust_throughput_threshold_t* trust_throughput_thresholds_find(const char* application_name);
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
 #define TRUST_MODEL_INVALID_TAG UINT32_MAX
 /*-------------------------------------------------------------------------------------------------------------------*/
 // Trust model configurations
