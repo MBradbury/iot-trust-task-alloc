@@ -24,7 +24,7 @@ static trust_weights_t weights_info = {
 static trust_throughput_threshold_t threshold_info = {
     .application_name = MONITORING_APPLICATION_NAME,
     .in_threshold = 1,
-    .out_threshold = 1
+    .out_threshold = 27
 };
 #endif
 

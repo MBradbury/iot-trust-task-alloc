@@ -76,16 +76,32 @@ static float goodness_of_throughput(const edge_capability_t* capability)
     }
     else if (in->count == 0 && out->count > 0)
     {
-        // Not all applications have an incoming throughput
-        // So only assess goodness of outgoing throughput
-        // TODO: Implement me
-        return 1;
+        if (out->mean < info->out_threshold)
+        {
+            return 0;
+        }
+        else
+        {
+            return 1;
+        }
+        
     }
     else
     {
         // How good is both incoming and outgoing throughput
-        // TODO: Implement me
-        return 1;
+        if (in->mean >= info->in_threshold && out->mean >= info->out_threshold)
+        {
+            return 1;
+        }
+        else if (in->mean < info->in_threshold && out->mean > ((info->out_threshold/info->in_threshold)*in->mean) )
+        {
+            return (in->mean)/info->in_threshold;
+        }
+        else
+        {
+            return (out->mean)/info->out_threshold;
+        }
+        
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

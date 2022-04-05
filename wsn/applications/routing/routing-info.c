@@ -27,8 +27,8 @@ static trust_weights_t weights_info = {
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
 static trust_throughput_threshold_t threshold_info = {
     .application_name = ROUTING_APPLICATION_NAME,
-    .in_threshold = 1,
-    .out_threshold = 1
+    .in_threshold = 350,
+    .out_threshold = 100
 };
 #endif
 
