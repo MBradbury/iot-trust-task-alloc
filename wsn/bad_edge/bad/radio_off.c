@@ -22,6 +22,16 @@ PROCESS(radio_off, "radio_off");
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer radio_off_start_timer;
 /*-------------------------------------------------------------------------------------------------------------------*/
+static void wait_no_wdt(clock_time_t i)
+{
+    const clock_time_t start = clock_time();
+    while (clock_time() - start < i)
+    {
+        watchdog_periodic();
+        clock_delay_usec(10000); // 10ms
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS_THREAD(radio_off, ev, data)
 {
     PROCESS_BEGIN();
@@ -48,7 +58,7 @@ PROCESS_THREAD(radio_off, ev, data)
         NETSTACK_MAC.off();
 
         LOG_INFO("Waiting for %u to turn radio on\n", (unsigned int)EDGE_ATTACK_RADIO_OFF_DURATION);
-        clock_wait(RADIO_OFF_DURATION);
+        wait_no_wdt(RADIO_OFF_DURATION);
 
         LOG_INFO("Turning MAC on\n");
         NETSTACK_MAC.on();
