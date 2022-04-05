@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from analysis.parser.edge_challenge_response import main as parse_cr
+from analysis.parser.edge_routing import main as parse_routing
 from analysis.parser.wsn_pyterm import main as parse_pyterm
 from analysis.graph.util import squash_generic_seq, savefig
 
@@ -69,10 +70,16 @@ def belief_correct(belief, actual):
     return result
 
 
-def main(log_dir: pathlib.Path):
+def main(log_dir: pathlib.Path, kind: str):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
-    results = parse_cr(log_dir)
+    if kind == "cr":
+        results = parse_cr(log_dir)
+    elif kind == "routing":
+        results = parse_routing(log_dir)
+    else:
+        raise RuntimeError(f"Unknown kind {kind}")
+
     pyterm_results = parse_pyterm(log_dir)
 
     print([r.behaviour_changes for r in results.values()])
@@ -209,9 +216,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Graph Correctly Evaluated')
     parser.add_argument('--log-dir', type=pathlib.Path, default="results", nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--kind', choices=['cr', 'routing'], default="cr", help='Which type of application behaviour to evaluate against')
 
     args = parser.parse_args()
 
     for log_dir in args.log_dir:
         print(f"Graphing for {log_dir}")
-        main(log_dir)
+        main(log_dir, args.kind)
