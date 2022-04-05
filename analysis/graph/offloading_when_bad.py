@@ -13,7 +13,7 @@ from analysis.parser.edge_routing import main as parse_routing
 from analysis.parser.wsn_pyterm import main as parse_pyterm
 from analysis.graph.util import squash_true_false_seq, savefig
 
-from common.names import hostname_to_name
+from common.names import hostname_to_name, ip_to_name
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
@@ -57,7 +57,8 @@ def main(log_dir: pathlib.Path, kind: str):
     }
 
     # Calculate bins, need to include left edge of first bin and right edge of last bin
-    bins = [t for (t, v) in event_types['rr6']]
+    largest_event_types = max(event_types.values(), key=lambda x: len(x))
+    bins = [t for (t, v) in largest_event_types]
 
     targets = {task.target for result in pyterm_results.values() for task in result.tasks}
 
