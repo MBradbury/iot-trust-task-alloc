@@ -70,6 +70,7 @@ class ChallengeResponseAnalyser:
                     self._process_currently(time, level, app, rest)
                 else:
                     print(f"Unknown line contents {rest} at {time}")
+
             except ValueError as ex:
                 print(ex)
                 print(time, line)
@@ -80,6 +81,9 @@ class ChallengeResponseAnalyser:
 
     def _process_received_challenge(self, time: datetime, level: str, app: str, line: str):
         m = self.RE_RECEIVE_CHALLENGE.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+
         #m_time = datetime.fromisoformat(m.group(1))
         m_source = ipaddress.ip_address(m.group(2))
         m_difficulty = int(m.group(3))
@@ -91,6 +95,9 @@ class ChallengeResponseAnalyser:
 
     def _process_job_complete(self, time: datetime, level: str, app: str, line: str):
         m = self.RE_CHALLENGE_RESPONSE.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+
         m_from = ipaddress.ip_address(m.group(1))
         m_difficulty = int(m.group(2))
         m_data = ast.literal_eval(m.group(3))
@@ -119,6 +126,9 @@ class ChallengeResponseAnalyser:
     def _process_becoming(self, time: datetime, level: str, app: str, line: str):
         """When changing from behaving well or not"""
         m = self.RE_BECOMING.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+
         m_behaviour = m.group(1) == "good"
 
         self.behaviour_changes.append((time, m_behaviour))
@@ -126,6 +136,9 @@ class ChallengeResponseAnalyser:
     def _process_currently(self, time: datetime, level: str, app: str, line: str):
         """How the application misbehaves"""
         m = self.RE_CURRENTLY.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+
         m_behaviour = m.group(1) == "good"
         m_action = m.group(2) == "correctly"
         m_action_type = m.group(3)
