@@ -30,6 +30,26 @@ class EdgeResourceTM:
     epoch: int
     bad: bool
 
+class ThroughputDirection(IntEnum):
+    IN = 0
+    OUT = 1
+
+@dataclass(frozen=True)
+class Throughput:
+    capability: str
+    direction: ThroughputDirection
+    throughput: float
+
+@dataclass(frozen=True)
+class ThroughputTM:
+    mean: float
+    var: float
+    n: int
+
+@dataclass(frozen=True)
+class LastPingTM:
+    ping: int
+
 @dataclass(frozen=True)
 class TrustModelUpdate:
     time: datetime
@@ -38,6 +58,18 @@ class TrustModelUpdate:
     tm_from: EdgeResourceTM
     tm_to: EdgeResourceTM
 
+@dataclass(frozen=True)
+class LastPingUpdate:
+    time: datetime
+    edge_id: str
+    tm_from: EdgeResourceTM
+    tm_to: EdgeResourceTM
+
+@dataclass(frozen=True)
+class BadPingUpdate:
+    time: datetime
+    edge_id: str
+    last_ping: int
 
 @dataclass(frozen=True)
 class Coordinate:
@@ -100,7 +132,10 @@ class KeystoreAddResult(Enum):
 
 class ChallengeResponseAnalyser:
     RE_TRUST_UPDATING_CR = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\)')
-    #RE_TRUST_UPDATING = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([0-9A-Za-z]+) TM ([0-9A-Za-z_]+) \((.*)\)\)')
+
+    RE_TRUST_UPDATING_THROUGHPUT = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([A-Za-z]+) TM throughput ([A-Za-z]+) \(([0-9]+) bytes/tick\): N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) -> N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\)')
+    RE_TRUST_UPDATING_LAST_PING = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM last ping: ([0-9])+ -> ([0-9])')
+    RE_TRUST_UPDATING_BAD_PING = re.compile(r'Setting trust value to 0 as we haven\'t received a ping recently \(time since last ping = ([0-9]+) sec')
 
     RE_ROUTING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\) for path from \(([0-9.-]+),([0-9.-]+)\) to \(([0-9.-]+),([0-9.-]+)\)')
     RE_MONITORING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\)')
@@ -167,6 +202,11 @@ class ChallengeResponseAnalyser:
                 if line.startswith("Updating Edge"):
                     if "TM cr" in line:
                         self._process_updating_edge_cr(time, log_level, module, line)
+                    elif "TM throughput" in line:
+                        self._process_updating_edge_throughput(time, log_level, module, line)
+                    elif "TM last ping" in line:
+                        self._process_updating_edge_last_ping(time, log_level, module, line)
+
                     else:
                         # Other trust model
                         pass
@@ -317,6 +357,7 @@ class ChallengeResponseAnalyser:
             #print((time, module, line))
 
     def _process_updating_edge_cr(self, time, log_level, module, line):
+        # print(line)
         m = self.RE_TRUST_UPDATING_CR.match(line)
         if m is None:
             raise RuntimeError(f"Failed to parse '{line}'")
@@ -336,6 +377,55 @@ class ChallengeResponseAnalyser:
 
         u = TrustModelUpdate(time, m_edge_id, cr, tm_from, tm_to)
 
+        self.tm_updates.append(u)
+
+    def _process_updating_edge_throughput(self, time, log_level, module, line):
+        # print(line)
+        m = self.RE_TRUST_UPDATING_THROUGHPUT.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+        m_edge_id = m.group(1)  #e.g. f4ce36b29cb59ade
+        m_capability_type = m.group(2) #e.g. envmon
+        m_direction = m.group(3) #e.g. out
+        m_throughput = m.group(4) #e.g.
+        m_previous_mean = m.group(5) #e.g. 42.437496
+        m_previous_var = m.group(6) #e.g. 425.286224
+        m_previous_number = m.group(7) #e.g. 32
+        m_current_mean = m.group(8) #e.g. 43.242420
+        m_current_var = m.group(9) #e.g. 433.376831
+        m_current_number = m.group(10) #e.g. 33
+
+        cr = Throughput(m_capability_type, m_direction, m_throughput)
+        tm_from = ThroughputTM(m_previous_mean, m_previous_var, m_previous_number)
+        tm_to = ThroughputTM(m_current_mean, m_current_var, m_current_number)
+
+        u = TrustModelUpdate(time, m_edge_id, cr, tm_from, tm_to)
+
+        self.tm_updates.append(u)
+
+    def _process_updating_edge_last_ping(self, time, log_level, module, line):
+        m = self.RE_TRUST_UPDATING_LAST_PING.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+        m_edge_id = m.group(1)  #e.g. f4ce36b29cb59ade
+        m_previous_ping = m.group(2) #e.g. 272676
+        m_current_ping = m.group(3) #e.g. 275228
+        tm_from = LastPingTM(m_previous_ping)
+        tm_to = LastPingTM(m_current_ping)
+
+        u = LastPingUpdate(time, m_edge_id, tm_from, tm_to)
+        #u = TrustModelUpdate(time, m_edge_id, cr, tm_from, tm_to) #we don't have cr
+
+        self.tm_updates.append(u)
+
+    def _process_updating_edge_bad_ping(self, time, log_level, module, line):
+        m = self.RE_TRUST_UPDATING_BAD_PING.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+        m_last_ping = m.group(1)  #e.g. 18
+
+        # u = TrustModelUpdate(time, m_edge_id, cr, tm_from, tm_to) ####################################################### cr, tm_from, tm_to?
+        u = BadPingUpdate(time, m_edge_id, last_ping)
         self.tm_updates.append(u)
 
 
