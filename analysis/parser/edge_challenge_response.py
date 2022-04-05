@@ -9,6 +9,8 @@ import ast
 from dataclasses import dataclass
 import pathlib
 
+from analysis.parser.edge import EdgeAnalyser
+
 @dataclass(frozen=True)
 class Challenge:
     source: ipaddress.IPv6Address
@@ -30,54 +32,25 @@ class ChallengeResponse:
     challenge: Challenge
     response: Response
 
-class ChallengeResponseAnalyser:
+class ChallengeResponseAnalyser(EdgeAnalyser):
     RE_RECEIVE_CHALLENGE = re.compile(r"Received challenge at (.+) from (.+) <difficulty=([0-9]+), data=(b[\"'].+[\"'])>")
-    RE_CHALLENGE_RESPONSE = re.compile(r"Job \(IPv6Address\('(.+)'\), ([0-9]+), (b[\"'].+[\"']), ([0-9]+)\) took ([0-9\.]+) seconds and ([0-9]+) iterations and found prefix (b[\"'].+[\"'])")
-    RE_BECOMING = re.compile(r"Becoming (good|bad)")
-    RE_CURRENTLY = re.compile(r"Currently (good|bad), so behaving (correctly|incorrectly with ([A-Za-z-]+))")
+    RE_CHALLENGE_RESPONSE = re.compile(r"Job \(IPv6Address\('(.+)'\), \[([0-9]+), (b[\"'].+[\"']), ([0-9]+)\]\) took ([0-9\.]+) seconds and ([0-9]+) iterations and found prefix (b[\"'].+[\"'])")
 
     def __init__(self, hostname: str):
-        self.hostname = hostname
+        super().__init__(hostname)
 
-        self.start_times = []
         self.challenges = []
         self.challenge_responses = []
 
-        # For bad_challenge_response, there will be times at which the system misbehaves
-        self.behaviour_changes = []
-        self.task_actions = []
-
-    def analyse(self, f):
-        for line in f:
-            try:
-                time, rest = line.strip().split(" # ", 1)
-
-                time = datetime.fromisoformat(time)
-
-                level, app, rest = rest.split(":", 2)
-
-                if rest.startswith("Starting"):
-                    self._process_starting(time, level, app, rest)
-                elif rest.startswith("Received challenge"):
-                    self._process_received_challenge(time, level, app, rest)
-                elif rest.startswith("Job"):
-                    self._process_job_complete(time, level, app, rest)
-                elif rest.startswith("Writing"):
-                    self._process_writing(time, level, app, rest)
-                elif rest.startswith("Becoming"):
-                    self._process_becoming(time, level, app, rest)
-                elif rest.startswith("Currently"):
-                    self._process_currently(time, level, app, rest)
-                else:
-                    print(f"Unknown line contents {rest} at {time}")
-
-            except ValueError as ex:
-                print(ex)
-                print(time, line)
-                break
-
-    def _process_starting(self, time: datetime, level: str, app: str, line: str):
-        self.start_times.append(time)
+    def analyse_line(self, time, level, app, rest):
+        if rest.startswith("Received challenge"):
+            self._process_received_challenge(time, level, app, rest)
+        elif rest.startswith("Job"):
+            self._process_job_complete(time, level, app, rest)
+        elif rest.startswith("Writing"):
+            self._process_writing(time, level, app, rest)
+        else:
+            super().analyse_line(time, level, app, rest)
 
     def _process_received_challenge(self, time: datetime, level: str, app: str, line: str):
         m = self.RE_RECEIVE_CHALLENGE.match(line)
@@ -122,28 +95,6 @@ class ChallengeResponseAnalyser:
 
     def _process_writing(self, time: datetime, level: str, app: str, line: str):
         pass
-
-    def _process_becoming(self, time: datetime, level: str, app: str, line: str):
-        """When changing from behaving well or not"""
-        m = self.RE_BECOMING.match(line)
-        if m is None:
-            raise RuntimeError(f"Failed to parse '{line}'")
-
-        m_behaviour = m.group(1) == "good"
-
-        self.behaviour_changes.append((time, m_behaviour))
-
-    def _process_currently(self, time: datetime, level: str, app: str, line: str):
-        """How the application misbehaves"""
-        m = self.RE_CURRENTLY.match(line)
-        if m is None:
-            raise RuntimeError(f"Failed to parse '{line}'")
-
-        m_behaviour = m.group(1) == "good"
-        m_action = m.group(2) == "correctly"
-        m_action_type = m.group(3)
-
-        self.task_actions.append((time, m_behaviour, m_action, m_action_type))
 
 def main(log_dir: pathlib.Path):
     print(f"Looking for results in {log_dir}")
