@@ -136,7 +136,7 @@ class RoutingClient(client_common.Client):
 
     async def _write_task_result_chunk(self, i: int, n: int, route_chunk) -> bool:
         # Need canonical to fit floats into smallest space possible
-        # Could considuer using https://github.com/allthingstalk/cbor/blob/master/CBOR-Tag103-Geographic-Coordinates.md
+        # Could consider using https://github.com/allthingstalk/cbor/blob/master/CBOR-Tag103-Geographic-Coordinates.md
         # but is likely best to avoid the additional overhead
         cbor_encoded = cbor2.encoder.dumps(route_chunk, canonical=True)
 
