@@ -27,4 +27,3 @@ then
 
     tail -f logs/$(hostname).nohup.out
 fi
-

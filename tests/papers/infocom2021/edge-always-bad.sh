@@ -9,7 +9,6 @@ do
     esac
 done
 
-
 # Stop anything currently running
 sudo pkill python3
 
