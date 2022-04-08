@@ -1,0 +1,40 @@
+---
+- name: Run Throughput Periodically Slow - Root
+  hosts: iris1
+  gather_facts: no
+
+  tasks:
+  - name: Root
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-periodically-slow/root.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Periodically Slow - Edge
+  hosts: iris3
+  gather_facts: no
+
+  tasks:
+  - name: Edge
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-periodically-slow/edge.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Periodically Slow - Bad Edge
+  hosts: iris10
+  gather_facts: no
+
+  tasks:
+  - name: Bad Edge
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-periodically-slow/bad_edge.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Periodically Slow - WSN
+  hosts: iris2 iris4 iris5 iris6 iris7 iris9
+  gather_facts: no
+
+  tasks:
+  - name: WSN
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-periodically-slow/wsn.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
