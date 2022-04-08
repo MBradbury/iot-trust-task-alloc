@@ -8,3 +8,5 @@ then
     done <pidfile
     #rm pidfile
 fi
+
+exit 0
