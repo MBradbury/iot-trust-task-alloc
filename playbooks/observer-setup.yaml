@@ -10,6 +10,11 @@
       name: git
       state: present
 
+  - name: Install pslist
+    ansible.builtin.apt:
+      name: pslist
+      state: present
+
   - name: Install build essential
     ansible.builtin.apt:
       name: build-essential
