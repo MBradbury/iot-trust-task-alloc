@@ -6,7 +6,7 @@
   tasks:
   - name: Root
     ansible.builtin.shell:
-      cmd: ./tests/scenarios/throughput-always-good/root.sh -d
+      cmd: nohup ./tests/scenarios/throughput-always-good/root.sh -d &
       chdir: ~/deploy/iot-trust-task-alloc/
 
 - name: Run Throughput Always Good - Edge
@@ -16,7 +16,7 @@
   tasks:
   - name: Edge
     ansible.builtin.shell:
-      cmd: ./tests/scenarios/throughput-always-good/edge.sh -d
+      cmd: nohup ./tests/scenarios/throughput-always-good/edge.sh -d &
       chdir: ~/deploy/iot-trust-task-alloc/
 
 - name: Run Throughput Always Good - WSN
@@ -26,5 +26,5 @@
   tasks:
   - name: WSN
     ansible.builtin.shell:
-      cmd: ./tests/scenarios/throughput-always-good/wsn.sh -d
+      cmd: nohup ./tests/scenarios/throughput-always-good/wsn.sh -d &
       chdir: ~/deploy/iot-trust-task-alloc/

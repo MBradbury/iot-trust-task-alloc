@@ -1,6 +1,7 @@
 INTERACTIVE=1
 
 begin_test() {
+    local OPTIND
     while getopts "d" flag
     do
         case "${flag}" in
