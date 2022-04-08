@@ -77,6 +77,13 @@ class RoutingClient(client_common.Client):
     def __init__(self):
         super().__init__(NAME, task_runner=_task_runner, max_workers=2)
 
+        # Remove cached OSM data
+        try:
+            shutil.rmtree("tilescache")
+            logger.info("Removed cached OSM information")
+        except:
+            logger.info("Failed to remove cached OSM information")
+
     async def _send_result(self, dest, message_response):
         status, route = message_response
 
