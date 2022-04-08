@@ -76,16 +76,24 @@ class RoutingClient(client_common.Client):
 
     coap_max_chunk_size = 256
 
-    def __init__(self):
-        super().__init__(NAME, task_runner=_task_runner, max_workers=2)
+    # Formal of internal error
+    internal_error = (4, None)
 
-        # Remove cached OSM data
-        # Encountered issues where this data appears to have become corrupted
-        try:
-            shutil.rmtree("tilescache")
-            logger.info("Removed cached OSM information")
-        except Exception as ex:
-            logger.info(f"Failed to remove cached OSM information: {ex} in {os.getcwd()}")
+    def __init__(self, flush_cache=False):
+        super().__init__(NAME, task_runner=_task_runner, max_workers=1)
+
+        # IMPORTANT:
+        # max_workers must be set to 1
+        # otherwise there is the risk of races in pyroutelib3 and the disk cache their maintain
+
+        if flush_cache:
+            # Remove cached OSM data
+            # Encountered issues where this data appears to have become corrupted
+            try:
+                shutil.rmtree("tilescache")
+                logger.info("Removed cached OSM information")
+            except Exception as ex:
+                logger.info(f"Failed to remove cached OSM information: {ex} in {os.getcwd()}")
 
     async def _send_result(self, dest, message_response):
         status, route = message_response

@@ -117,6 +117,12 @@ class Client:
         except Exception as ex:
             logger.error(f"Failed to execute task '{(src, dt, payload)}' with {ex}")
             logger.error(traceback.format_exc())
+
+            # Send the internal error back to this device
+            # Only 1 response can be sent at a given time
+            async with self.response_lock:
+                await self._send_result(src, self.internal_error)
+
             return
 
         (dest, message_response, duration) = task_result

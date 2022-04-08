@@ -27,6 +27,9 @@ def _task_runner(task):
     return (src, None, duration)
 
 class MonitoringClient(client_common.Client):
+
+    internal_error = None
+
     def __init__(self):
         super().__init__(NAME, task_runner=_task_runner, max_workers=1)
 

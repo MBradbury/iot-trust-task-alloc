@@ -62,6 +62,8 @@ class ChallengeResponseClient(client_common.Client):
 
     task_resp_prefix = f"app{serial_sep}resp{serial_sep}"
 
+    internal_error = (b"", 0)
+
     def __init__(self):
         super().__init__(NAME, task_runner=_task_runner, max_workers=2)
 
