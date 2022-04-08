@@ -9,6 +9,8 @@ import time
 import math
 import base64
 from more_itertools import chunked
+import os
+import shutil
 
 from config import serial_sep
 import client_common
@@ -82,8 +84,8 @@ class RoutingClient(client_common.Client):
         try:
             shutil.rmtree("tilescache")
             logger.info("Removed cached OSM information")
-        except:
-            logger.info("Failed to remove cached OSM information")
+        except Exception as ex:
+            logger.info(f"Failed to remove cached OSM information: {ex} in {os.getcwd()}")
 
     async def _send_result(self, dest, message_response):
         status, route = message_response
