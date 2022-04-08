@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import os
 import glob
@@ -33,6 +34,23 @@ class EdgeResourceTM:
 class ThroughputDirection(IntEnum):
     IN = 0
     OUT = 1
+
+    @staticmethod
+    def from_string(s: str) -> ThroughputDirection:
+        if s == "in":
+            return ThroughputDirection.IN
+        elif s == "out":
+            return ThroughputDirection.OUT
+        else:
+            raise RuntimeError(f"Unknown direction {s}")
+
+    def __str__(self) -> str:
+        if self == ThroughputDirection.IN:
+            return "in"
+        elif self == ThroughputDirection.OUT:
+            return "out"
+        else:
+            raise RuntimeError(f"Unknown direction {s}")
 
 @dataclass(frozen=True)
 class Throughput:
@@ -174,6 +192,7 @@ class ChallengeResponseAnalyser:
         self.end_time = None
 
         self.tm_updates = []
+        self.throughput_updates = []
 
         self.tasks = []
         self._pending_tasks = {}
@@ -384,14 +403,14 @@ class ChallengeResponseAnalyser:
             raise RuntimeError(f"Failed to parse '{line}'")
         m_edge_id = m.group(1)  #e.g. f4ce36b29cb59ade
         m_capability_type = m.group(2) #e.g. envmon
-        m_direction = m.group(3) #e.g. out
-        m_throughput = m.group(4) #e.g.
-        m_previous_mean = m.group(5) #e.g. 42.437496
-        m_previous_var = m.group(6) #e.g. 425.286224
-        m_previous_number = m.group(7) #e.g. 32
-        m_current_mean = m.group(8) #e.g. 43.242420
-        m_current_var = m.group(9) #e.g. 433.376831
-        m_current_number = m.group(10) #e.g. 33
+        m_direction = ThroughputDirection.from_string(m.group(3)) #e.g. out
+        m_throughput = float(m.group(4)) #e.g.
+        m_previous_mean = float(m.group(5)) #e.g. 42.437496
+        m_previous_var = float(m.group(6)) #e.g. 425.286224
+        m_previous_number = int(m.group(7)) #e.g. 32
+        m_current_mean = float(m.group(8)) #e.g. 43.242420
+        m_current_var = float(m.group(9)) #e.g. 433.376831
+        m_current_number = int(m.group(10)) #e.g. 33
 
         cr = Throughput(m_capability_type, m_direction, m_throughput)
         tm_from = ThroughputTM(m_previous_mean, m_previous_var, m_previous_number)
@@ -399,7 +418,7 @@ class ChallengeResponseAnalyser:
 
         u = TrustModelUpdate(time, m_edge_id, cr, tm_from, tm_to)
 
-        #self.tm_updates.append(u)
+        self.throughput_updates.append(u)
 
     def _process_updating_edge_last_ping(self, time, log_level, module, line):
         m = self.RE_TRUST_UPDATING_LAST_PING.match(line)
