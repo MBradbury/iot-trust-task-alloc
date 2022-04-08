@@ -10,7 +10,6 @@ begin_test
 nohup python3 -m tools.run.bad_edge \
     --application monitoring 2 \
     --application routing 0 \
-    --application challenge_response 1 \
     </dev/null >logs/$(hostname).nohup.out 2>&1 &
 
 end_test

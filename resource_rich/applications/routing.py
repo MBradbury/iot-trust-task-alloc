@@ -78,6 +78,7 @@ class RoutingClient(client_common.Client):
         super().__init__(NAME, task_runner=_task_runner, max_workers=2)
 
         # Remove cached OSM data
+        # Encountered issues where this data appears to have become corrupted
         try:
             shutil.rmtree("tilescache")
             logger.info("Removed cached OSM information")

@@ -1,6 +1,6 @@
 #!/bin/bash
 python3 -m tools.setup throughput banded \
-    --applications routing monitoring challenge-response \
+    --applications routing monitoring \
     --target nRF52840DK \
     --deploy ansible \
     --with-pcap \
