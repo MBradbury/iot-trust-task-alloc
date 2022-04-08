@@ -6,7 +6,7 @@
   tasks:
   - name: Root
     ansible.builtin.shell:
-      cmd: nohup ./tests/scenarios/throughput-periodically-slow/root.sh -d &
+      cmd: ./tests/scenarios/throughput-periodically-slow/root.sh -d
       chdir: ~/deploy/iot-trust-task-alloc/
 
 - name: Run Throughput Periodically Slow - Edge
@@ -16,7 +16,7 @@
   tasks:
   - name: Edge
     ansible.builtin.shell:
-      cmd: nohup ./tests/scenarios/throughput-periodically-slow/edge.sh -d &
+      cmd: ./tests/scenarios/throughput-periodically-slow/edge.sh -d
       chdir: ~/deploy/iot-trust-task-alloc/
 
 - name: Run Throughput Periodically Slow - Bad Edge
@@ -26,7 +26,7 @@
   tasks:
   - name: Bad Edge
     ansible.builtin.shell:
-      cmd: nohup ./tests/scenarios/throughput-periodically-slow/bad_edge.sh -d &
+      cmd: ./tests/scenarios/throughput-periodically-slow/bad_edge.sh -d
       chdir: ~/deploy/iot-trust-task-alloc/
 
 - name: Run Throughput Periodically Slow - WSN
@@ -36,5 +36,5 @@
   tasks:
   - name: WSN
     ansible.builtin.shell:
-      cmd: nohup ./tests/scenarios/throughput-periodically-slow/wsn.sh -d &
+      cmd: ./tests/scenarios/throughput-periodically-slow/wsn.sh -d
       chdir: ~/deploy/iot-trust-task-alloc/
