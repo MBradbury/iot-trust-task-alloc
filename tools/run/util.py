@@ -105,6 +105,7 @@ class ApplicationRunner:
                 universal_newlines=True,
                 encoding="utf-8",
             )
+            self.record_pid(motelist.pid)
             teed.add(motelist,
                      stdout=[motelist_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[motelist_log, StreamNoTimestamp(sys.stderr)])
@@ -128,6 +129,7 @@ class ApplicationRunner:
                 universal_newlines=True,
                 encoding="utf-8",
             )
+            self.record_pid(flash.pid)
             teed.add(flash,
                      stdout=[flash_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
@@ -141,6 +143,10 @@ class ApplicationRunner:
 
     def run(self):
         raise NotImplementedError()
+
+    def record_pid(self, pid: int):
+        with open("pidfile", "a+") as pidfile:
+            print(str(pid), file=pidfile)
 
 class TermApplicationRunner(ApplicationRunner):
     def set_log_paths(self):
@@ -164,6 +170,7 @@ class TermApplicationRunner(ApplicationRunner):
                 universal_newlines=True,
                 encoding="utf-8",
             )
+            self.record_pid(pyterm.pid)
             teed.add(pyterm,
                      stdout=[pcap_monitor, pyterm_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[pcap_monitor, pyterm_log, StreamNoTimestamp(sys.stderr)])

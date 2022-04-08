@@ -10,8 +10,7 @@ do
 done
 
 # Stop anything currently running
-sudo pkill python3
-sudo pkill tunslip6
+./tests/kill-test.sh
 
 # Remove logs
 rm -rf logs

@@ -1,0 +1,10 @@
+---
+- name: Stop experiments
+  hosts: all
+  gather_facts: no
+
+  tasks:
+  - name: Kill test
+    ansible.builtin.command:
+      cmd: ./tests/kill-test.sh
+      chdir: ~/deploy/iot-trust-task-alloc

@@ -41,6 +41,7 @@ class EdgeRunner(ApplicationRunner):
                 universal_newlines=True,
                 encoding="utf-8",
             )
+            self.record_pid(edge_bridge_proc.pid)
             teed.add(edge_bridge_proc,
                      stdout=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stdout)],
                      stderr=[pcap_monitor, edge_bridge, StreamNoTimestamp(sys.stderr)])
@@ -68,6 +69,7 @@ class EdgeRunner(ApplicationRunner):
                     universal_newlines=True,
                     encoding="utf-8",
                 )
+                self.record_pid(p.pid)
                 teed.add(p,
                      stdout=[app_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[app_log, StreamNoTimestamp(sys.stderr)])

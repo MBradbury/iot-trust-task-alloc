@@ -53,7 +53,7 @@ class RootRunner(ApplicationRunner):
         else:
             raise RuntimeError(f"Unknown border router mode {self.mode}")
 
-        return Popen(
+        br = Popen(
             command,
             cwd=cwd,
             shell=True,
@@ -63,6 +63,8 @@ class RootRunner(ApplicationRunner):
             encoding="utf-8",
             errors="backslashreplace",
         )
+        self.record_pid(br.pid)
+        return br
 
     def run_root_server(self):
         with open(self.tunslip_log_path, 'w') as tunslip_log, \
@@ -86,6 +88,7 @@ class RootRunner(ApplicationRunner):
                 universal_newlines=True,
                 encoding="utf-8",
             )
+            self.record_pid(service.pid)
             teed.add(service,
                      stdout=[service_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[service_log, StreamNoTimestamp(sys.stderr)])
@@ -106,6 +109,7 @@ class RootRunner(ApplicationRunner):
                 universal_newlines=True,
                 encoding="utf-8",
             )
+            self.record_pid(root_server.pid)
             teed.add(root_server,
                      stdout=[root_server_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[root_server_log, StreamNoTimestamp(sys.stderr)])
