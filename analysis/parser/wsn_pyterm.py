@@ -150,7 +150,7 @@ class KeystoreAddResult(Enum):
 class ChallengeResponseAnalyser:
     RE_TRUST_UPDATING_CR = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\)')
 
-    RE_TRUST_UPDATING_THROUGHPUT = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([A-Za-z]+) TM throughput ([A-Za-z]+) \(([0-9]+) bytes/tick\): N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) -> N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\)')
+    RE_TRUST_UPDATING_THROUGHPUT = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([A-Za-z]+) TM throughput ([A-Za-z]+) \(([0-9]+) bytes/second\): N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) -> N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\)')
     RE_TRUST_UPDATING_LAST_PING = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM last ping: ([0-9]+) -> ([0-9]+)')
 
     RE_ROUTING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\) for path from \(([0-9.-]+),([0-9.-]+)\) to \(([0-9.-]+),([0-9.-]+)\)')
