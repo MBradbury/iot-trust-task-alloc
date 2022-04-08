@@ -235,7 +235,7 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
 {
     if (info->direction == TM_THROUGHPUT_IN)
     {
-        LOG_INFO("Updating Edge %s capability %s TM throughput in (%" PRIu32 " bytes/tick): ",
+        LOG_INFO("Updating Edge %s capability %s TM throughput in (%" PRIu32 " bytes/second): ",
         edge_info_name(edge), cap->name, info->throughput);
         gaussian_dist_print(&cap->tm.throughput_in);
         LOG_INFO_(" -> ");
@@ -247,7 +247,7 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     }
     else if (info->direction == TM_THROUGHPUT_OUT)
     {
-        LOG_INFO("Updating Edge %s capability %s TM throughput out (%" PRIu32 " bytes/tick): ",
+        LOG_INFO("Updating Edge %s capability %s TM throughput out (%" PRIu32 " bytes/second): ",
         edge_info_name(edge), cap->name, info->throughput);
         gaussian_dist_print(&cap->tm.throughput_out);
         LOG_INFO_(" -> ");
