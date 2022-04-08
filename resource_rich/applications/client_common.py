@@ -8,6 +8,7 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 import math
 import base64
+import traceback
 
 import cbor2
 from runstats import Statistics
@@ -110,8 +111,13 @@ class Client:
             logger.error(f"Failed to parse message '{message}' with {ex}")
             return
 
-        loop = asyncio.get_running_loop()
-        task_result = await loop.run_in_executor(self.executor, self._task_runner, (src, dt, payload))
+        try:
+            loop = asyncio.get_running_loop()
+            task_result = await loop.run_in_executor(self.executor, self._task_runner, (src, dt, payload))
+        except Exception as ex:
+            logger.error(f"Failed to execute task '{(src, dt, payload)}' with {ex}")
+            logger.error(traceback.format_exc())
+            return
 
         (dest, message_response, duration) = task_result
 
