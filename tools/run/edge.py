@@ -5,6 +5,7 @@ import subprocess
 import time
 import sys
 from pathlib import Path
+import shlex
 
 from resource_rich.monitor.monitor_impl import MonitorBase
 
@@ -34,8 +35,8 @@ class EdgeRunner(ApplicationRunner):
             teed = Teed()
 
             edge_bridge_proc = Popen(
-                f"python3 resource_rich/applications/edge_bridge.py {self.device.identifier} {self.device.kind.value}",
-                shell=True,
+                shlex.split(f"python3 resource_rich/applications/edge_bridge.py {self.device.identifier} {self.device.kind.value}"),
+                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -61,9 +62,9 @@ class EdgeRunner(ApplicationRunner):
                 app_log = open(app_specific_log_path, 'w')
 
                 p = Popen(
-                    f"nice -n {niceness} python3 {application}.py {params}",
+                    shlex.split(f"nice -n {niceness} python3 {application}.py {params}"),
                     cwd="resource_rich/applications",
-                    shell=True,
+                    #shell=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     universal_newlines=True,

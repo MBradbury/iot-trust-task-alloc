@@ -5,6 +5,7 @@ import subprocess
 import time
 import sys
 from pathlib import Path
+import shlex
 
 from tools.deploy.motedev import get_mote_device
 from tools.run import supported_firmware_types, DEFAULT_LOG_DIR
@@ -41,7 +42,6 @@ class RootRunner(ApplicationRunner):
 
     def _start_local_border_router_service(self):
         com_port = get_mote_device(self.device.identifier, self.device.kind.value)
-        #com_port = "/dev/ttyACM4"
         print(f"Found com port {com_port} for device {self.device}", flush=True)
 
         if self.mode == "slip":
@@ -54,9 +54,9 @@ class RootRunner(ApplicationRunner):
             raise RuntimeError(f"Unknown border router mode {self.mode}")
 
         br = Popen(
-            command,
+            shlex.split(command),
             cwd=cwd,
-            shell=True,
+            #shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -81,14 +81,13 @@ class RootRunner(ApplicationRunner):
             time.sleep(2)
 
             service = Popen(
-                "sudo service mosquitto restart",
-                shell=True,
+                shlex.split("sudo service mosquitto restart"),
+                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
                 encoding="utf-8",
             )
-            self.record_pid(service.pid)
             teed.add(service,
                      stdout=[service_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[service_log, StreamNoTimestamp(sys.stderr)])
@@ -101,9 +100,9 @@ class RootRunner(ApplicationRunner):
             time.sleep(2)
 
             root_server = Popen(
-                "python3 -m resource_rich.root.root_server -k resource_rich/root/keystore",
+                shlex.split("python3 -m resource_rich.root.root_server -k resource_rich/root/keystore"),
                 cwd=Path("~/deploy/iot-trust-task-alloc").expanduser(),
-                shell=True,
+                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,

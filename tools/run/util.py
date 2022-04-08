@@ -4,6 +4,7 @@ import subprocess
 import sys
 import os
 from pathlib import Path
+import shlex
 
 from common.configuration import devices
 from common.configuration_common import DeviceKind
@@ -98,8 +99,8 @@ class ApplicationRunner:
         with open(self.motelist_log_path, 'w') as motelist_log:
             teed = Teed()
             motelist = Popen(
-                f"python3 -m tools.deploy.motelist --mote-type {self.device.kind.value}",
-                shell=True,
+                shlex.split(f"python3 -m tools.deploy.motelist --mote-type {self.device.kind.value}"),
+                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -121,9 +122,9 @@ class ApplicationRunner:
         with open(self.flash_log_path, 'w') as flash_log:
             teed = Teed()
             flash = Popen(
-                f"python3 flash.py '{self.device.identifier}' '{firmware_path}' {self.device.kind.value} {self.firmware_type}",
+                shlex.split(f"python3 flash.py '{self.device.identifier}' '{firmware_path}' {self.device.kind.value} {self.firmware_type}"),
                 cwd="tools/deploy",
-                shell=True,
+                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -162,8 +163,8 @@ class TermApplicationRunner(ApplicationRunner):
             # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
             # This is because this script may be called under nohup in which case stdin won't exist.
             pyterm = Popen(
-                f"python3 -m tools.deploy.term {self.device.identifier} {self.device.kind.value} --log-dir {self.log_dir}",
-                shell=True,
+                shlex.split(f"python3 -m tools.deploy.term {self.device.identifier} {self.device.kind.value} --log-dir {self.log_dir}"),
+                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
