@@ -10,7 +10,7 @@
   tasks:
   - name: Create local directory
     ansible.builtin.file:
-      path: ./results/{{ destination }}
+      path: "{{ playbook_dir | dirname }}//results/{{ destination }}"
       state: directory
     delegate_to: localhost
 
