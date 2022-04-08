@@ -5,7 +5,6 @@ import subprocess
 import time
 import sys
 from pathlib import Path
-import shlex
 
 from tools.deploy.motedev import get_mote_device
 from tools.run import supported_firmware_types, DEFAULT_LOG_DIR
@@ -54,9 +53,9 @@ class RootRunner(ApplicationRunner):
             raise RuntimeError(f"Unknown border router mode {self.mode}")
 
         br = Popen(
-            shlex.split(command),
+            command,
+            shell=True,
             cwd=cwd,
-            #shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -81,8 +80,8 @@ class RootRunner(ApplicationRunner):
             time.sleep(2)
 
             service = Popen(
-                shlex.split("sudo service mosquitto restart"),
-                #shell=True,
+                "sudo service mosquitto restart",
+                shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -100,9 +99,9 @@ class RootRunner(ApplicationRunner):
             time.sleep(2)
 
             root_server = Popen(
-                shlex.split("python3 -m resource_rich.root.root_server -k resource_rich/root/keystore"),
+                "python3 -m resource_rich.root.root_server -k resource_rich/root/keystore",
+                shell=True,
                 cwd=Path("~/deploy/iot-trust-task-alloc").expanduser(),
-                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,

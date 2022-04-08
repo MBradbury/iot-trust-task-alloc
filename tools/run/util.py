@@ -4,7 +4,6 @@ import subprocess
 import sys
 import os
 from pathlib import Path
-import shlex
 
 from common.configuration import devices
 from common.configuration_common import DeviceKind
@@ -74,6 +73,8 @@ class ApplicationRunner:
 
         self.device = self.get_device()
 
+        self.record_pid(os.getpid())
+
     def set_log_paths(self):
         self.log_dir = self.log_dir.expanduser()
 
@@ -99,14 +100,13 @@ class ApplicationRunner:
         with open(self.motelist_log_path, 'w') as motelist_log:
             teed = Teed()
             motelist = Popen(
-                shlex.split(f"python3 -m tools.deploy.motelist --mote-type {self.device.kind.value}"),
-                #shell=True,
+                f"python3 -m tools.deploy.motelist --mote-type {self.device.kind.value}",
+                shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
                 encoding="utf-8",
             )
-            self.record_pid(motelist.pid)
             teed.add(motelist,
                      stdout=[motelist_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[motelist_log, StreamNoTimestamp(sys.stderr)])
@@ -122,15 +122,14 @@ class ApplicationRunner:
         with open(self.flash_log_path, 'w') as flash_log:
             teed = Teed()
             flash = Popen(
-                shlex.split(f"python3 flash.py '{self.device.identifier}' '{firmware_path}' {self.device.kind.value} {self.firmware_type}"),
+                f"python3 flash.py '{self.device.identifier}' '{firmware_path}' {self.device.kind.value} {self.firmware_type}",
+                shell=True,
                 cwd="tools/deploy",
-                #shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
                 encoding="utf-8",
             )
-            self.record_pid(flash.pid)
             teed.add(flash,
                      stdout=[flash_log, StreamNoTimestamp(sys.stdout)],
                      stderr=[flash_log, StreamNoTimestamp(sys.stderr)])
@@ -146,7 +145,9 @@ class ApplicationRunner:
         raise NotImplementedError()
 
     def record_pid(self, pid: int):
-        with open("pidfile", "a+") as pidfile:
+        filename = Path.cwd() / "pidfile"
+        print(f"Writing pid {pid} to {filename}")
+        with open(filename, "a+") as pidfile:
             print(str(pid), file=pidfile)
 
 class TermApplicationRunner(ApplicationRunner):
@@ -163,8 +164,8 @@ class TermApplicationRunner(ApplicationRunner):
             # stdin=subprocess.PIPE is needed in order to ensure that a stdin handle exists.
             # This is because this script may be called under nohup in which case stdin won't exist.
             pyterm = Popen(
-                shlex.split(f"python3 -m tools.deploy.term {self.device.identifier} {self.device.kind.value} --log-dir {self.log_dir}"),
-                #shell=True,
+                f"python3 -m tools.deploy.term {self.device.identifier} {self.device.kind.value} --log-dir {self.log_dir}",
+                shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
