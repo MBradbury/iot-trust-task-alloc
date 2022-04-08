@@ -22,23 +22,23 @@ def main(log_dir: pathlib.Path):
     results = parse(log_dir)
 
     capabilities = {
-        value.capability
+        value.cr.capability
 
         for result
         in results.values()
 
         for value
-        in result.trust_choose.values
+        in result.throughput_updates
     }
 
     targets = {
-        value.target
+        value.edge_id
 
         for result
         in results.values()
 
         for value
-        in result.trust_choose.values
+        in result.throughput_updates
     }
 
     CXYs = {
