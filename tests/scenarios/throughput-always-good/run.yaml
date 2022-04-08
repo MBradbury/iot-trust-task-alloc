@@ -1,0 +1,30 @@
+---
+- name: Run Throughput Always Good - Root
+  hosts: iris1
+  gather_facts: no
+
+  tasks:
+  - name: Root
+    ansible.builtin.shell:
+      cmd: ./tests/scenarios/throughput-always-good/root.sh -d
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Always Good - Edge
+  hosts: iris3 iris10
+  gather_facts: no
+
+  tasks:
+  - name: Edge
+    ansible.builtin.shell:
+      cmd: ./tests/scenarios/throughput-always-good/edge.sh -d
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Always Good - WSN
+  hosts: iris2 iris4 iris5 iris6 iris7 iris9
+  gather_facts: no
+
+  tasks:
+  - name: WSN
+    ansible.builtin.shell:
+      cmd: ./tests/scenarios/throughput-always-good/wsn.sh -d
+      chdir: ~/deploy/iot-trust-task-alloc/
