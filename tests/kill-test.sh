@@ -1,6 +1,10 @@
 #!/bin/bash
 if [ -f pidfile ]
 then
-    cat pidfile | xargs rkill -9
+    while IFS="" read -r line || [ -n "$line" ]
+    do
+        echo "Killing $line and children"
+        rkill -9 $line
+    done <pidfile
     #rm pidfile
 fi
