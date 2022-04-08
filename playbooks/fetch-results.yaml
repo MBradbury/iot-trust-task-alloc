@@ -1,0 +1,30 @@
+---
+- name: Fetch Results
+  hosts: all:!iris8
+
+  vars_prompt:
+    - name: destination
+      prompt: Destination to store logs
+      private: no
+
+  tasks:
+  - name: Create local directory
+    ansible.builtin.file:
+      path: ./results/{{ destination }}
+      state: directory
+    delegate_to: localhost
+
+  - name: Fetching folder
+    ansible.posix.synchronize:
+      src: ~/deploy/iot-trust-task-alloc/logs/*
+      dest: "{{ playbook_dir | dirname }}/results/{{ destination }}/"
+      mode: pull
+      delete: no
+
+  - name: Fetching keystore
+    ansible.posix.synchronize:
+      src: ~/deploy/iot-trust-task-alloc/resource_rich/root/keystore/
+      dest: "{{ playbook_dir | dirname }}/results/{{ destination }}/keystore"
+      mode: pull
+      delete: no
+    when: ansible_hostname == 'iris1'
