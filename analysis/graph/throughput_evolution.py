@@ -1,29 +1,20 @@
 #!/usr/bin/env python3
 
-import subprocess
-import math
 import pathlib
-from ipaddress import IPv6Address
 from pprint import pprint
 
 import numpy as np
-import scipy.stats as stats
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-from analysis.parser.wsn_pyterm import main as parse, MonitoringTask, RoutingTask, ThroughputDirection
+from analysis.parser.wsn_pyterm import main as parse, ThroughputDirection
 from analysis.graph.util import savefig
 
-from common.names import ip_to_name, eui64_to_name
+from common.names import ip_to_name, eui64_to_name, hostname_to_name
 
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
-
-capability_to_task = {
-    "envmon": MonitoringTask,
-    "routing": RoutingTask,
-}
 
 def main(log_dir: pathlib.Path):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
@@ -86,12 +77,10 @@ def main(log_dir: pathlib.Path):
                 continue
 
             X, Y = zip(*XY)
-            ax.plot(X, Y, label=f"{hostname} eval {eui64_to_name(target)} dir {direction}")
+            ax.plot(X, Y, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
 
         ax.set_xlabel('Time')
         ax.set_ylabel('Throughput (bytes/sec)')
-
-        #ax.set_ylim(0, 1)
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 
