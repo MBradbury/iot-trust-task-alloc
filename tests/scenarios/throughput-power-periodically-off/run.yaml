@@ -1,0 +1,40 @@
+---
+- name: Run Throughput Power Periodically Off - Root
+  hosts: iris1
+  gather_facts: no
+
+  tasks:
+  - name: Root
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-power-periodically-off/root.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Power Periodically Off - Edge
+  hosts: iris3
+  gather_facts: no
+
+  tasks:
+  - name: Edge
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-power-periodically-off/edge.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Power Periodically Off - Bad Edge
+  hosts: iris10
+  gather_facts: no
+
+  tasks:
+  - name: Edge
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-power-periodically-off/bad_edge.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Power Periodically Off - WSN
+  hosts: iris2 iris4 iris5 iris6 iris7 iris9
+  gather_facts: no
+
+  tasks:
+  - name: WSN
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-power-periodically-off/wsn.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/

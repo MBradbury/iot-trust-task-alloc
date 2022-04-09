@@ -1,0 +1,40 @@
+---
+- name: Run Throughput Dos Edge - Root
+  hosts: iris1
+  gather_facts: no
+
+  tasks:
+  - name: Root
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-dos-edge/root.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Dos Edge - Edge
+  hosts: iris3 iris10
+  gather_facts: no
+
+  tasks:
+  - name: Edge
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-dos-edge/edge.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Dos Edge - WSN
+  hosts: iris2 iris4 iris5 
+  gather_facts: no
+
+  tasks:
+  - name: WSN
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-dos-edge/wsn.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Dos Edge - Adversary
+  hosts: iris6 iris7 iris9
+  gather_facts: no
+
+  tasks:
+  - name: Adversary
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-dos-edge/adversary.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/

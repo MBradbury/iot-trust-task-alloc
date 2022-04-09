@@ -1,0 +1,40 @@
+---
+- name: Run Throughput Routing Always Slow - Root
+  hosts: iris1
+  gather_facts: no
+
+  tasks:
+  - name: Root
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-routing-always-slow/root.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Routing Always Slow - Edge
+  hosts: iris3
+  gather_facts: no
+
+  tasks:
+  - name: Edge
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-routing-always-slow/edge.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Routing Always Slow - Bad Edge
+  hosts: iris10
+  gather_facts: no
+
+  tasks:
+  - name: Bad Edge
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-routing-always-slow/bad_edge.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
+
+- name: Run Throughput Routing Always Slow - WSN
+  hosts: iris2 iris4 iris5 iris6 iris7 iris9
+  gather_facts: no
+
+  tasks:
+  - name: WSN
+    ansible.builtin.shell:
+      cmd: nohup ./tests/scenarios/throughput-routing-always-slow/wsn.sh -d &
+      chdir: ~/deploy/iot-trust-task-alloc/
