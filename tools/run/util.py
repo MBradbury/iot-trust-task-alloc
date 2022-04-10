@@ -33,8 +33,11 @@ class Teed:
                 now = datetime.now(timezone.utc).isoformat()
 
                 for f in files:
-                    f.write(f"{now} # {line}")
-                    f.flush()
+                    try:
+                        f.write(f"{now} # {line}")
+                        f.flush()
+                    except ValueError as ex:
+                        print(f"Malformed line '{line}' with {ex}", flush=True)
 
                     if getattr(f, "stop_further_processing", False):
                         break
