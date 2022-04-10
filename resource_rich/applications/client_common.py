@@ -49,6 +49,18 @@ class Client:
         # Need to inform bridge of what application we represent
         await self.write(f"{self.name}\n")
 
+        # Wait until we get the ready message
+        line = await self.reader.readline()
+
+        # Check if the endpoint closed on us
+        if not line:
+            logger.info("Connection closed while waiting for ready")
+            return
+
+        line = line.decode("utf-8").rstrip()
+        if line != "ready":
+            raise RuntimeError(f"Unexpected start message {line}")
+
         # Once started, we need to inform the edge of this application's availability
         await self._inform_application_started()
 

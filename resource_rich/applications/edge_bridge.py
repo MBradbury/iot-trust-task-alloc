@@ -143,6 +143,13 @@ class NodeSerialBridge:
             logger.info(f"Application {application_name} is running on {addr}")
             self.applications[application_name] = writer
 
+            # Wait for start to have been received from the IoT device
+            await self._start_ack.wait()
+
+            # Inform application they are good to go
+            writer.write("ready\n".encode("utf-8"))
+            await writer.drain()
+
             # Read lines from the application and forward onto the serial line
             while not reader.at_eof():
                 line = await reader.readline()
