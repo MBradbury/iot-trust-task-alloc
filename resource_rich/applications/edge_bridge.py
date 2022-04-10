@@ -16,7 +16,7 @@ logger.setLevel(logging.DEBUG)
 
 class NodeSerialBridge:
     # How many times to retry waiting for an action and receiving an ack
-    ACK_RETRY_THRESHOLD = 5
+    ACK_RETRY_THRESHOLD = 15
 
     # How many seconds to wait for each ack
     ACK_TIMEOUT = 1.0
