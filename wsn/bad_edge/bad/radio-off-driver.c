@@ -17,12 +17,18 @@ radio_off_driver_set(bool state)
     emulate_is_off = state;
 }
 /*---------------------------------------------------------------------------*/
-extern const struct radio_driver NETSTACK_CONF_RADIO;
+#ifdef NETSTACK_CONF_WITH_PCAP
+#define PARENT_RADIO_DRIVER pcapradio_driver
+#else
+#define PARENT_RADIO_DRIVER NETSTACK_CONF_RADIO
+#endif
+
+extern const struct radio_driver PARENT_RADIO_DRIVER;
 /*---------------------------------------------------------------------------*/
 static int
 init(void)
 {
-    return NETSTACK_CONF_RADIO.init();
+    return PARENT_RADIO_DRIVER.init();
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -35,7 +41,7 @@ prepare(const void *payload, unsigned short payload_len)
     }
     else
     {
-        return NETSTACK_CONF_RADIO.prepare(payload, payload_len);
+        return PARENT_RADIO_DRIVER.prepare(payload, payload_len);
     }
 }
 /*---------------------------------------------------------------------------*/
@@ -49,7 +55,7 @@ transmit(unsigned short transmit_len)
     }
     else
     {
-        return NETSTACK_CONF_RADIO.transmit(transmit_len);
+        return PARENT_RADIO_DRIVER.transmit(transmit_len);
     }
 }
 /*---------------------------------------------------------------------------*/
@@ -78,62 +84,62 @@ read(void *buf, unsigned short bufsize)
     }
     else
     {
-        return NETSTACK_CONF_RADIO.read(buf, bufsize);
+        return PARENT_RADIO_DRIVER.read(buf, bufsize);
     }
 }
 /*---------------------------------------------------------------------------*/
 static int
 channel_clear(void)
 {
-    return NETSTACK_CONF_RADIO.channel_clear();
+    return PARENT_RADIO_DRIVER.channel_clear();
 }
 /*---------------------------------------------------------------------------*/
 static int
 receiving_packet(void)
 {
-    return NETSTACK_CONF_RADIO.receiving_packet();
+    return PARENT_RADIO_DRIVER.receiving_packet();
 }
 /*---------------------------------------------------------------------------*/
 static int
 pending_packet(void)
 {
-    return NETSTACK_CONF_RADIO.pending_packet();
+    return PARENT_RADIO_DRIVER.pending_packet();
 }
 /*---------------------------------------------------------------------------*/
 static int
 on(void)
 {
-    return NETSTACK_CONF_RADIO.on();
+    return PARENT_RADIO_DRIVER.on();
 }
 /*---------------------------------------------------------------------------*/
 static int
 off(void)
 {
-    return NETSTACK_CONF_RADIO.off();
+    return PARENT_RADIO_DRIVER.off();
 }
 /*---------------------------------------------------------------------------*/
 static radio_result_t
 get_value(radio_param_t param, radio_value_t *value)
 {
-    return NETSTACK_CONF_RADIO.get_value(param, value);
+    return PARENT_RADIO_DRIVER.get_value(param, value);
 }
 /*---------------------------------------------------------------------------*/
 static radio_result_t
 set_value(radio_param_t param, radio_value_t value)
 {
-    return NETSTACK_CONF_RADIO.set_value(param, value);
+    return PARENT_RADIO_DRIVER.set_value(param, value);
 }
 /*---------------------------------------------------------------------------*/
 static radio_result_t
 get_object(radio_param_t param, void *dest, size_t size)
 {
-    return NETSTACK_CONF_RADIO.get_object(param, dest, size);
+    return PARENT_RADIO_DRIVER.get_object(param, dest, size);
 }
 /*---------------------------------------------------------------------------*/
 static radio_result_t
 set_object(radio_param_t param, const void *src, size_t size)
 {
-    return NETSTACK_CONF_RADIO.set_object(param, src, size);
+    return PARENT_RADIO_DRIVER.set_object(param, src, size);
 }
 /*---------------------------------------------------------------------------*/
 const struct radio_driver radio_off_driver = {
