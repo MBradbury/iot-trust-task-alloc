@@ -13,6 +13,7 @@ from typing import Union
 import pathlib
 from collections import defaultdict, Counter
 from pprint import pprint
+import sys
 
 from analysis.parser.common import parse_contiki
 
@@ -207,8 +208,14 @@ class ChallengeResponseAnalyser:
         self.keystore_add_count = defaultdict(Counter)
         self.keystore_add_first_time = {}
 
-    def analyse(self, f):
-        for (time, log_level, module, line) in parse_contiki(f):
+    def error(self, msg, line, ex, throw_on_error):
+        if throw_on_error:
+            raise RuntimeError(f"{msg} from '{line}'") from ex
+        else:
+            print(f"{msg} from '{line}' {ex}", file=sys.stderr)
+
+    def analyse(self, f, throw_on_error: bool=True):
+        for (time, log_level, module, line) in parse_contiki(f, throw_on_error=throw_on_error):
 
             if self.start_time is None:
                 self.start_time = time
@@ -248,7 +255,11 @@ class ChallengeResponseAnalyser:
                     self._pending_tasks[module] = RoutingTask(m_len, source, destination)
 
                 elif line.startswith("Message sent to"):
-                    task_details = self._pending_tasks[module]
+                    try:
+                        task_details = self._pending_tasks[module]
+                    except KeyError as ex:
+                        self.error(f"No initial task for continuation", line, ex, throw_on_error)
+                        continue
                     del self._pending_tasks[module]
 
                     m = self.RE_TASK_SENT.match(line)
@@ -265,7 +276,11 @@ class ChallengeResponseAnalyser:
                     self._pending_tasks[module] = MonitoringTask(m_len)
 
                 elif line.startswith("Message sent to"):
-                    task_details = self._pending_tasks[module]
+                    try:
+                        task_details = self._pending_tasks[module]
+                    except KeyError as ex:
+                        self.error(f"No initial task for continuation", line, ex, throw_on_error)
+                        continue
                     del self._pending_tasks[module]
 
                     m = self.RE_TASK_SENT.match(line)
@@ -449,7 +464,7 @@ class ChallengeResponseAnalyser:
             self.tm_updates.append(u)
 
 
-def main(log_dir: pathlib.Path):
+def main(log_dir: pathlib.Path, throw_on_error: bool=True):
     print(f"Looking for results in {log_dir}")
 
     gs = log_dir.glob("*.pyterm.log")
@@ -469,7 +484,7 @@ def main(log_dir: pathlib.Path):
         a = ChallengeResponseAnalyser(hostname)
 
         with open(g, 'r') as f:
-            a.analyse(f)
+            a.analyse(f, throw_on_error=throw_on_error)
 
         results[hostname] = a
 

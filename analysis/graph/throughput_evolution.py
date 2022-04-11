@@ -16,10 +16,10 @@ from common.names import ip_to_name, eui64_to_name, hostname_to_name
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
 
-def main(log_dir: pathlib.Path):
+def main(log_dir: pathlib.Path, throw_on_error: bool=True):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
-    results = parse(log_dir)
+    results = parse(log_dir, throw_on_error=throw_on_error)
 
     capabilities = {
         value.cr.capability
@@ -94,9 +94,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Graph Throughput Value Over Time')
     parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
+    parser.add_argument('--continue-on-error', action="store_true", default=False, help='Should bad lines be skipped')
 
     args = parser.parse_args()
 
     for log_dir in args.log_dir:
         print(f"Graphing for {log_dir}")
-        main(log_dir)
+        main(log_dir, not args.continue_on_error)

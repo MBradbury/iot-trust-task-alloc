@@ -33,12 +33,30 @@ def parse_contiki_debug(line: str) -> Tuple[str, str, str]:
 
     return (m_log_level, m_module, m_rest)
 
-def parse_contiki(f):
+SKIP_LINES = {
+    "Serial port disconnected, waiting to get reconnected...",
+    "Try to reconnect to /dev/ttyACM0 again...",
+    "Reconnected to serial port /dev/ttyACM0",
+}
+
+def parse_contiki(f, throw_on_error=True):
     saved_time = None
     saved_line = None
 
     for (i, line) in enumerate(f):
-        time, rest = line.strip().split(" # ", 1)
+        try:
+            time, rest = line.strip().split(" # ", 1)
+        except ValueError as ex:
+            if throw_on_error:
+                raise
+            else:
+                print(line)
+                print(ex)
+                continue
+        
+        if rest in SKIP_LINES:
+            print(f"Skipping line '{rest}'", file=sys.stderr)
+            continue
 
         result = parse_contiki_debug(rest)
         if result is None:
@@ -48,11 +66,18 @@ def parse_contiki(f):
                 # If the first line was bad, there may have been some initial corruption
                 # Skip it and continue onwards
                 if i == 0:
-                    print(f"Something went wrong with '{line}', skipping as it is the first line", file=sys.stderr)
+                    print(f"Something went wrong with '{line}' in {f}, skipping as it is the first line", file=sys.stderr)
                 else:
-                    raise RuntimeError(f"Something went wrong with '{line}'")
+                    if throw_on_error:
+                        raise RuntimeError(f"Something went wrong with '{line}' in {f}")
+                    else:
+                        print(f"Something went wrong with '{line}' in {f}", file=sys.stderr)
+                        continue
         else:
             if saved_line is not None:
                 yield (datetime.fromisoformat(saved_time),) + saved_line
             saved_time = time
             saved_line = result
+
+    if saved_line is not None:
+        yield (datetime.fromisoformat(saved_time),) + saved_line
