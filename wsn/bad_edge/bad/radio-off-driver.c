@@ -6,12 +6,6 @@
 static bool emulate_is_off;
 /*---------------------------------------------------------------------------*/
 void
-radio_off_driver_init(void)
-{
-    emulate_is_off = false;
-}
-/*---------------------------------------------------------------------------*/
-void
 radio_off_driver_set(bool state)
 {
     emulate_is_off = state;
@@ -28,6 +22,9 @@ extern const struct radio_driver PARENT_RADIO_DRIVER;
 static int
 init(void)
 {
+    // Start off as if the radio was enabled
+    emulate_is_off = false;
+
     return PARENT_RADIO_DRIVER.init();
 }
 /*---------------------------------------------------------------------------*/

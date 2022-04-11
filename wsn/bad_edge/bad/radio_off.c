@@ -33,8 +33,6 @@ PROCESS_THREAD(radio_off, ev, data)
 {
     PROCESS_BEGIN();
 
-    radio_off_driver_init();
-
     LOG_INFO("Starting %s\n", PROCESS_NAME_STRING(PROCESS_CURRENT()));
     LOG_INFO("Turning radio off every %u for %u\n",
         (unsigned int)EDGE_ATTACK_RADIO_OFF_INTERVAL,
