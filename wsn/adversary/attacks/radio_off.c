@@ -7,10 +7,10 @@
 #define LOG_LEVEL LOG_LEVEL_DBG
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef ATTACK_RADIO_OFF_INTERVAL
-#error "Must define ATTACK_RADIO_OFF_INTERVAL"
+#define ATTACK_RADIO_OFF_INTERVAL 5
 #endif
 #ifndef ATTACK_RADIO_OFF_DURATION
-#error "Must define ATTACK_RADIO_OFF_DURATION"
+#define ATTACK_RADIO_OFF_DURATION 300
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(radio_off, "radio_off");

@@ -15,6 +15,10 @@
 #ifndef DOS_ADDRESS
 #define DOS_ADDRESS ""
 #endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define DOS_PERIOD_CLOCK ((DOS_PERIOD_MS * CLOCK_SECOND) / 1000)
+_Static_assert(DOS_PERIOD_CLOCK > 0, "CLOCK_SECOND needs to be at least 1000");
+/*-------------------------------------------------------------------------------------------------------------------*/
 #pragma message "Adversary will target " DOS_ADDRESS
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "attack-dtn"
@@ -80,7 +84,7 @@ PROCESS_THREAD(dos_target_network, ev, data)
     LOG_INFO("Message has been created, starting to send periodically "
              "every " CC_STRINGIFY(DOS_PERIOD_MS) "ms\n");
 
-    etimer_set(&send_timer, DOS_PERIOD_MS * CLOCK_SECOND);
+    etimer_set(&send_timer, DOS_PERIOD_CLOCK);
 
     // Send the message periodically
     while (1)
