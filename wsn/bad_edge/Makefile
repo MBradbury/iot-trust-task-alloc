@@ -11,6 +11,8 @@ else
     CFLAGS += -DTRUST_MODEL=TRUST_MODEL_$(shell echo $(TRUST_MODEL) | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 endif
 
+CFLAGS += -DNETSTACK_CONF_CUSTOM_RADIO=radio_off_driver
+
 # Include application modules
 MODULES_REL += ../edge ../edge/capability
 MODULES_REL += ../common/trust/models/$(TRUST_MODEL)
