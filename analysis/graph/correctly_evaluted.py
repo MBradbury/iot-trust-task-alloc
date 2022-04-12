@@ -70,7 +70,7 @@ def belief_correct(belief, actual):
     return result
 
 
-def main(log_dir: pathlib.Path, kind: str):
+def main(log_dir: pathlib.Path, kind: str, throw_on_error: bool=True):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     if kind == "cr":
@@ -80,7 +80,7 @@ def main(log_dir: pathlib.Path, kind: str):
     else:
         raise RuntimeError(f"Unknown kind {kind}")
 
-    pyterm_results = parse_pyterm(log_dir)
+    pyterm_results = parse_pyterm(log_dir, throw_on_error=throw_on_error)
 
     print([r.behaviour_changes for r in results.values()])
 
@@ -188,7 +188,7 @@ def main(log_dir: pathlib.Path, kind: str):
 
     ax.legend()
 
-    savefig(fig, log_dir / "graphs" / "cr_correctly_evaluated.pdf")
+    savefig(fig, log_dir / "graphs" / f"{kind}_correctly_evaluated.pdf")
 
 
     print("\\begin{table}[H]")
@@ -217,9 +217,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Graph Correctly Evaluated')
     parser.add_argument('--log-dir', type=pathlib.Path, default="results", nargs='+', help='The directory which contains the log output')
     parser.add_argument('--kind', choices=['cr', 'routing'], default="cr", help='Which type of application behaviour to evaluate against')
+    parser.add_argument('--continue-on-error', action="store_true", default=False, help='Should bad lines be skipped')
 
     args = parser.parse_args()
 
     for log_dir in args.log_dir:
         print(f"Graphing for {log_dir}")
-        main(log_dir, args.kind)
+        main(log_dir, args.kind, not args.continue_on_error)
