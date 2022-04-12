@@ -17,8 +17,6 @@ def flash_nrf(filename: str, serial_number: str):
         with pynrfjprog.HighLevel.DebugProbe(api, serial_number) as probe:
             probe.program(filename, program_options)
 
-            probe.reset()
-
 if __name__ == "__main__":
     import argparse
 

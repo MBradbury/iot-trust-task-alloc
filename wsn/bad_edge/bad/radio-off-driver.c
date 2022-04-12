@@ -31,44 +31,20 @@ init(void)
 static int
 prepare(const void *payload, unsigned short payload_len)
 {
-    if (emulate_is_off)
-    {
-      // Drop tx
-      return RADIO_TX_OK;
-    }
-    else
-    {
-        return PARENT_RADIO_DRIVER.prepare(payload, payload_len);
-    }
+    return PARENT_RADIO_DRIVER.prepare(payload, payload_len);
 }
 /*---------------------------------------------------------------------------*/
 static int
 transmit(unsigned short transmit_len)
 {
-    if (emulate_is_off)
-    {
-      // Drop tx
-      return RADIO_TX_OK;
-    }
-    else
-    {
-        return PARENT_RADIO_DRIVER.transmit(transmit_len);
-    }
+    return PARENT_RADIO_DRIVER.transmit(transmit_len);
 }
 /*---------------------------------------------------------------------------*/
 static int
 send(const void *payload, unsigned short payload_len)
 {
-    if (emulate_is_off)
-    {
-      // Drop tx
-      return RADIO_TX_OK;
-    }
-    else
-    {
-      prepare(payload, payload_len);
-      return transmit(payload_len);
-    }
+    prepare(payload, payload_len);
+    return transmit(payload_len);
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -76,8 +52,8 @@ read(void *buf, unsigned short bufsize)
 {
     if (emulate_is_off)
     {
-      // Drop rx
-      return 0;
+        // Drop rx
+        return 0;
     }
     else
     {
@@ -140,19 +116,19 @@ set_object(radio_param_t param, const void *src, size_t size)
 }
 /*---------------------------------------------------------------------------*/
 const struct radio_driver radio_off_driver = {
-  init,
-  prepare,
-  transmit,
-  send,
-  read,
-  channel_clear,
-  receiving_packet,
-  pending_packet,
-  on,
-  off,
-  get_value,
-  set_value,
-  get_object,
-  set_object
+    init,
+    prepare,
+    transmit,
+    send,
+    read,
+    channel_clear,
+    receiving_packet,
+    pending_packet,
+    on,
+    off,
+    get_value,
+    set_value,
+    get_object,
+    set_object
 };
 /*---------------------------------------------------------------------------*/
