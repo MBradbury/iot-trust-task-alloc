@@ -133,6 +133,23 @@ void gaussian_dist_update(gaussian_dist_t* dist, float value)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void throughput_dist_update(throughput_dist_t* dist, float value)
+{
+    // First item
+    if (dist->count == 0)
+    {
+        dist->current = value;
+        dist->count = 1;
+    }
+    else
+    {
+        const uint32_t new_count = dist->count + 1;
+
+        dist->current = value;
+        dist->count = new_count;
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_print(const gaussian_dist_t* dist)
 {
     printf("N(mean=%f,var=%f,n=%"PRIu32")", dist->mean, dist->variance, dist->count);

@@ -41,6 +41,7 @@ typedef struct throughput_dist {
     float current;
     uint32_t count;
 } throughput_dist_t;
+void throughput_dist_update(throughput_dist_t* dist, float value);
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_init(gaussian_dist_t* dist, float mean, float variance);
 void gaussian_dist_init_empty(gaussian_dist_t* dist);

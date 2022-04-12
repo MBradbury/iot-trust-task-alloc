@@ -240,7 +240,7 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         gaussian_dist_print(&cap->tm.throughput_in);
         LOG_INFO_(" -> ");
 
-        gaussian_dist_update(&cap->tm.throughput_in, info->throughput);
+        throughput_dist_update(&cap->tm.throughput_in, info->throughput);
 
         gaussian_dist_print(&cap->tm.throughput_in);
         LOG_INFO_("\n");
@@ -252,7 +252,7 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         gaussian_dist_print(&cap->tm.throughput_out);
         LOG_INFO_(" -> ");
 
-        gaussian_dist_update(&cap->tm.throughput_out, info->throughput);
+        throughput_dist_update(&cap->tm.throughput_out, info->throughput);
 
         gaussian_dist_print(&cap->tm.throughput_out);
         LOG_INFO_("\n");
