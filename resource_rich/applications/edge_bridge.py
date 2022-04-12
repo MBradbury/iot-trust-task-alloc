@@ -110,8 +110,12 @@ class NodeSerialBridge:
 
             line = output.decode('utf-8').rstrip()
 
+            # Device reset
+            if "Starting Contiki-NG-release" in line:
+                asyncio.create_task(self._handle_reset())
+
             # Application message
-            if line.startswith(application_edge_marker):
+            elif line.startswith(application_edge_marker):
                 now = datetime.now(timezone.utc)
                 await self._process_serial_output(now, line[len(application_edge_marker):])
 
@@ -202,6 +206,17 @@ class NodeSerialBridge:
             count += 1
 
         # No need for exception here, we are stopping
+
+    async def _handle_reset(self):
+        await self._inform_edge_bridge_started()
+
+        # Inform applications
+        for (application_name, writer) in self.applications:
+            writer.write("reset\n".encode("utf-8"))
+            await writer.drain()
+
+            # Wait a bit between informing applications
+            await asyncio.sleep(2)
 
 
 async def do_run(service):

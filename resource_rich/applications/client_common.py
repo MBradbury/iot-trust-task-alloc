@@ -75,6 +75,11 @@ class Client:
 
             line = line.decode("utf-8").rstrip()
 
+            # Process reset
+            if line == "reset":
+                await self._inform_application_started()
+                continue
+
             # Process ack
             if line.endswith(f"{serial_sep}ack"):
                 async with self.ack_cond:
