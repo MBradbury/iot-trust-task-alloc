@@ -22,9 +22,9 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 PROCESS(radio_off, "radio_off");
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define RADIO_OFF_START (CLOCK_CONF_SECOND * (unsigned int)EDGE_ATTACK_RADIO_OFF_START)
-#define RADIO_OFF_INTERVAL (CLOCK_CONF_SECOND * (unsigned int)EDGE_ATTACK_RADIO_OFF_INTERVAL)
-#define RADIO_OFF_DURATION (CLOCK_CONF_SECOND * (unsigned int)EDGE_ATTACK_RADIO_OFF_DURATION)
+#define RADIO_OFF_START (CLOCK_SECOND * (unsigned int)EDGE_ATTACK_RADIO_OFF_START)
+#define RADIO_OFF_INTERVAL (CLOCK_SECOND * (unsigned int)EDGE_ATTACK_RADIO_OFF_INTERVAL)
+#define RADIO_OFF_DURATION (CLOCK_SECOND * (unsigned int)EDGE_ATTACK_RADIO_OFF_DURATION)
 /*-------------------------------------------------------------------------------------------------------------------*/
 static struct etimer radio_off_start_timer;
 static struct etimer radio_off_wait_timer;
@@ -49,7 +49,7 @@ PROCESS_THREAD(radio_off, ev, data)
     while (true)
     {
         LOG_INFO("Waiting for %lu seconds to turn radio off\n",
-            radio_off_start_timer.timer.interval / CLOCK_CONF_SECOND);
+            radio_off_start_timer.timer.interval / CLOCK_SECOND);
         PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_TIMER && data == &radio_off_start_timer);
 
         LOG_INFO("Turning MAC off\n");
