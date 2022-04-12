@@ -31,6 +31,7 @@ class NodeSerialBridge:
 
         self.applications = {}
 
+        self._seen_reset = asyncio.Event()
         self._start_ack = asyncio.Event()
         self._stop_ack = asyncio.Event()
 
@@ -110,12 +111,11 @@ class NodeSerialBridge:
 
             line = output.decode('utf-8').rstrip()
 
-            # Device reset
-            if "Starting Contiki-NG-release" in line:
-                asyncio.create_task(self._handle_reset())
+            if "Starting Contiki-NG" in line:
+                self._seen_reset.set()
 
             # Application message
-            elif line.startswith(application_edge_marker):
+            if line.startswith(application_edge_marker):
                 now = datetime.now(timezone.utc)
                 await self._process_serial_output(now, line[len(application_edge_marker):])
 
@@ -133,8 +133,17 @@ class NodeSerialBridge:
 
     async def run(self):
         t0 = asyncio.create_task(self._run_serial())
-        t1 = asyncio.create_task(self._inform_edge_bridge_started())
         t2 = asyncio.create_task(self._run_applications())
+
+        # Wait for reset
+        logger.debug("Waiting for reset before starting properly")
+        try:
+            await asyncio.wait_for(self._seen_reset.wait(), timeout=10)
+            logger.debug("Got reset")
+        except asyncio.TimeoutError:
+            logger.warning("Timed out waiting for reset, continuing anyway")
+
+        t1 = asyncio.create_task(self._inform_edge_bridge_started())
 
         await asyncio.gather(t0, t1, t2)
 
@@ -206,17 +215,6 @@ class NodeSerialBridge:
             count += 1
 
         # No need for exception here, we are stopping
-
-    async def _handle_reset(self):
-        await self._inform_edge_bridge_started()
-
-        # Inform applications
-        for (application_name, writer) in self.applications:
-            writer.write("reset\n".encode("utf-8"))
-            await writer.drain()
-
-            # Wait a bit between informing applications
-            await asyncio.sleep(2)
 
 
 async def do_run(service):
