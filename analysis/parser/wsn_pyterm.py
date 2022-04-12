@@ -72,20 +72,13 @@ class LastPing:
 @dataclass(frozen=True)
 class LastPingTM:
     ping: int
-    bad: bool=True
+    bad: bool=False
 
 @dataclass(frozen=True)
 class TrustModelUpdate:
     time: datetime
     edge_id: str
     cr: ChallengeResponse
-    tm_from: EdgeResourceTM
-    tm_to: EdgeResourceTM
-
-@dataclass(frozen=True)
-class LastPingUpdate:
-    time: datetime
-    edge_id: str
     tm_from: EdgeResourceTM
     tm_to: EdgeResourceTM
 
@@ -448,7 +441,10 @@ class ChallengeResponseAnalyser:
 
         cr = LastPing()
 
-        interval = 32 * 5
+        # 1000ms in sec, 10 secs per ping, 2 edges, plus a small amount of leeway
+        interval = 1000 * 10 * 2 * 1.05
+
+        #print(m_current_ping, m_previous_ping, m_current_ping - m_previous_ping, interval)
 
         if m_previous_ping > 0 and (m_current_ping - m_previous_ping) >= interval:
             tm_inter = LastPingTM(m_previous_ping + interval, bad=True)
