@@ -35,6 +35,12 @@ typedef struct gaussian_dist {
     // This facilitates performing incremental updates without needing to store all previous values.
     uint32_t count;
 } gaussian_dist_t;
+
+// Used to record information about continuous events
+typedef struct throughput_dist {
+    float current;
+    uint32_t count;
+} throughput_dist_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_init(gaussian_dist_t* dist, float mean, float variance);
 void gaussian_dist_init_empty(gaussian_dist_t* dist);
