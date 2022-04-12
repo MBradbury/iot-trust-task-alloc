@@ -48,6 +48,7 @@ void gaussian_dist_init_empty(gaussian_dist_t* dist);
 void gaussian_dist_print(const gaussian_dist_t* dist);
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_update(gaussian_dist_t* dist, float value);
+void gaussian_dist_update_ewma(gaussian_dist_t* dist, float value, float weight);
 /*-------------------------------------------------------------------------------------------------------------------*/
 int gaussian_dist_serialise(nanocbor_encoder_t* enc, const gaussian_dist_t* dist);
 int gaussian_dist_deserialise(nanocbor_value_t* dec, gaussian_dist_t* dist);

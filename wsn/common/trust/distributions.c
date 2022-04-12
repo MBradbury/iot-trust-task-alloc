@@ -133,6 +133,30 @@ void gaussian_dist_update(gaussian_dist_t* dist, float value)
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void gaussian_dist_update_ewma(gaussian_dist_t* dist, float value, float alpha)
+{
+    // First item
+    if (dist->count == 0)
+    {
+        dist->mean = value;
+        dist->variance = 0;
+        dist->count = 1;
+    }
+    else
+    {
+        // https://fanf2.user.srcf.net/hermes/doc/antiforgery/stats.pdf
+        // https://en.wikipedia.org/wiki/Moving_average#Exponentially_weighted_moving_variance_and_standard_deviation
+        const float diff = value - dist->mean;
+        const float incr = alpha * diff;
+        const float new_mean = dist->mean + incr;
+        const float new_variance = (1.0f - alpha) * (dist->variance + diff * incr);
+
+        dist->mean = new_mean;
+        dist->variance = new_variance;
+        dist->count += 1;
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 void throughput_dist_update(throughput_dist_t* dist, float value)
 {
     // First item
