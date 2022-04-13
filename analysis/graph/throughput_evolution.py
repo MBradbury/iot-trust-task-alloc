@@ -88,7 +88,7 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True):
         savefig(fig, f"{log_dir}/graphs/throughput_vs_time_{capability}_{direction}.pdf")
 
 
-        CXYs = {
+    CXYs = {
         (capability, direction): {
             (hostname, target): [
                 (value.time, value.tm_to.mean)
