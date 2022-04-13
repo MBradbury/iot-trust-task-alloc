@@ -107,10 +107,13 @@ void gaussian_dist_init_empty(gaussian_dist_t* dist)
     dist->count = 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-#define SQRT2 1.41421356237f
 float gaussian_dist_cdf(const gaussian_dist_t* dist, float value)
 {
-    return 0.5f * (1.0f + erff((value - dist->mean) / (sqrtf(dist->variance) * SQRT2)));
+    // See: https://github.com/boostorg/math/blob/2b9927871fd86312f753e4bcbdb82236022c5856/include/boost/math/distributions/normal.hpp#L203
+    const double stddev = sqrt(dist->variance);
+    const double diff = (value - dist->mean) / sqrt(dist->variance * 2);
+    const double result = erfc(-diff) / 2.0;
+    return (float)result;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_update(gaussian_dist_t* dist, float value)
@@ -131,7 +134,6 @@ void gaussian_dist_update(gaussian_dist_t* dist, float value)
         // https://math.stackexchange.com/questions/102978/incremental-computation-of-standard-deviation
         const float new_variance = (dist->variance * ((new_count - 2.0f) / (new_count - 1.0f))) +
                                    ((value - dist->mean) * (value - dist->mean)) / new_count;
-
 
         dist->mean = new_mean;
         dist->variance = new_variance;

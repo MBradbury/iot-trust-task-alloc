@@ -37,6 +37,7 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm)
     dist_print(&tm->task_submission);
     printf(",TaskRes=");
     dist_print(&tm->task_result);
+    printf(",LastPing=%" PRIu32, tm->last_ping_response);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -45,6 +46,8 @@ void edge_capability_tm_init(edge_capability_tm_t* tm)
     beta_dist_init(&tm->result_quality, 1, 1);
     gaussian_dist_init_empty(&tm->throughput_in);
     gaussian_dist_init_empty(&tm->throughput_out);
+    gaussian_dist_init_empty(&tm->throughput_in_ewma);
+    gaussian_dist_init_empty(&tm->throughput_out_ewma);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
@@ -54,8 +57,12 @@ void edge_capability_tm_print(const edge_capability_tm_t* tm)
     dist_print(&tm->result_quality);
     printf(",ThroughputIn=");
     dist_print(&tm->throughput_in);
+    printf("+ewma:");
+    dist_print(&tm->throughput_in_ewma);
     printf(",ThroughputOut=");
     dist_print(&tm->throughput_out);
+    printf("+ewma:");
+    dist_print(&tm->throughput_out_ewma);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -69,39 +76,62 @@ void peer_tm_print(const peer_tm_t* tm)
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+static float pr_value_ge_norm(const gaussian_dist_t* norm, const gaussian_dist_t* ewma)
+{
+    // Return middle value when no data in distributions
+    if (norm->count == 0 || ewma->count == 0)
+    {
+        return 0.5f;
+    }
+
+    // In the EWMA distribution what is the probability of observing a value
+    // greater than the mean calculated via an unweighted average
+
+    if (ewma->variance == 0.0f)
+    {
+        if (norm->mean >= ewma->mean)
+        {
+            return 1.0f;
+        }
+        else
+        {
+            return 0.0f;
+        }
+    }
+    else
+    {
+        return 1.0f - gaussian_dist_cdf(ewma, norm->mean);
+    }
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 static float goodness_of_throughput(const edge_resource_t* edge, const edge_capability_t* capability)
 {
     const gaussian_dist_t* in = &capability->tm.throughput_in;
     const gaussian_dist_t* out = &capability->tm.throughput_out;
 
-    const trust_throughput_threshold_t* info = trust_throughput_thresholds_find(capability->name);
-    ASSERT(info != NULL);
-
-    float result;
+    const gaussian_dist_t* in_ewma = &capability->tm.throughput_in_ewma;
+    const gaussian_dist_t* out_ewma = &capability->tm.throughput_out_ewma;
 
     // gaussian_dist_cdf gives us the probability that a value will be <= the threshold
     // 1 - gaussian_dist_cdf gives >
 
-    if (in->count == 0 && out->count == 0)
-    {
-        // No values, so just return the best
-        result = 1.0f;
-    }
-    else if (in->count == 0 && out->count > 0)
-    {
-        result = 1.0f - gaussian_dist_cdf(out, info->out_threshold);
-    }
-    else
-    {
-        const float x = 1.0f - gaussian_dist_cdf(out, info->out_threshold);
-        const float y = 1.0f - gaussian_dist_cdf(in, info->in_threshold);
+    const float in_pr = pr_value_ge_norm(in, in_ewma);
+    const float out_pr = pr_value_ge_norm(out, out_ewma);
 
-        result = (x + y) / 2.0f;
-    }
+    const float result = (in_pr + out_pr) / 2.0f;
 
-    LOG_INFO("goodness_of_throughput[%s, %s](%f,%f) = %f\n",
+    LOG_INFO("goodness_of_throughput[%s, %s](%f,%f) = %f",
         edge_info_name(edge), capability->name,
-        capability->tm.throughput_in.mean, capability->tm.throughput_out.mean, result);
+        in_pr, out_pr, result);
+    LOG_INFO_(" in-norm:");
+    gaussian_dist_print(in);
+    LOG_INFO_(" out-norm:");
+    gaussian_dist_print(out);
+    LOG_INFO_(" in-ewma:");
+    gaussian_dist_print(in_ewma);
+    LOG_INFO_(" out-ewma:");
+    gaussian_dist_print(out_ewma);
+    LOG_INFO_("\n");
 
     return result;
 }
@@ -239,11 +269,16 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         LOG_INFO("Updating Edge %s capability %s TM throughput in (%" PRIu32 " bytes/second): ",
         edge_info_name(edge), cap->name, info->throughput);
         gaussian_dist_print(&cap->tm.throughput_in);
+        LOG_INFO_(" ewma:");
+        gaussian_dist_print(&cap->tm.throughput_in_ewma);
         LOG_INFO_(" -> ");
 
-        gaussian_dist_update_ewma(&cap->tm.throughput_in, info->throughput, THROUGHPUT_EWMA_WEIGHT);
+        gaussian_dist_update(&cap->tm.throughput_in, info->throughput);
+        gaussian_dist_update_ewma(&cap->tm.throughput_in_ewma, info->throughput, THROUGHPUT_EWMA_WEIGHT);
 
         gaussian_dist_print(&cap->tm.throughput_in);
+        LOG_INFO_(" ewma:");
+        gaussian_dist_print(&cap->tm.throughput_in_ewma);
         LOG_INFO_("\n");
     }
     else if (info->direction == TM_THROUGHPUT_OUT)
@@ -251,11 +286,16 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         LOG_INFO("Updating Edge %s capability %s TM throughput out (%" PRIu32 " bytes/second): ",
         edge_info_name(edge), cap->name, info->throughput);
         gaussian_dist_print(&cap->tm.throughput_out);
+        LOG_INFO_(" ewma:");
+        gaussian_dist_print(&cap->tm.throughput_out_ewma);
         LOG_INFO_(" -> ");
 
-        gaussian_dist_update_ewma(&cap->tm.throughput_out, info->throughput, THROUGHPUT_EWMA_WEIGHT);
+        gaussian_dist_update(&cap->tm.throughput_out, info->throughput);
+        gaussian_dist_update_ewma(&cap->tm.throughput_out_ewma, info->throughput, THROUGHPUT_EWMA_WEIGHT);
 
         gaussian_dist_print(&cap->tm.throughput_out);
+        LOG_INFO_(" ewma:");
+        gaussian_dist_print(&cap->tm.throughput_out_ewma);
         LOG_INFO_("\n");
     }
     else

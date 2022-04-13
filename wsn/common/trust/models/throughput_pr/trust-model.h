@@ -45,6 +45,9 @@ typedef struct edge_capability_tm {
     gaussian_dist_t throughput_in;
     gaussian_dist_t throughput_out;
 
+    gaussian_dist_t throughput_in_ewma;
+    gaussian_dist_t throughput_out_ewma;
+
 } edge_capability_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_init(edge_capability_tm_t* tm);
