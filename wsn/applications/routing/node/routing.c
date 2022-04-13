@@ -196,12 +196,17 @@ send_callback(coap_callback_request_state_t* callback_state)
     tm_update_task_submission(edge, cap, &info);
 
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
-    const tm_throughput_info_t throughput_info = {
-        .direction = TM_THROUGHPUT_OUT,
-        .throughput = app_state_throughput_end_out(&app_state)
-    };
+    // Do not need to update on the finished call
+    // This prevents duplicate updates of the trust model
+    if (callback_state->state.status != COAP_REQUEST_STATUS_FINISHED)
+    {
+        const tm_throughput_info_t throughput_info = {
+            .direction = TM_THROUGHPUT_OUT,
+            .throughput = app_state_throughput_end_out(&app_state)
+        };
 
-    tm_update_task_throughput(edge, cap, &throughput_info);
+        tm_update_task_throughput(edge, cap, &throughput_info);
+    }
 #endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
