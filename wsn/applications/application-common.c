@@ -68,7 +68,7 @@ uint32_t app_state_throughput_end_out(app_state_t* state)
     const float time_taken_sec = time_taken / (float)CLOCK_SECOND;
     const float throughput_bytes_per_sec = state->out_len / time_taken_sec;
 
-    return (uint32_t)ceil(throughput_bytes_per_sec);
+    return (uint32_t)ceilf(throughput_bytes_per_sec);
 #else
     return 0;
 #endif
@@ -98,7 +98,7 @@ uint32_t app_state_throughput_end_in(app_state_t* state)
     const float time_taken_sec = time_taken / (float)CLOCK_SECOND;
     const float throughput_bytes_per_sec = state->in_len / time_taken_sec;
 
-    return (uint32_t)ceil(throughput_bytes_per_sec);
+    return (uint32_t)ceilf(throughput_bytes_per_sec);
 #else
     return 0;
 #endif
