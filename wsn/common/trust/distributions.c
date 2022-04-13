@@ -1,6 +1,7 @@
 #include "distributions.h"
 #include <assert.h>
 #include <stdio.h>
+#include <math.h>
 #include "os/sys/log.h"
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-dist"
@@ -104,6 +105,12 @@ void gaussian_dist_init_empty(gaussian_dist_t* dist)
     dist->variance = 0;
 
     dist->count = 0;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+#define SQRT2 1.41421356237f
+float gaussian_dist_cdf(const gaussian_dist_t* dist, float value)
+{
+    return 0.5f * (1.0f + erff((value - dist->mean) / (sqrtf(dist->variance) * SQRT2)));
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void gaussian_dist_update(gaussian_dist_t* dist, float value)

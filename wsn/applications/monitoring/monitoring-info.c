@@ -23,7 +23,7 @@ static trust_weights_t weights_info = {
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
 static trust_throughput_threshold_t threshold_info = {
     .application_name = MONITORING_APPLICATION_NAME,
-    .in_threshold = 1,
+    .in_threshold = 0, // unused
     .out_threshold = 27
 };
 #endif
