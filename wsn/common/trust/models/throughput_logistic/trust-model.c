@@ -10,7 +10,7 @@
 /*-------------------------------------------------------------------------------------------------------------------*/
 // Higher this weight, the more recent values have an impact
 #ifndef THROUGHPUT_EWMA_WEIGHT
-#define THROUGHPUT_EWMA_WEIGHT 0.75f
+#define THROUGHPUT_EWMA_WEIGHT 0.6f
 #endif
 _Static_assert(THROUGHPUT_EWMA_WEIGHT >= 0);
 _Static_assert(THROUGHPUT_EWMA_WEIGHT <= 1);
@@ -77,6 +77,9 @@ static float goodness_of_throughput(const edge_resource_t* edge, const edge_capa
     const trust_throughput_threshold_t* info = trust_throughput_thresholds_find(capability->name);
     ASSERT(info != NULL);
 
+    // Slope factor, lower = more gentle slope
+    const float k = 0.5f;
+
     float result;
 
     if (in->count == 0 && out->count == 0)
@@ -86,12 +89,12 @@ static float goodness_of_throughput(const edge_resource_t* edge, const edge_capa
     }
     else if (in->count == 0 && out->count > 0)
     {
-        result = 1.0f / (1.0f + expf(-1.0f * (out->mean - info->out_threshold)));
+        result = 1.0f / (1.0f + expf(-k * (out->mean - info->out_threshold)));
     }
     else
     {
-        const float x = 1.0f / (1.0f + expf(-1.0f * (out->mean - info->out_threshold)));
-        const float y = 1.0f / (1.0f + expf(-1.0f * (in->mean - info->in_threshold)));
+        const float x = 1.0f / (1.0f + expf(-k * (out->mean - info->out_threshold)));
+        const float y = 1.0f / (1.0f + expf(-k * (in->mean - info->in_threshold)));
 
         result = (x + y) / 2.0f;
     }
