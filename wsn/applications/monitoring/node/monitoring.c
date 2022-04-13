@@ -78,6 +78,8 @@ static struct etimer publish_periodic_timer, publish_short_timer;
 static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
+    const clock_time_t now = clock_time();
+
     tm_task_submission_info_t info = {
         .coap_status = NO_ERROR,
         .coap_request_status = callback_state->state.status
@@ -145,7 +147,7 @@ send_callback(coap_callback_request_state_t* callback_state)
     {
         const tm_throughput_info_t throughput_info = {
             .direction = TM_THROUGHPUT_OUT,
-            .throughput = app_state_throughput_end_out(&app_state)
+            .throughput = app_state_throughput_end_out(&app_state, now)
         };
 
         tm_update_task_throughput(edge, cap, &throughput_info);
@@ -215,12 +217,12 @@ periodic_action(void)
     ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)
     {
+        app_state_throughput_start_out(&app_state, len);
+
         timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&ep);
         LOG_DBG_("\n");
-
-        app_state_throughput_start_out(&app_state, len);
     }
     else
     {

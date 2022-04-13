@@ -59,10 +59,9 @@ void app_state_throughput_start_out(app_state_t* state, size_t len)
 #endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-uint32_t app_state_throughput_end_out(app_state_t* state)
+uint32_t app_state_throughput_end_out(app_state_t* state, clock_time_t now)
 {
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
-    const clock_time_t now = clock_time();
     const clock_time_t time_taken = now - state->out_time;
 
     const float time_taken_sec = time_taken / (float)CLOCK_SECOND;
@@ -89,10 +88,9 @@ void app_state_throughput_update_in(app_state_t* state, size_t len)
 #endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-uint32_t app_state_throughput_end_in(app_state_t* state)
+uint32_t app_state_throughput_end_in(app_state_t* state, clock_time_t now)
 {
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
-    const clock_time_t now = clock_time();
     const clock_time_t time_taken = now - state->in_time;
 
     const float time_taken_sec = time_taken / (float)CLOCK_SECOND;

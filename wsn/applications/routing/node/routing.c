@@ -57,7 +57,7 @@ static bool first_src_isclose;
 static int
 generate_routing_request(uint8_t* buf, size_t buf_len, const coordinate_t* source, const coordinate_t* destination)
 {
-    uint32_t time_secs = clock_seconds();
+    const uint32_t time_secs = clock_seconds();
 
     nanocbor_encoder_t enc;
     nanocbor_encoder_init(&enc, buf, buf_len);
@@ -133,6 +133,8 @@ nanocbor_get_coordinate_from_payload(nanocbor_value_t* dec, coordinate_t* coord,
 static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
+    const clock_time_t now = clock_time();
+
     tm_task_submission_info_t info = {
         .coap_status = NO_ERROR,
         .coap_request_status = callback_state->state.status
@@ -202,7 +204,7 @@ send_callback(coap_callback_request_state_t* callback_state)
     {
         const tm_throughput_info_t throughput_info = {
             .direction = TM_THROUGHPUT_OUT,
-            .throughput = app_state_throughput_end_out(&app_state)
+            .throughput = app_state_throughput_end_out(&app_state, now)
         };
 
         tm_update_task_throughput(edge, cap, &throughput_info);
@@ -360,13 +362,13 @@ event_triggered_action(const char* data)
     ret = coap_send_request(&coap_callback, &ep, &msg, send_callback);
     if (ret)
     {
+        app_state_throughput_start_out(&app_state, len);
+
         timed_unlock_lock(&task_in_use);
         timed_unlock_lock(&coap_callback_in_use);
         LOG_DBG("Message sent to ");
         LOG_DBG_COAP_EP(&ep);
         LOG_DBG_("\n");
-
-        app_state_throughput_start_out(&app_state, len);
     }
     else
     {
@@ -421,15 +423,15 @@ routing_response_process_status(coap_message_t *request)
         return;
     }
 
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
+    app_state_throughput_start_in(&app_state, payload_len);
+#endif
+
     // Update trust model with notification of task success/failure
     const tm_task_result_info_t info = {
         .result = (status == ROUTING_SUCCESS) ? TM_TASK_RESULT_INFO_SUCCESS : TM_TASK_RESULT_INFO_FAIL
     };
     tm_update_task_result(edge, cap, &info);
-
-#ifdef APPLICATIONS_MONITOR_THROUGHPUT
-    app_state_throughput_start_in(&app_state, payload_len);
-#endif
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
@@ -463,7 +465,7 @@ routing_process_task_timeout(void)
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 static void
-routing_process_task_result(coap_message_t *request, const tm_result_quality_info_t* info)
+routing_process_task_result(coap_message_t *request, const tm_result_quality_info_t* info, clock_time_t now)
 {
     edge_resource_t* edge = edge_info_find_addr(&request->src_ep->ipaddr);
     if (!edge)
@@ -488,7 +490,7 @@ routing_process_task_result(coap_message_t *request, const tm_result_quality_inf
 #ifdef APPLICATIONS_MONITOR_THROUGHPUT
     const tm_throughput_info_t throughput_info = {
         .direction = TM_THROUGHPUT_IN,
-        .throughput = app_state_throughput_end_in(&app_state)
+        .throughput = app_state_throughput_end_in(&app_state, now)
     };
 
     tm_update_task_throughput(edge, cap, &throughput_info);
@@ -511,6 +513,8 @@ RESOURCE(res_coap,
 static void
 res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
+    const clock_time_t now = clock_time();
+
     int ret;
 
     const char* uri_path;
@@ -626,7 +630,7 @@ res_coap_routing_post_handler(coap_message_t *request, coap_message_t *response,
                 .good = (first_src_isclose && last_dest_isclose)
             };
 
-            routing_process_task_result(request, &info);
+            routing_process_task_result(request, &info, now);
 
             timed_unlock_unlock(&task_in_use);
         }
