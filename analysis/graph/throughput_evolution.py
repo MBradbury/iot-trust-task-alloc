@@ -2,6 +2,7 @@
 
 import pathlib
 from pprint import pprint
+import math
 
 import numpy as np
 
@@ -91,7 +92,7 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True):
     CXYs = {
         (capability, direction): {
             (hostname, target): [
-                (value.time, value.tm_to.mean)
+                (value.time, value.tm_to.mean, math.sqrt(value.tm_to.var))
                 for value
                 in result.throughput_updates
                 if value.edge_id == target
@@ -122,8 +123,8 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True):
                 print(f"Skipping {label}")
                 continue
 
-            X, Y = zip(*XY)
-            ax.plot(X, Y, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
+            X, Y, E = zip(*XY)
+            ax.errorbar(X, Y, yerr=E, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
 
         ax.set_xlabel('Time')
         ax.set_ylabel('Throughput (bytes/sec)')
