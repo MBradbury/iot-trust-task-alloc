@@ -17,7 +17,7 @@ from common.names import ip_to_name, eui64_to_name, hostname_to_name
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.size'] = 12
 
-def main(log_dir: pathlib.Path, throw_on_error: bool=True):
+def main(log_dir: pathlib.Path, throw_on_error: bool=True, with_error_bars: bool=False):
     (log_dir / "graphs").mkdir(parents=True, exist_ok=True)
 
     results = parse(log_dir, throw_on_error=throw_on_error)
@@ -124,7 +124,11 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True):
                 continue
 
             X, Y, E = zip(*XY)
-            ax.errorbar(X, Y, yerr=E, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
+
+            if with_error_bars:
+                ax.errorbar(X, Y, yerr=E, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
+            else:
+                ax.plot(X, Y, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
 
         ax.set_xlabel('Time')
         ax.set_ylabel('Throughput (bytes/sec)')
@@ -171,7 +175,11 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True):
                 continue
 
             X, Y, E = zip(*XY)
-            ax.errorbar(X, Y, yerr=E, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
+
+            if with_error_bars:
+                ax.errorbar(X, Y, yerr=E, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
+            else:
+                ax.errorbar(X, Y, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
 
         ax.set_xlabel('Time')
         ax.set_ylabel('Throughput (bytes/sec)')
@@ -189,9 +197,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Graph Throughput Value Over Time')
     parser.add_argument('--log-dir', type=pathlib.Path, default=["results"], nargs='+', help='The directory which contains the log output')
     parser.add_argument('--continue-on-error', action="store_true", default=False, help='Should bad lines be skipped')
+    parser.add_argument('--with-error-bars', action="store_true", default=False, help='Should error bars be included')
 
     args = parser.parse_args()
 
     for log_dir in args.log_dir:
         print(f"Graphing for {log_dir}")
-        main(log_dir, not args.continue_on_error)
+        main(log_dir, not args.continue_on_error, args.with_error_bars)
