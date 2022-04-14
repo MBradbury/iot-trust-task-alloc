@@ -102,7 +102,7 @@ class FakeRestartClient(Client):
                 await self._inform_application_started(application_name=app)
 
         except asyncio.CancelledError:
-            logger.warning(f"Canelling _fake_restart_server task")
+            logger.warning(f"Cancelling _fake_restart_server task")
             raise
 
         logger.info("Finished performing fake restart of the server!")
