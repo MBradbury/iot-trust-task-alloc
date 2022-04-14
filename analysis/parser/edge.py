@@ -9,9 +9,11 @@ class Task:
     dt: datetime
     source: ipaddress.IPv6Address
     payload: object
+    application: str
 
 class EdgeAnalyser:
     RE_RECEIVE_TASK = re.compile(r"Received task at (.+) from (.+) <payload=(.+)>")
+    RE_RECEIVE_TASK2 = re.compile(r"Received message at (.+) from (.+) <(.+)>")
 
     RE_BECOMING = re.compile(r"[a-z]+ becoming (good|bad)")
     RE_CURRENTLY = re.compile(r"Currently (good|bad), so behaving (correctly|incorrectly with ([A-Za-z-]+))")
@@ -52,6 +54,8 @@ class EdgeAnalyser:
             self._process_currently(time, level, app, rest)
         elif rest.startswith("Received task"):
             self._process_received_task(time, level, app, rest)
+        elif rest.startswith("Received message"):
+            self._process_received_task2(time, level, app, rest)
         else:
             print(f"Unknown line contents '{rest}' at {time}")
 
@@ -89,6 +93,19 @@ class EdgeAnalyser:
         m_from = ipaddress.IPv6Address(m.group(2))
         m_payload = ast.literal_eval(m.group(3))
 
-        task = Task(m_dt, m_from, m_payload)
+        task = Task(m_dt, m_from, m_payload, app)
+
+        self.received_tasks.append(task)
+
+    def _process_received_task2(self, time: datetime, level: str, app: str, line: str):
+        m = self.RE_RECEIVE_TASK2.match(line)
+        if m is None:
+            raise RuntimeError(f"Failed to parse '{line}'")
+
+        m_dt = datetime.fromisoformat(m.group(1))
+        m_from = ipaddress.IPv6Address(m.group(2))
+        m_payload = m.group(3)
+
+        task = Task(m_dt, m_from, m_payload, app)
 
         self.received_tasks.append(task)
