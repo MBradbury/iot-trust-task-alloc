@@ -92,7 +92,7 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True):
     CXYs = {
         (capability, direction): {
             (hostname, target): [
-                (value.time, value.tm_to.mean, math.sqrt(value.tm_to.var))
+                (value.time, value.tm_to.mean.mean, math.sqrt(value.tm_to.mean.var))
                 for value
                 in result.throughput_updates
                 if value.edge_id == target
@@ -134,6 +134,53 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True):
         ax.legend(ncol=3, fontsize="small", loc="center", bbox_to_anchor=(0.5,1.075))
 
         savefig(fig, f"{log_dir}/graphs/ave_throughput_vs_time_{capability}_{direction}.pdf")
+
+
+    CXYs = {
+        (capability, direction): {
+            (hostname, target): [
+                (value.time, value.tm_to.ewma.mean, math.sqrt(value.tm_to.ewma.var))
+                for value
+                in result.throughput_updates
+                if value.edge_id == target
+                if value.cr.capability == capability
+                if value.cr.direction == direction
+            ]
+
+            for (hostname, result)
+            in results.items()
+
+            for target in targets
+        }
+
+        for capability in capabilities
+        for direction in ThroughputDirection
+    }
+
+    # TODO: Draw some bar graphs of which nodes tasks were submitted to
+
+    for ((capability, direction), XYs) in CXYs.items():
+        fig = plt.figure()
+        ax = fig.gca()
+
+        for (label, XY) in sorted(XYs.items(), key=lambda x: x[0]):
+            hostname, target = label
+
+            if not XY:
+                print(f"Skipping {label}")
+                continue
+
+            X, Y, E = zip(*XY)
+            ax.errorbar(X, Y, yerr=E, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
+
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Throughput (bytes/sec)')
+
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+
+        ax.legend(ncol=3, fontsize="small", loc="center", bbox_to_anchor=(0.5,1.075))
+
+        savefig(fig, f"{log_dir}/graphs/ewma_throughput_vs_time_{capability}_{direction}.pdf")
 
 
 if __name__ == "__main__":

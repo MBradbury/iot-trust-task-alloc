@@ -60,10 +60,15 @@ class Throughput:
     throughput: float
 
 @dataclass(frozen=True)
-class ThroughputTM:
+class GaussianDistribution:
     mean: float
     var: float
     n: int
+
+@dataclass(frozen=True)
+class ThroughputTM:
+    mean: GaussianDistribution
+    ewma: GaussianDistribution
 
 @dataclass(frozen=True)
 class LastPing:
@@ -144,7 +149,12 @@ class KeystoreAddResult(Enum):
 class ChallengeResponseAnalyser:
     RE_TRUST_UPDATING_CR = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM cr \(type=([0-9]),good=([01])\): EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\) -> EdgeResourceTM\(epoch=([0-9]+),(blacklisted|bad)=([01])\)')
 
-    RE_TRUST_UPDATING_THROUGHPUT = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([A-Za-z]+) TM throughput ([A-Za-z]+) \(([0-9]+) bytes/second\): N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) -> N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\)')
+    #RE_TRUST_UPDATING_THROUGHPUT = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([A-Za-z]+) TM throughput ([A-Za-z]+) \(([0-9]+) bytes/second\): N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) -> N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\)')
+    
+    RE_TRUST_UPDATING_THROUGHPUT = re.compile(r'Updating Edge ([0-9A-Za-z]+) capability ([A-Za-z]+) TM throughput ([A-Za-z]+) \(([0-9]+) bytes/second\): N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) ewma:N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) -> N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\) ewma:N\(mean=([0-9\.]+),var=([0-9\.]+),n=([0-9]+)\)')
+
+                                                #Updating Edge f4ce36b29cb59ade capability envmon TM throughput out (2 bytes/second): N(mean=0.000000,var=0.000000,n=0) ewma:N(mean=0.000000,var=0.000000,n=0) -> N(mean=2.000000,var=0.000000,n=1) ewma:N(mean=2.000000,var=0.000000,n=1)
+
     RE_TRUST_UPDATING_LAST_PING = re.compile(r'Updating Edge ([0-9A-Za-z]+) TM last ping: ([0-9]+) -> ([0-9]+)')
 
     RE_ROUTING_GENERATED = re.compile(r'Generated message \(len=([0-9]+)\) for path from \(([0-9.-]+),([0-9.-]+)\) to \(([0-9.-]+),([0-9.-]+)\)')
@@ -416,13 +426,24 @@ class ChallengeResponseAnalyser:
         m_previous_mean = float(m.group(5)) #e.g. 42.437496
         m_previous_var = float(m.group(6)) #e.g. 425.286224
         m_previous_number = int(m.group(7)) #e.g. 32
-        m_current_mean = float(m.group(8)) #e.g. 43.242420
-        m_current_var = float(m.group(9)) #e.g. 433.376831
-        m_current_number = int(m.group(10)) #e.g. 33
+        m_previous_mean_ewma = float(m.group(8)) 
+        m_previous_var_ewma = float(m.group(9)) 
+        m_previous_number_ewma = int(m.group(10)) 
+        m_current_mean = float(m.group(11)) #e.g. 43.242420
+        m_current_var = float(m.group(12)) #e.g. 433.376831
+        m_current_number = int(m.group(13)) #e.g. 33
+        m_current_mean_ewma = float(m.group(14)) 
+        m_current_var_ewma = float(m.group(15)) 
+        m_current_number_ewma = int(m.group(16)) 
 
         cr = Throughput(m_capability_type, m_direction, m_throughput)
-        tm_from = ThroughputTM(m_previous_mean, m_previous_var, m_previous_number)
-        tm_to = ThroughputTM(m_current_mean, m_current_var, m_current_number)
+        tm_from_mean = GaussianDistribution(m_previous_mean, m_previous_var, m_previous_number)
+        tm_to_mean = GaussianDistribution(m_current_mean, m_current_var, m_current_number)
+        tm_from_ewma = GaussianDistribution(m_previous_mean_ewma, m_previous_var_ewma, m_previous_number_ewma)
+        tm_to_ewma = GaussianDistribution(m_current_mean_ewma, m_current_var_ewma, m_current_number_ewma)
+
+        tm_from = ThroughputTM(tm_from_mean, tm_from_ewma)
+        tm_to = ThroughputTM(tm_to_mean, tm_to_ewma)
 
         u = TrustModelUpdate(time, m_edge_id, cr, tm_from, tm_to)
 
