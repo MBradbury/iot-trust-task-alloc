@@ -179,7 +179,7 @@ def main(log_dir: pathlib.Path, throw_on_error: bool=True, with_error_bars: bool
             if with_error_bars:
                 ax.errorbar(X, Y, yerr=E, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
             else:
-                ax.errorbar(X, Y, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
+                ax.plot(X, Y, label=f"{hostname_to_name(hostname)} eval {eui64_to_name(target)} dir {direction}")
 
         ax.set_xlabel('Time')
         ax.set_ylabel('Throughput (bytes/sec)')
