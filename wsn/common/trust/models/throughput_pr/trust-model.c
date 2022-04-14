@@ -169,11 +169,6 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
     trust += w * e;
     w_total += w;
 
-    w = find_trust_weight(capability->name, TRUST_METRIC_THROUGHPUT);
-    e = goodness_of_throughput(edge, capability);
-    trust += w * e;
-    w_total += w;
-
 #if defined(APPLICATION_CHALLENGE_RESPONSE) && defined(TRUST_MODEL_USE_CHALLENGE_RESPONSE)
     // This application is special, as its result quality applies to
     // other applications too (as long as they specify a weight for it).
@@ -192,6 +187,10 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
     {
         LOG_ERR("The trust weights should total up to be close to 1, they are %f\n", w_total);
     }
+
+    //w = find_trust_weight(capability->name, TRUST_METRIC_THROUGHPUT);
+    e = goodness_of_throughput(edge, capability);
+    trust *= e;
 
     return trust;
 }
