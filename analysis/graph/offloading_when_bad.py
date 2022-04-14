@@ -106,7 +106,7 @@ def main(log_dir: pathlib.Path, kind: str):
 
     ax2.legend()
 
-    savefig(fig, log_dir / "graphs" / "cr_offload_vs_behaviour.pdf")
+    savefig(fig, log_dir / "graphs" / f"{kind}_offload_vs_behaviour.pdf")
 
 
 
