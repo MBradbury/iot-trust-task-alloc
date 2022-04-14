@@ -48,7 +48,7 @@ class RoutingAnalyser(EdgeAnalyser):
         m_status = m.group(5)
         m_route_length = int(m.group(6))
 
-        t = Task(m_dt, m_from, m_data)
+        t = Task(m_dt, m_from, m_data, app)
         r = Response(t, m_duration, m_status, m_route_length)
 
         self.task_completed.append(r)
