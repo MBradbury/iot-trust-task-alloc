@@ -310,13 +310,13 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     if (goodness <= 0.25f)
     {
         LOG_INFO("Goodness of throughput = %f, setting to bad\n", goodness);
-        tm->throughput_good = false;
+        cap->tm.throughput_good = false;
     }
 
     if (goodness >= 0.75f)
     {
         LOG_INFO("Goodness of throughput = %f, setting to good\n", goodness);
-        tm->throughput_good = true;
+        cap->tm.throughput_good = true;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
