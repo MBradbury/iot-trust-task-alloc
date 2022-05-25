@@ -4,6 +4,8 @@
 
 #include "nanocbor-helper.h"
 
+#include <stdbool.h>
+
 #define TRUST_MODEL_TAG 8
 #define TRUST_MODEL_NO_PEER_PROVIDED
 #define TRUST_MODEL_NO_PERIODIC_BROADCAST
@@ -47,6 +49,8 @@ typedef struct edge_capability_tm {
 
     gaussian_dist_t throughput_in_ewma;
     gaussian_dist_t throughput_out_ewma;
+
+    bool throughput_good;
 
 } edge_capability_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/

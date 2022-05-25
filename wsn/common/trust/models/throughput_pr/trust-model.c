@@ -48,6 +48,9 @@ void edge_capability_tm_init(edge_capability_tm_t* tm)
     gaussian_dist_init_empty(&tm->throughput_out);
     gaussian_dist_init_empty(&tm->throughput_in_ewma);
     gaussian_dist_init_empty(&tm->throughput_out_ewma);
+
+    // Assume edge starts as good
+    tm->throughput_good = true;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
@@ -300,6 +303,20 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     else
     {
         LOG_ERR("Unknown throughput direction\n");
+    }
+
+    const float goodness = goodness_of_throughput(edge, cap);
+
+    if (goodness <= 0.25f)
+    {
+        LOG_INFO("Goodness of throughput = %f, setting to bad\n", goodness);
+        tm->throughput_good = false;
+    }
+
+    if (goodness >= 0.75f)
+    {
+        LOG_INFO("Goodness of throughput = %f, setting to good\n", goodness);
+        tm->throughput_good = true;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
