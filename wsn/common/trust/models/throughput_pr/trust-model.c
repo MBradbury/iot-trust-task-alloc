@@ -365,6 +365,11 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
 }
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+bool edge_capability_is_good(struct edge_resource* edge, struct edge_capability* capability)
+{
+    return capability->tm.throughput_good;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
 {
     NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
