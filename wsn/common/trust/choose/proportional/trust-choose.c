@@ -12,7 +12,7 @@
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
 // Divide up RANDOM_RAND_MAX proportionally based on the trust values of the edge capability
-// Pick the edge that a ranom number fall into the range of
+// Pick the edge that a random number fall into the range of
 edge_resource_t* choose_edge(const char* capability_name)
 {
     edge_resource_t* candidates[NUM_EDGE_RESOURCES];
