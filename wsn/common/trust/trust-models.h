@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "edge-info.h"
+#include "capability-info.h"
 #include "peer-info.h"
 
 #include "coap-constants.h"

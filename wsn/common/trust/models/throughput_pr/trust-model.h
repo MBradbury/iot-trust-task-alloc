@@ -9,13 +9,14 @@
 #define TRUST_MODEL_TAG 8
 #define TRUST_MODEL_NO_PEER_PROVIDED
 #define TRUST_MODEL_NO_PERIODIC_BROADCAST
+#define TRUST_MODEL_HAS_PER_CAPABILITY_INFO
 
 #ifndef APPLICATIONS_MONITOR_THROUGHPUT
 #error "Must define APPLICATIONS_MONITOR_THROUGHPUT"
 #endif
-#ifndef TRUST_MODEL_PERIODIC_EDGE_PING
-#error "Must define TRUST_MODEL_PERIODIC_EDGE_PING"
-#endif
+//#ifndef TRUST_MODEL_PERIODIC_EDGE_PING
+//#error "Must define TRUST_MODEL_PERIODIC_EDGE_PING"
+//#endif
 
 struct edge_resource;
 struct edge_capability;
@@ -30,7 +31,7 @@ typedef struct edge_resource_tm {
     beta_dist_t task_result;
 
     // Last time a ping was received
-    clock_time_t last_ping_response;
+    //clock_time_t last_ping_response;
 
 } edge_resource_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -66,6 +67,18 @@ typedef struct peer_tm {
 void peer_tm_init(peer_tm_t* tm);
 void peer_tm_print(const peer_tm_t* tm);
 /*-------------------------------------------------------------------------------------------------------------------*/
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct capability_tm {
+    gaussian_dist_t throughput_in;
+    gaussian_dist_t throughput_out;
+
+} capability_tm_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
+void capability_tm_init(capability_tm_t* tm);
+void capability_tm_print(const capability_tm_t* tm);
+/*-------------------------------------------------------------------------------------------------------------------*/
+
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool edge_capability_is_good(struct edge_resource* edge, struct edge_capability* capability);

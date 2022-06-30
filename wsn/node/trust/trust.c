@@ -1,5 +1,6 @@
 #include "trust.h"
 #include "edge-info.h"
+#include "capability-info.h"
 #include "peer-info.h"
 #include "trust-model.h"
 
@@ -342,6 +343,7 @@ static void init(void)
 {
     trust_common_init();
     edge_info_init();
+    capability_info_init();
     peer_info_init();
 
     coap_activate_resource(&res_trust, TRUST_COAP_URI);

@@ -1,4 +1,5 @@
 #include "edge-info.h"
+#include "capability-info.h"
 #include "eui64.h"
 
 #include "lib/memb.h"
@@ -236,6 +237,13 @@ edge_info_capability_add(edge_resource_t* edge, const char* name)
         return NULL;
     }
 
+    // Also need to create independent capability info
+    capability_t* cap = capability_info_add(name);
+    if (cap == NULL)
+    {
+        LOG_ERR("Failed to allocate memory for capability info %s\n", name);
+    }
+
     strncpy(capability->name, name, EDGE_CAPABILITY_NAME_LEN);
 
     capability->flags = EDGE_CAPABILITY_NO_FLAGS;
@@ -251,6 +259,16 @@ bool edge_info_capability_remove(edge_resource_t* edge, edge_capability_t* capab
 
     if (removed)
     {
+        // Remove capability info, if none left
+        if (!edge_info_has_active_capability(capability->name))
+        {
+            capability_t* cap = capability_info_find(capability->name);
+            if (cap != NULL)
+            {
+                capability_info_remove(cap);
+            }
+        }
+
         edge_capability_free(capability);
     }
 
