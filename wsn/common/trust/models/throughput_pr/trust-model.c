@@ -95,7 +95,7 @@ void capability_tm_print(const capability_tm_t* tm)
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static float pr_value_ge_norm(const gaussian_dist_t* norm, const gaussian_dist_t* ewma)
+static float pr_value_lt_norm(const gaussian_dist_t* norm, const gaussian_dist_t* ewma)
 {
     // Return middle value when no data in distributions
     if (norm->count == 0 || ewma->count == 0)
@@ -108,7 +108,7 @@ static float pr_value_ge_norm(const gaussian_dist_t* norm, const gaussian_dist_t
 
     if (ewma->variance == 0.0f)
     {
-        if (norm->mean >= ewma->mean)
+        if (norm->mean < ewma->mean)
         {
             return 1.0f;
         }
@@ -119,20 +119,22 @@ static float pr_value_ge_norm(const gaussian_dist_t* norm, const gaussian_dist_t
     }
     else
     {
-        return 1.0f - gaussian_dist_cdf(ewma, norm->mean);
+        return gaussian_dist_cdf(ewma, norm->mean);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static float goodness_of_throughput(const edge_resource_t* edge, const edge_capability_t* capability)
+static float pr_value_ge_norm(const gaussian_dist_t* norm, const gaussian_dist_t* ewma)
+{
+    return 1.0f - pr_value_lt_norm(norm, ewma);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static float goodness_p1(const edge_resource_t* edge, const edge_capability_t* capability)
 {
     const gaussian_dist_t* in = &capability->tm.throughput_in;
     const gaussian_dist_t* out = &capability->tm.throughput_out;
 
     const gaussian_dist_t* in_ewma = &capability->tm.throughput_in_ewma;
     const gaussian_dist_t* out_ewma = &capability->tm.throughput_out_ewma;
-
-    // gaussian_dist_cdf gives us the probability that a value will be <= the threshold
-    // 1 - gaussian_dist_cdf gives >
 
     const float in_pr = pr_value_ge_norm(in, in_ewma);
     const float out_pr = pr_value_ge_norm(out, out_ewma);
@@ -150,6 +152,35 @@ static float goodness_of_throughput(const edge_resource_t* edge, const edge_capa
     gaussian_dist_print(in_ewma);
     LOG_INFO_(" out-ewma:");
     gaussian_dist_print(out_ewma);
+    LOG_INFO_("\n");
+
+    return result;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+static float goodness_p2(const edge_resource_t* edge, const edge_capability_t* capability, const capability_t* global_cap)
+{
+    const gaussian_dist_t* in = &capability->tm.throughput_in;
+    const gaussian_dist_t* out = &capability->tm.throughput_out;
+
+    const gaussian_dist_t* in_global = &global_cap->tm.throughput_in;
+    const gaussian_dist_t* out_global = &global_cap->tm.throughput_out;
+
+    const float in_pr = pr_value_lt_norm(in, in_global);
+    const float out_pr = pr_value_lt_norm(out, out_global);
+
+    const float result = (in_pr + out_pr) / 2.0f;
+
+    LOG_INFO("goodness_p2[%s, %s](%f,%f) = %f",
+        edge_info_name(edge), capability->name,
+        in_pr, out_pr, result);
+    LOG_INFO_(" in-norm:");
+    gaussian_dist_print(in);
+    LOG_INFO_(" out-norm:");
+    gaussian_dist_print(out);
+    LOG_INFO_(" in-global:");
+    gaussian_dist_print(in_global);
+    LOG_INFO_(" out-global:");
+    gaussian_dist_print(out_global);
     LOG_INFO_("\n");
 
     return result;
@@ -206,10 +237,6 @@ float calculate_trust_value(edge_resource_t* edge, edge_capability_t* capability
     {
         LOG_ERR("The trust weights should total up to be close to 1, they are %f\n", w_total);
     }
-
-    //w = find_trust_weight(capability->name, TRUST_METRIC_THROUGHPUT);
-    e = goodness_of_throughput(edge, capability);
-    trust *= e;
 
     return trust;
 }
@@ -349,17 +376,18 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         LOG_ERR("Unknown throughput direction\n");
     }
 
-    const float goodness = goodness_of_throughput(edge, cap);
+    const float p1 = goodness_p1(edge, cap);
+    const float p2 = goodness_p2(edge, cap, global_cap);
 
-    if (goodness <= 0.25f)
+    if (p1 <= 0.25f && p2 < 0.5f)
     {
-        LOG_INFO("Goodness of throughput = %f, setting to bad\n", goodness);
+        LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to bad\n", p1, p2);
         cap->tm.throughput_good = false;
     }
 
-    if (goodness >= 0.75f)
+    if (p1 >= 0.75f && p2 >= 0.5f)
     {
-        LOG_INFO("Goodness of throughput = %f, setting to good\n", goodness);
+        LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to good\n", p1, p2);
         cap->tm.throughput_good = true;
     }
 }
