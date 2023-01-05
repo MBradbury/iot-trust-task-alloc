@@ -133,7 +133,9 @@ nanocbor_get_coordinate_from_payload(nanocbor_value_t* dec, coordinate_t* coord,
 static void
 send_callback(coap_callback_request_state_t* callback_state)
 {
+#ifdef APPLICATIONS_MONITOR_THROUGHPUT
     const clock_time_t now = clock_time();
+#endif
 
     tm_task_submission_info_t info = {
         .coap_status = NO_ERROR,
