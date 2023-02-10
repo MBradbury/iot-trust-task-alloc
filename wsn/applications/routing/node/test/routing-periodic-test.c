@@ -25,6 +25,13 @@
 #define GENERATE_ROUTE_MAX_PERIOD (3 * 60)
 #endif
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef GENERATE_ROUTE_SRC_DEST
+// UoW to Warwick Castle
+//#define GENERATE_ROUTE_SRC_DEST "52.384057,-1.561737:52.280302,-1.586839"
+// LU to Lancaster Castle
+#define GENERATE_ROUTE_SRC_DEST "54.005799,-2.784675:54.049420,-2.804706"
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "A-" ROUTING_APPLICATION_NAME
 #ifdef APP_ROUTING_LOG_LEVEL
 #define LOG_LEVEL APP_ROUTING_LOG_LEVEL
@@ -63,8 +70,7 @@ static void periodic_event(void)
 {
     LOG_INFO("Periodic timer triggered, generating fake routing request\n");
 
-    // UoW to Warwick Castle
-    const char* buf = APPLICATION_SERIAL_PREFIX ROUTING_SUBMIT_TASK "52.384057,-1.561737:52.280302,-1.586839";
+    const char* buf = APPLICATION_SERIAL_PREFIX ROUTING_SUBMIT_TASK GENERATE_ROUTE_SRC_DEST;
 
     // Simulate receiving a message over the serial input
     process_post_synch(routing_application, serial_line_event_message, (process_data_t)buf);
