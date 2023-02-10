@@ -15,6 +15,28 @@
 _Static_assert(THROUGHPUT_EWMA_WEIGHT >= 0);
 _Static_assert(THROUGHPUT_EWMA_WEIGHT <= 1);
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef THROUGHPUT_EXCLUSION_THRESHOLD
+#define THROUGHPUT_EXCLUSION_THRESHOLD 10
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef THROUGHPUT_GLOBAL_ACCEPTABLE
+#define THROUGHPUT_GLOBAL_ACCEPTABLE 0.4f
+#endif
+_Static_assert(THROUGHPUT_GLOBAL_ACCEPTABLE >= 0);
+_Static_assert(THROUGHPUT_GLOBAL_ACCEPTABLE <= 1);
+/*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef THROUGHPUT_LOCAL_LOWER
+#define THROUGHPUT_LOCAL_LOWER 0.25f
+#endif
+_Static_assert(THROUGHPUT_LOCAL_LOWER >= 0);
+_Static_assert(THROUGHPUT_LOCAL_LOWER <= 1);
+/*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef THROUGHPUT_LOCAL_HIGHER
+#define THROUGHPUT_LOCAL_HIGHER 0.75f
+#endif
+_Static_assert(THROUGHPUT_LOCAL_HIGHER >= 0);
+_Static_assert(THROUGHPUT_LOCAL_HIGHER <= 1);
+/*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
@@ -128,7 +150,7 @@ static float pr_value_ge_norm(const gaussian_dist_t* norm, const gaussian_dist_t
     return 1.0f - pr_value_lt_norm(norm, ewma);
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static float goodness_p1(const edge_resource_t* edge, const edge_capability_t* capability)
+static float goodness_pge_local(const edge_resource_t* edge, const edge_capability_t* capability)
 {
     const gaussian_dist_t* in = &capability->tm.throughput_in;
     const gaussian_dist_t* out = &capability->tm.throughput_out;
@@ -157,7 +179,7 @@ static float goodness_p1(const edge_resource_t* edge, const edge_capability_t* c
     return result;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-static float goodness_p2(const edge_resource_t* edge, const edge_capability_t* capability, const capability_t* global_cap)
+static float goodness_plt_global(const edge_resource_t* edge, const edge_capability_t* capability, const capability_t* global_cap)
 {
     const gaussian_dist_t* in = &capability->tm.throughput_in;
     const gaussian_dist_t* out = &capability->tm.throughput_out;
@@ -315,6 +337,29 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         LOG_ERR("Failed to find per-capability trust information for %s\n", cap->name);
     }
 
+    // Don't start excluding edges for the first few tasks
+    // It takes time to build up the distributions appropriately
+    if (cap->tm.throughput_in.count >= THROUGHPUT_EXCLUSION_THRESHOLD &&
+        cap->tm.throughput_out.count >= THROUGHPUT_EXCLUSION_THRESHOLD)
+    {
+        const float p1 = goodness_pge_local(edge, cap);
+        const float p2 = goodness_plt_global(edge, cap, global_cap);
+
+        if (p1 <= THROUGHPUT_LOCAL_LOWER && p2 < THROUGHPUT_GLOBAL_ACCEPTABLE)
+        {
+            LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to bad\n", p1, p2);
+            cap->tm.throughput_good = false;
+            //cap->tm.throughput_good_updated = clock_time();
+        }
+
+        if (p1 >= THROUGHPUT_LOCAL_HIGHER && p2 >= THROUGHPUT_GLOBAL_ACCEPTABLE)
+        {
+            LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to good\n", p1, p2);
+            cap->tm.throughput_good = true;
+            //cap->tm.throughput_good_updated = clock_time();
+        }
+    }
+
     if (info->direction == TM_THROUGHPUT_IN)
     {
         LOG_INFO("Updating Edge %s capability %s TM throughput in (%" PRIu32 " bytes/second): ",
@@ -374,21 +419,6 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     else
     {
         LOG_ERR("Unknown throughput direction\n");
-    }
-
-    const float p1 = goodness_p1(edge, cap);
-    const float p2 = goodness_p2(edge, cap, global_cap);
-
-    if (p1 <= 0.25f && p2 < 0.5f)
-    {
-        LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to bad\n", p1, p2);
-        cap->tm.throughput_good = false;
-    }
-
-    if (p1 >= 0.75f && p2 >= 0.5f)
-    {
-        LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to good\n", p1, p2);
-        cap->tm.throughput_good = true;
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/

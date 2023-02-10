@@ -52,6 +52,7 @@ typedef struct edge_capability_tm {
     gaussian_dist_t throughput_out_ewma;
 
     bool throughput_good;
+    //clock_time_t throughput_good_updated;
 
 } edge_capability_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
