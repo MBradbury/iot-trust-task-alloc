@@ -110,7 +110,7 @@ void gaussian_dist_init_empty(gaussian_dist_t* dist)
 float gaussian_dist_cdf(const gaussian_dist_t* dist, float value)
 {
     // See: https://github.com/boostorg/math/blob/2b9927871fd86312f753e4bcbdb82236022c5856/include/boost/math/distributions/normal.hpp#L203
-    const double diff = (value - dist->mean) / sqrt(dist->variance * 2);
+    const double diff = (value - dist->mean) / sqrt(dist->variance * 2.0);
     const double result = erfc(-diff) / 2.0;
     return (float)result;
 }
