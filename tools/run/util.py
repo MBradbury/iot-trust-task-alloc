@@ -76,6 +76,8 @@ class ApplicationRunner:
 
         self.device = self.get_device()
 
+        # Record the pid of this process such that when we kill everything,
+        # this process also gets killed.
         self.record_pid(os.getpid())
 
     def set_log_paths(self):
