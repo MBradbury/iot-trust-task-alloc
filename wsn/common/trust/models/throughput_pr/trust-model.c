@@ -337,14 +337,14 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         LOG_ERR("Failed to find per-capability trust information for %s\n", cap->name);
     }
 
+    const float p1 = goodness_pge_local(edge, cap);
+    const float p2 = goodness_plt_global(edge, cap, global_cap);
+
     // Don't start excluding edges for the first few tasks
     // It takes time to build up the distributions appropriately
     if (cap->tm.throughput_in.count >= THROUGHPUT_EXCLUSION_THRESHOLD &&
         cap->tm.throughput_out.count >= THROUGHPUT_EXCLUSION_THRESHOLD)
     {
-        const float p1 = goodness_pge_local(edge, cap);
-        const float p2 = goodness_plt_global(edge, cap, global_cap);
-
         if (p1 <= THROUGHPUT_LOCAL_LOWER && p2 < THROUGHPUT_GLOBAL_ACCEPTABLE)
         {
             LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to bad\n", p1, p2);
@@ -358,6 +358,10 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
             cap->tm.throughput_good = true;
             //cap->tm.throughput_good_updated = clock_time();
         }
+    }
+    else
+    {
+        LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, not changing goodness\n", p1, p2);
     }
 
     if (info->direction == TM_THROUGHPUT_IN)
