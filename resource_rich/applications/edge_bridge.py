@@ -111,7 +111,12 @@ class NodeSerialBridge:
 
             line = output.decode('utf-8').rstrip()
 
+            # Try and catch the first line of the reset
             if "Starting Contiki-NG" in line:
+                self._seen_reset.set()
+
+            # We might not always catch the first line, so look for a later line too
+            if "BUILD NUMBER =" in line:
                 self._seen_reset.set()
 
             # Application message
