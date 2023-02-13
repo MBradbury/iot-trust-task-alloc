@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pynrfjprog.HighLevel
 
-def get_com_ports_for_mote(node_id: str) -> int:
+def get_com_ports_for_mote(node_id: str) -> list:
     node_id = int(node_id)
 
     with pynrfjprog.HighLevel.API() as api:
