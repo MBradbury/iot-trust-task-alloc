@@ -10,7 +10,7 @@ begin_test() {
     done
 
     # Stop anything currently running
-    ./tests/kill-test.sh
+    ./tests/kill-test.sh -9
 
     # Remove logs
     rm -rf logs

@@ -4,7 +4,7 @@ then
     while IFS="" read -r line || [ -n "$line" ]
     do
         echo "Killing $line and children"
-        rkill -9 $line
+        rkill $1 $line
     done <pidfile
     #rm pidfile
 fi
