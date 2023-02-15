@@ -303,3 +303,67 @@ int poisson_observation_deserialise(nanocbor_value_t* dec, poisson_observation_t
     return NANOCBOR_OK;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
+void exponential_dist_init(exponential_dist_t* dist, float lambda)
+{
+    dist->lambda = lambda;
+    dist->n = 1;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+float exponential_dist_expected(const exponential_dist_t* dist)
+{
+    return 1.0f / dist->lambda;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+float exponential_dist_variance(const exponential_dist_t* dist)
+{
+    return 1.0f / (dist->lambda * (float)dist->lambda);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void exponential_dist_print(const exponential_dist_t* dist)
+{
+    printf("Exp(lambda=%f,n=%"PRIu32")", dist->lambda, dist->n);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int exponential_dist_serialise(nanocbor_encoder_t* enc, const exponential_dist_t* dist)
+{
+    NANOCBOR_CHECK(nanocbor_fmt_array(enc, 2));
+    NANOCBOR_CHECK(nanocbor_fmt_float(enc, dist->lambda));
+    NANOCBOR_CHECK(nanocbor_fmt_uint(enc, dist->n));
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+int exponential_dist_deserialise(nanocbor_value_t* dec, exponential_dist_t* dist)
+{
+    nanocbor_value_t arr;
+    NANOCBOR_CHECK(nanocbor_enter_array(dec, &arr));
+    NANOCBOR_CHECK(nanocbor_get_float(&arr, &dist->lambda));
+    NANOCBOR_CHECK(nanocbor_get_uint32(&arr, &dist->n));
+
+    if (!nanocbor_at_end(&arr))
+    {
+        return NANOCBOR_ERR_END;
+    }
+
+    nanocbor_leave_container(dec, &arr);
+
+    return NANOCBOR_OK;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+float exponential_dist_cdf(const exponential_dist_t* dist, float value)
+{
+    return 1.0f - exp(-dist->lambda * value);
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
+void exponential_dist_mle_update(exponential_dist_t* dist, float value)
+{
+    // See: https://en.wikipedia.org/wiki/Exponential_distribution#Parameter_estimation
+    // See: https://math.stackexchange.com/questions/106700/incremental-averaging
+    const float xbar = 1.0f / dist->lambda;
+
+    const float new_xbar = xbar + (value - xbar) / (dist->n + 1);
+
+    dist->lambda = 1.0f / new_xbar;
+    dist->n += 1;
+}
+/*-------------------------------------------------------------------------------------------------------------------*/

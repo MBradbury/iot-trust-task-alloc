@@ -83,20 +83,43 @@ int poisson_observation_serialise(nanocbor_encoder_t* enc, const poisson_observa
 int poisson_observation_deserialise(nanocbor_value_t* dec, poisson_observation_t* dist);
 /*-------------------------------------------------------------------------------------------------------------------*/
 
+/*-------------------------------------------------------------------------------------------------------------------*/
+typedef struct exponential_dist {
+    float lambda; // The time between events
+    uint32_t n;
+} exponential_dist_t;
+/*-------------------------------------------------------------------------------------------------------------------*/
+void exponential_dist_init(exponential_dist_t* dist, float lambda);
+void exponential_dist_init_empty(exponential_dist_t* dist);
+void exponential_dist_print(const exponential_dist_t* dist);
+/*-------------------------------------------------------------------------------------------------------------------*/
+float exponential_dist_expected(const exponential_dist_t* dist);
+float exponential_dist_variance(const exponential_dist_t* dist);
+/*-------------------------------------------------------------------------------------------------------------------*/
+int exponential_dist_serialise(nanocbor_encoder_t* enc, const exponential_dist_t* dist);
+int exponential_dist_deserialise(nanocbor_value_t* dec, exponential_dist_t* dist);
+/*-------------------------------------------------------------------------------------------------------------------*/
+float exponential_dist_cdf(const exponential_dist_t* dist, float value);
+void exponential_dist_mle_update(exponential_dist_t* dist, float value);
+/*-------------------------------------------------------------------------------------------------------------------*/
+
 #define dist_print(x) _Generic((x), \
     const beta_dist_t*:             beta_dist_print, \
     const gaussian_dist_t*:         gaussian_dist_print, \
     const poisson_dist_t*:          poisson_dist_print, \
-    const poisson_observation_t*:   poisson_observation_print)(x)
+    const poisson_observation_t*:   poisson_observation_print, \
+    const exponential_dist_t*:      exponential_dist_print)(x)
 
 #define dist_serialise(enc, x) _Generic((x), \
     const beta_dist_t*:             beta_dist_serialise, \
     const gaussian_dist_t*:         gaussian_dist_serialise, \
     const poisson_dist_t*:          poisson_dist_serialise, \
-    const poisson_observation_t*:   poisson_observation_serialise)(enc, x)
+    const poisson_observation_t*:   poisson_observation_serialise, \
+    const exponential_dist_t*:      exponential_dist_serialise)(enc, x)
 
 #define dist_deserialise(dec, x) _Generic((x), \
     beta_dist_t*:             beta_dist_deserialise, \
     gaussian_dist_t*:         gaussian_dist_deserialise, \
     poisson_dist_t*:          poisson_dist_deserialise, \
-    poisson_observation_t*:   poisson_observation_deserialise)(dec, x)
+    poisson_observation_t*:   poisson_observation_deserialise, \
+    exponential_dist_t*:      exponential_dist_deserialise)(dec, x)
