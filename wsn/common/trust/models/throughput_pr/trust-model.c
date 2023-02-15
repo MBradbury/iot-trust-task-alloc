@@ -18,6 +18,7 @@ _Static_assert(THROUGHPUT_EWMA_WEIGHT <= 1);
 #ifndef THROUGHPUT_EXCLUSION_THRESHOLD
 #define THROUGHPUT_EXCLUSION_THRESHOLD 10
 #endif
+_Static_assert(THROUGHPUT_EXCLUSION_THRESHOLD >= 0);
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef THROUGHPUT_GLOBAL_ACCEPTABLE
 #define THROUGHPUT_GLOBAL_ACCEPTABLE 0.4f
@@ -40,10 +41,13 @@ _Static_assert(THROUGHPUT_LOCAL_HIGHER <= 1);
 #ifndef EXPECTED_TIME_THROUGHPUT_BAD
 #error "Must set EXPECTED_TIME_THROUGHPUT_BAD to be the number of seconds willing to wait before an edge's throughput may become good again"
 #endif
+_Static_assert(EXPECTED_TIME_THROUGHPUT_BAD >= 0);
 /*-------------------------------------------------------------------------------------------------------------------*/
 #ifndef EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR
 #error "Must set EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR to be likelihood the bad time has passed"
 #endif
+_Static_assert(EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR >= 0);
+_Static_assert(EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR <= 1);
 /*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
 #ifdef TRUST_MODEL_LOG_LEVEL
