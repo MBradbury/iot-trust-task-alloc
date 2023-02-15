@@ -14,9 +14,6 @@
 #ifndef APPLICATIONS_MONITOR_THROUGHPUT
 #error "Must define APPLICATIONS_MONITOR_THROUGHPUT"
 #endif
-//#ifndef TRUST_MODEL_PERIODIC_EDGE_PING
-//#error "Must define TRUST_MODEL_PERIODIC_EDGE_PING"
-//#endif
 
 struct edge_resource;
 struct edge_capability;
@@ -29,9 +26,6 @@ typedef struct edge_resource_tm {
 
     // Was a task result received when it was expected
     beta_dist_t task_result;
-
-    // Last time a ping was received
-    //clock_time_t last_ping_response;
 
 } edge_resource_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -52,7 +46,8 @@ typedef struct edge_capability_tm {
     gaussian_dist_t throughput_out_ewma;
 
     bool throughput_good;
-    //clock_time_t throughput_good_updated;
+    exponential_dist_t throughput_goodness_change;
+    clock_time_t throughput_last_became_bad;
 
 } edge_capability_tm_t;
 /*-------------------------------------------------------------------------------------------------------------------*/

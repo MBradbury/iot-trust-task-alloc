@@ -37,6 +37,14 @@ _Static_assert(THROUGHPUT_LOCAL_LOWER <= 1);
 _Static_assert(THROUGHPUT_LOCAL_HIGHER >= 0);
 _Static_assert(THROUGHPUT_LOCAL_HIGHER <= 1);
 /*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef EXPECTED_TIME_THROUGHPUT_BAD
+#error "Must set EXPECTED_TIME_THROUGHPUT_BAD to be the number of seconds willing to wait before an edge's throughput may become good again"
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR
+#error "Must set EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR to be likelihood the bad time has passed"
+#endif
+/*-------------------------------------------------------------------------------------------------------------------*/
 #define LOG_MODULE "trust-comm"
 #ifdef TRUST_MODEL_LOG_LEVEL
 #define LOG_LEVEL TRUST_MODEL_LOG_LEVEL
@@ -48,8 +56,6 @@ void edge_resource_tm_init(edge_resource_tm_t* tm)
 {
     beta_dist_init(&tm->task_submission, 1, 1);
     beta_dist_init(&tm->task_result, 1, 1);
-
-    //tm->last_ping_response = 0;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_resource_tm_print(const edge_resource_tm_t* tm)
@@ -59,7 +65,6 @@ void edge_resource_tm_print(const edge_resource_tm_t* tm)
     dist_print(&tm->task_submission);
     printf(",TaskRes=");
     dist_print(&tm->task_result);
-    //printf(",LastPing=%" PRIu32, tm->last_ping_response);
     printf(")");
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -73,6 +78,12 @@ void edge_capability_tm_init(edge_capability_tm_t* tm)
 
     // Assume edge starts as good
     tm->throughput_good = true;
+
+    exponential_dist_init(
+        &tm->throughput_goodness_change,
+        1.0f / (EXPECTED_TIME_THROUGHPUT_BAD * CLOCK_SECOND));
+
+    tm->throughput_last_became_bad = (clock_time_t)-1;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 void edge_capability_tm_print(const edge_capability_tm_t* tm)
@@ -349,14 +360,32 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
         {
             LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to bad\n", p1, p2);
             cap->tm.throughput_good = false;
-            //cap->tm.throughput_good_updated = clock_time();
+            cap->tm.throughput_last_became_bad = clock_time();
         }
 
         if (p1 >= THROUGHPUT_LOCAL_HIGHER && p2 >= THROUGHPUT_GLOBAL_ACCEPTABLE)
         {
+            const bool was_bad = !cap->tm.throughput_good;
+
             LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to good\n", p1, p2);
             cap->tm.throughput_good = true;
-            //cap->tm.throughput_good_updated = clock_time();
+
+            if (was_bad)
+            {
+                const clock_time_t time_between_change = clock_time() - cap->tm.throughput_last_became_bad;
+
+                LOG_INFO("Revised throughput_goodness_change from ");
+                exponential_dist_print(&cap->tm.throughput_goodness_change);
+
+                // Update the time between changes
+                exponential_dist_mle_update(
+                    &cap->tm.throughput_goodness_change,
+                    time_between_change);
+
+                LOG_INFO_(" to ");
+                exponential_dist_print(&cap->tm.throughput_goodness_change);
+                LOG_INFO_(" [time_between_change=%"PRIu32"]\n", time_between_change);
+            }
         }
     }
     else
@@ -426,28 +455,6 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
-/*void tm_update_ping(edge_resource_t* edge, const tm_edge_ping_t* info)
-{
-    if (info->action == TM_PING_SENT)
-    {
-        // Do nothing
-    }
-    else if (info->action == TM_PING_RECEIVED)
-    {
-        LOG_INFO("Updating Edge %s TM last ping: %" PRIu32,
-        edge_info_name(edge), edge->tm.last_ping_response);
-        LOG_INFO_(" -> ");
-
-        edge->tm.last_ping_response = clock_time();
-
-        LOG_INFO_("%" PRIu32 "\n", edge->tm.last_ping_response);
-    }
-    else
-    {
-        LOG_ERR("Unknown ping action\n");
-    }
-}*/
-/*-------------------------------------------------------------------------------------------------------------------*/
 #ifdef APPLICATION_CHALLENGE_RESPONSE
 void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_response_info_t* info)
 {
@@ -473,7 +480,28 @@ void tm_update_challenge_response(edge_resource_t* edge, const tm_challenge_resp
 /*-------------------------------------------------------------------------------------------------------------------*/
 bool edge_capability_is_good(struct edge_resource* edge, struct edge_capability* capability)
 {
-    return capability->tm.throughput_good;
+    if (capability->tm.throughput_good)
+    {
+        return true;
+    }
+
+    // Currently bad, might be time to reconsider the edge?
+
+    // How much time has past since becoming bad
+    const clock_time_t time_between_change = clock_time() - capability->tm.throughput_last_became_bad;
+
+    // What is the likelihood we have become good again?
+    // May still be bad, but could be worth trying this edge node again
+    const float cdf = exponential_dist_cdf(
+        &capability->tm.throughput_goodness_change,
+        time_between_change);
+
+    LOG_INFO("Considering if bad Edge %s Capability %s has become good. Time between change = %" PRIu32 "s. Pr(TBC > X) = %f",
+        edge_info_name(edge), capability->name,
+        time_between_change / CLOCK_SECOND,
+        cdf);
+
+    return cdf >= EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR;
 }
 /*-------------------------------------------------------------------------------------------------------------------*/
 int serialise_trust_edge_resource(nanocbor_encoder_t* enc, const edge_resource_tm_t* edge)
