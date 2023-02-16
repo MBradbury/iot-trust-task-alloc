@@ -346,6 +346,8 @@ void tm_update_result_quality(edge_resource_t* edge, edge_capability_t* cap, con
 /*-------------------------------------------------------------------------------------------------------------------*/
 void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, const tm_throughput_info_t* info)
 {
+    const bool was_bad = !cap->tm.throughput_good;
+
     capability_t* global_cap = capability_info_find(cap->name);
     if (global_cap == NULL)
     {
@@ -354,6 +356,11 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
 
     const float p1 = goodness_pge_local(edge, cap);
     const float p2 = goodness_plt_global(edge, cap, global_cap);
+
+    LOG_INFO("tm_update_task_throughput(%s, %s): pge=%f, plt=%f, |in|=%"PRIu32", |out|=%"PRIu32"\n",
+        edge_info_name(edge), cap->name,
+        p1, p2,
+        cap->tm.throughput_in.count, cap->tm.throughput_out.count);
 
     // Don't start excluding edges for the first few tasks
     // It takes time to build up the distributions appropriately
@@ -366,11 +373,8 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
             cap->tm.throughput_good = false;
             cap->tm.throughput_last_became_bad = clock_time();
         }
-
-        if (p1 >= THROUGHPUT_LOCAL_HIGHER && p2 >= THROUGHPUT_GLOBAL_ACCEPTABLE)
+        else if (p1 >= THROUGHPUT_LOCAL_HIGHER && p2 >= THROUGHPUT_GLOBAL_ACCEPTABLE)
         {
-            const bool was_bad = !cap->tm.throughput_good;
-
             LOG_INFO("Goodness of throughput = %f, goodness p2 = %f, setting to good\n", p1, p2);
             cap->tm.throughput_good = true;
 
@@ -391,6 +395,27 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
                 LOG_INFO_(" [time_between_change=%"PRIu32"]\n", time_between_change);
             }
         }
+        else
+        {
+            // Node was bad and we thought enough time had passed that it might have become good
+            if (was_bad)
+            {
+                // However, we did not observe that it became good
+                // This means that the rate in cap->tm.throughput_goodness_change is too low
+                // and needs to be increased.
+                // Do an exponential back-off.
+
+                LOG_INFO("Revised throughput_goodness_change from ");
+                exponential_dist_print(&cap->tm.throughput_goodness_change);
+
+                // Update the time between changes
+                cap->tm.throughput_goodness_change.lambda /= 2f;
+
+                LOG_INFO_(" to ");
+                exponential_dist_print(&cap->tm.throughput_goodness_change);
+                LOG_INFO_(" (was bad and we tried it, but still bad)\n");
+            }
+        }
     }
     else
     {
@@ -400,7 +425,7 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     if (info->direction == TM_THROUGHPUT_IN)
     {
         LOG_INFO("Updating Edge %s capability %s TM throughput in (%" PRIu32 " bytes/second): ",
-        edge_info_name(edge), cap->name, info->throughput);
+            edge_info_name(edge), cap->name, info->throughput);
         gaussian_dist_print(&cap->tm.throughput_in);
         LOG_INFO_(" ewma:");
         gaussian_dist_print(&cap->tm.throughput_in_ewma);
@@ -500,10 +525,10 @@ bool edge_capability_is_good(struct edge_resource* edge, struct edge_capability*
         &capability->tm.throughput_goodness_change,
         time_between_change);
 
-    LOG_INFO("Considering if bad Edge %s Capability %s has become good. Time between change = %" PRIu32 "s. Pr(TBC > X) = %f",
+    LOG_INFO("Considering if bad Edge %s Capability %s has become good. Time between change = %" PRIu32 "s. Pr(X <= TBC) = %f, X ~ Exp(1/%f)",
         edge_info_name(edge), capability->name,
         time_between_change / CLOCK_SECOND,
-        cdf);
+        cdf, 1.0f/capability->tm.throughput_goodness_change.lambda);
 
     return cdf >= EXPECTED_TIME_THROUGHPUT_BAD_TO_GOOD_PR;
 }
