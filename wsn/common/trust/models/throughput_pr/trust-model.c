@@ -357,6 +357,8 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
     const float p1 = goodness_pge_local(edge, cap);
     const float p2 = goodness_plt_global(edge, cap, global_cap);
 
+    const uint32_t max_count = MAX(cap->tm.throughput_in.count, cap->tm.throughput_out.count);
+
     LOG_INFO("tm_update_task_throughput(%s, %s): pge=%f, plt=%f, |in|=%"PRIu32", |out|=%"PRIu32"\n",
         edge_info_name(edge), cap->name,
         p1, p2,
@@ -364,8 +366,7 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
 
     // Don't start excluding edges for the first few tasks
     // It takes time to build up the distributions appropriately
-    if (cap->tm.throughput_in.count >= THROUGHPUT_EXCLUSION_THRESHOLD &&
-        cap->tm.throughput_out.count >= THROUGHPUT_EXCLUSION_THRESHOLD)
+    if (max_count >= THROUGHPUT_EXCLUSION_THRESHOLD)
     {
         if (p1 <= THROUGHPUT_LOCAL_LOWER && p2 < THROUGHPUT_GLOBAL_ACCEPTABLE)
         {
