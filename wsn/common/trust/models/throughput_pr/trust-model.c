@@ -409,11 +409,14 @@ void tm_update_task_throughput(edge_resource_t* edge, edge_capability_t* cap, co
                 exponential_dist_print(&cap->tm.throughput_goodness_change);
 
                 // Update the time between changes
-                cap->tm.throughput_goodness_change.lambda /= 2f;
+                cap->tm.throughput_goodness_change.lambda /= 2.0f;
 
                 LOG_INFO_(" to ");
                 exponential_dist_print(&cap->tm.throughput_goodness_change);
                 LOG_INFO_(" (was bad and we tried it, but still bad)\n");
+
+                // Also update the time the edge was last assessed to be bad
+                cap->tm.throughput_last_became_bad = clock_time();
             }
         }
     }
