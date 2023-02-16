@@ -81,32 +81,21 @@ cd iot-trust-task-alloc && git submodule update --init
 
 5. Install Wireshark
 
-NOTE: These instructions are old. Please instead install Wireshark 3.4 or later as you normally would.
-
-Install the latest version of wireshark to be able to analyse OSCORE packets. Instructions originated from [here](https://ask.wireshark.org/question/9916/wireshark-302-linux-for-debianubuntu/).
-
+Please instead install Wireshark 3.4 or later to be able to analyse OSCORE packets.
 ```bash
-cd ~
-mkdir wireshark
-git clone https://gitlab.com/wireshark/wireshark.git -b release-3.4
-cd wireshark
-sudo tools/debian-setup.sh --install-optional --install-deb-deps --install-test-deps
-dpkg-buildpackage -b -uc -us -jauto
-cd ..
-rm wireshark-{doc,dev,dbg}_*.deb
-sudo dpkg -i *.deb
+sudo apt install wireshark
+```
+
+Check that the version is later than 3.4
+```bash
+wireshark --version
 ```
 
 6. Install pyshark
 
 Install pyshark version 0.4.3 or greater
 ```bash
-python3 -m pip install --upgrade pyshark
-```
-
-If you cannot install from pip, then install from source:
-```bash
-python3 -m pip install --upgrade git+https://github.com/KimiNewt/pyshark.git#subdirectory=src
+python3 -m pip install --upgrade pyshark>=0.4.3
 ```
 
 ## Using Wireshark
@@ -172,10 +161,16 @@ First, edit `~/wsn/iot-trust-task-alloc/common/configuration.py` to specify the 
 
 ```bash
 cd ~/wsn/iot-trust-task-alloc
-./tools/setup.py <trust-model> <trust-choose> --deploy ansible
+python3 -m tools.setup <trust-model> <trust-choose> --deploy ansible
 ```
 
-`setup.py` will deploy to observers as per your ansible configuration.
+`tools.setup` will deploy to observers as per your ansible configuration.
+
+You should refer to the help command for information on the parameters that can be provided to setup.
+
+```bash
+python3 -m tools.setup --help
+```
 
 3. On Root
 
@@ -198,13 +193,45 @@ cd ~/deploy/iot-trust-task-alloc
 ./tests/run/edge.sh
 ```
 
+# Introductions to deploy (Ansible)
+
+The recommended way to deploy is to use an Ansible playbook to run appropriate scripts on the observers.
+
+See `tests/scenarios` for example ways to configure an experiment.
+
+For example to run the `all-good` scenario, you would:
+
+1. Setup and Deploy
+
+```bash
+./tests/scenarios/all-good/setup.sh
+```
+
+2. Start the experiment
+
+```bash
+ansible-playbook tests/scenarios/all-good/run.yaml
+```
+
+3. Stop the experiment
+
+After some time you can stop the experiment like so:
+```bash
+ansible-playbook playbooks/stop-experiments.yaml
+```
+
 # Instructions to analyse results
 
 ## Obtaining Results
 
 In order to fetch results from the devices run:
 ```bash
-./tools/fetch_results.py results/<log-dir>
+ansible-playbook playbooks/fetch-results.yaml
+```
+
+You can specify the folder to store the results in via:
+```bash
+ansible-playbook playbooks/fetch-results.yaml --extra-vars "destination=<folder>"
 ```
 
 ## Generate pcap
