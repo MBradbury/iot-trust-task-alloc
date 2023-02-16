@@ -463,6 +463,11 @@ class Setup:
             self._fabric_deploy_keystore(password)
 
         elif self.deploy == 'ansible':
+            # Need to stop experiments first
+            # otherwise the pidfile will be lost
+            print("Stopping any existing experiments")
+            self._ansible_stop_experiments()
+
             print("Deploying to targets")
             self._ansible_deploy()
 
@@ -500,6 +505,11 @@ class Setup:
             dest = "/home/pi/iot-trust-task-alloc/resource_rich/root"
 
             patchwork.transfers.rsync(conn, src, dest, rsync_opts="-r")
+
+    def _ansible_stop_experiments(self):
+        subprocess.run("ansible-playbook playbooks/stop-experiments.yaml",
+                       shell=True,
+                       check=True)
 
     def _ansible_deploy(self):
         subprocess.run("ansible-playbook playbooks/deploy.yaml",
