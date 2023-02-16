@@ -1,5 +1,5 @@
 #!/bin/bash
-python3 -m tools.setup throughput_pr badlisted_banded  \
+python3 -m tools.setup throughput_pr badlisted_banded \
     --applications routing monitoring \
     --target nRF52840DK \
     --deploy ansible \
