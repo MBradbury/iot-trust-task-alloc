@@ -124,6 +124,14 @@ Please note that mosquitto needs to be version 1.6 or later as MQTT v5 support i
 ansible-playbook playbooks/setup-root.yaml
 ```
 
+## nRf52840 Configuration
+
+If using nRF52840s you will need to appropriately configure them. Without this [you will not be able to use these devices](https://mbradbury.github.io/blog/2022-02-18-challenges-porting-to-the-nrf52840).
+
+```bash
+ansible-playbook playbooks/configure-nrf.yaml
+```
+
 # Instructions to Deploy
 
 For simplicity a number of test scripts have been written to aid in simplifying running experiments. These test scripts should be preferred instead of running tests manually, unless the additional flexibility is required.
