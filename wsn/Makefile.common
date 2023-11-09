@@ -14,7 +14,7 @@ endif
 CFLAGS += -g
 
 #CFLAGS += -Wconversion
-CFLAGS += -Wno-error=char-subscripts
+CFLAGS += -Wno-error=char-subscripts -Wno-error=array-bounds
 
 # Add additional CFLAGS
 CFLAGS += -DMQTT_CLIENT_CONF_LOG_LEVEL=LOG_LEVEL_DBG
