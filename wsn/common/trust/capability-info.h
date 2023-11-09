@@ -18,6 +18,8 @@
 typedef struct capability_tm
 {
 } capability_tm_t;
+
+void capability_tm_init(capability_tm_t* cap_tm);
 #endif
 
 /*-------------------------------------------------------------------------------------------------------------------*/

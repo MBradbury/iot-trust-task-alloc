@@ -1,4 +1,5 @@
 #include "capability-info.h"
+#include "trust-model.h"
 
 #include "eui64.h"
 
@@ -145,4 +146,11 @@ size_t capability_info_count(void)
 {
     return list_length(capabilities);
 }
+/*-------------------------------------------------------------------------------------------------------------------*/
+#ifndef TRUST_MODEL_HAS_PER_CAPABILITY_INFO
+void capability_tm_init(capability_tm_t* cap_tm)
+{
+    // Provide empty init function
+}
+#endif
 /*-------------------------------------------------------------------------------------------------------------------*/
