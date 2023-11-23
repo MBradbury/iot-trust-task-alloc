@@ -276,8 +276,8 @@ class Setup:
                     sender_id.hex(),
                     recipient_id.hex(),
                     shared_secret.hex(),
-                    self.oscore_master_salt if self.oscore_master_salt is not None else "",
-                    self.oscore_id_context if self.oscore_id_context is not None else "",
+                    self.oscore_master_salt.hex() if self.oscore_master_salt is not None else "",
+                    self.oscore_id_context.hex() if self.oscore_id_context is not None else "",
                     aiocoap_to_tshark_algorithm[self.oscore_algorithm]
                 ]
 
